@@ -30,15 +30,19 @@ jobs:
       matrix:
         include:
           - name: backend
+            context: ./apps/api
             dockerfile: apps/api/Dockerfile.api
             image: plane-backend
           - name: frontend
+            context: .
             dockerfile: apps/web/Dockerfile.web
             image: plane-frontend
           - name: admin
+            context: .
             dockerfile: apps/admin/Dockerfile.admin
             image: plane-admin
           - name: space
+            context: .
             dockerfile: apps/space/Dockerfile.space
             image: plane-space
 
@@ -59,7 +63,7 @@ jobs:
       - name: Build and push ${{ matrix.image }}
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: true
           tags: |
