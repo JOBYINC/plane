@@ -69,6 +69,11 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image }}:${{ github.sha }}
+          # Default the UI to Simplified Chinese for vijim's tenant. Backend
+          # Dockerfile ignores unknown ARGs; users can still change language
+          # manually (preference persists in localStorage).
+          build-args: |
+            VITE_DEFAULT_LANGUAGE=zh-CN
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
           platforms: linux/amd64
