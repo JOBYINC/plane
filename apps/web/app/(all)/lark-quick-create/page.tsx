@@ -32,6 +32,10 @@ import { useUser } from "@/hooks/store/user";
 import { IssueService } from "@/services/issue/issue.service";
 import { WorkspaceService } from "@/services/workspace.service";
 import { ProjectMemberService } from "@/services/project/project-member.service";
+import { PriorityDropdown } from "@/components/dropdowns/priority";
+import { DateDropdown } from "@/components/dropdowns/date";
+import { MemberDropdown } from "@/components/dropdowns/member/dropdown";
+import type { TIssuePriorities } from "@plane/types";
 
 // CN region CDN — more reliable for feishu.cn clients than the bytegoofy
 // fallback. If load fails we retry on bytegoofy.com.
@@ -166,6 +170,10 @@ function escapeHtml(s: string): string {
 function ymd(daysFromToday: number): string {
   const d = new Date();
   d.setDate(d.getDate() + daysFromToday);
+  return ymdFromDate(d);
+}
+
+function ymdFromDate(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
@@ -619,11 +627,11 @@ const LarkQuickCreatePage = observer(() => {
               {opt.label}
             </button>
           ))}
-          <input
-            type="date"
-            className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs"
-            value={targetDate}
-            onChange={(e) => setTargetDate(e.target.value)}
+          <DateDropdown
+            value={targetDate ? new Date(targetDate) : null}
+            onChange={(d) => setTargetDate(d ? ymdFromDate(d) : "")}
+            buttonVariant="border-with-text"
+            placeholder={t("lark_quick_create.field_due_date")}
           />
           {targetDate ? (
             <button
@@ -638,99 +646,34 @@ const LarkQuickCreatePage = observer(() => {
       </div>
 
       {/* Priority */}
-      <label className="flex flex-col gap-1 text-sm">
+      <div className="flex flex-col gap-1 text-sm">
         <span className="text-custom-text-300">{t("lark_quick_create.field_priority")}</span>
-        <select
-          className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1.5 text-sm"
-          value={priority}
-          onChange={(e) => setPriority(e.target.value as typeof priority)}
-        >
-          <option value="none">{t("lark_quick_create.priority_none")}</option>
-          <option value="low">{t("lark_quick_create.priority_low")}</option>
-          <option value="medium">{t("lark_quick_create.priority_medium")}</option>
-          <option value="high">{t("lark_quick_create.priority_high")}</option>
-          <option value="urgent">{t("lark_quick_create.priority_urgent")}</option>
-        </select>
-      </label>
+        <div>
+          <PriorityDropdown
+            value={priority as TIssuePriorities}
+            onChange={(p) => setPriority(p as typeof priority)}
+            buttonVariant="border-with-text"
+          />
+        </div>
+      </div>
 
-      {/* Assignee searchable picker (workspace can have hundreds of members
-          so a plain <select> is unusable). */}
-      <div className="relative mb-3 flex flex-col gap-1 text-sm">
+      {/* Assignee — Plane native MemberDropdown scoped to selected project.
+          This automatically restricts the picker to project members, so the
+          old non-member warning isn't needed. */}
+      <div className="mb-3 flex flex-col gap-1 text-sm">
         <span className="text-custom-text-300">{t("lark_quick_create.field_assignee")}</span>
-        <input
-          type="text"
-          className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1.5 text-sm"
-          placeholder={t("lark_quick_create.placeholder_search_member")}
-          value={
-            assigneeOpen
-              ? assigneeQuery
-              : memberOptions.find((m) => m.id === assigneeId)?.name ??
-                currentUser?.display_name ??
-                currentUser?.email ??
-                ""
-          }
-          onFocus={() => {
-            setAssigneeOpen(true);
-            setAssigneeQuery("");
-          }}
-          onChange={(e) => setAssigneeQuery(e.target.value)}
-          onBlur={() => {
-            // Delay so click on option fires first.
-            window.setTimeout(() => setAssigneeOpen(false), 150);
-          }}
-        />
-        {assigneeOpen ? (
-          <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-60 overflow-y-auto rounded border border-custom-border-200 bg-custom-background-100 shadow">
-            {(() => {
-              const q = assigneeQuery.trim().toLowerCase();
-              const filtered = q
-                ? memberOptions.filter((m) => m.name.toLowerCase().includes(q))
-                : memberOptions;
-              if (filtered.length === 0) {
-                return (
-                  <div className="px-2 py-2 text-xs text-custom-text-400">
-                    {memberOptions.length === 0
-                      ? t("lark_quick_create.loading_members")
-                      : t("lark_quick_create.no_match")}
-                  </div>
-                );
-              }
-              return filtered.slice(0, 50).map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  className={`flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-custom-background-90 ${
-                    m.id === assigneeId ? "bg-custom-background-90" : ""
-                  }`}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    setAssigneeId(m.id);
-                    setAssigneeOpen(false);
-                  }}
-                >
-                  {m.avatar ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={m.avatar}
-                      alt=""
-                      className="h-6 w-6 flex-shrink-0 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-custom-background-80 text-[10px] text-custom-text-300">
-                      {m.name.slice(0, 1).toUpperCase()}
-                    </span>
-                  )}
-                  <span className="truncate">{m.name}</span>
-                </button>
-              ));
-            })()}
-          </div>
-        ) : null}
-        {!assigneeIsMember ? (
-          <p className="mt-1 rounded bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-300">
-            ⚠️ {t("lark_quick_create.warning_assignee_not_member")}
-          </p>
-        ) : null}
+        <div>
+          {projectId ? (
+            <MemberDropdown
+              memberIds={Array.from(projectMemberIds)}
+              value={assigneeId ? [assigneeId] : []}
+              onChange={(ids: string[]) => setAssigneeId(ids[0] ?? "")}
+              buttonVariant="border-with-text"
+              placeholder={t("lark_quick_create.field_assignee")}
+              multiple={false}
+            />
+          ) : null}
+        </div>
       </div>
 
       </div>
