@@ -16,7 +16,7 @@
  *  4. Branch on ?entry= query param:
  *      - message_shortcut: tt.getBlockActionSourceDetail(triggerCode) -> pre-fill from message body
  *      - plus_menu:        tt.getTriggerContext() -> just open the form
- *  5. User picks project + edits title -> POST to issue-create -> tt.closeWebView()
+ *  5. User picks project + edits title -> POST to issue-create -> tt.closeWindow()
  */
 
 import { useEffect, useState } from "react";
@@ -36,7 +36,7 @@ const H5_SDK_URLS = [
   "https://lf-scm-cn.feishucdn.com/lark/op/h5-js-sdk-1.5.34.js",
   "https://lf1-cdn-tos.bytegoofy.com/goofy/lark/op/h5-js-sdk-1.5.23.js",
 ];
-const JS_API_LIST = ["getBlockActionSourceDetail", "getTriggerContext", "closeWebView"];
+const JS_API_LIST = ["getBlockActionSourceDetail", "getTriggerContext", "closeWindow"];
 const TITLE_MAX = 80;
 
 declare global {
@@ -64,7 +64,7 @@ declare global {
         success: (res: unknown) => void;
         fail: (err: unknown) => void;
       }) => void;
-      closeWebView: () => void;
+      closeWindow: () => void;
     };
   }
 }
@@ -261,7 +261,7 @@ const LarkQuickCreatePage = observer(() => {
         assignee_ids: [currentUser.id],
       });
       setToast({ type: TOAST_TYPE.SUCCESS, title: "已创建 Tick 任务" });
-      window.tt?.closeWebView?.();
+      window.tt?.closeWindow?.();
     } catch (err) {
       setToast({ type: TOAST_TYPE.ERROR, title: "创建失败", message: String(err) });
     } finally {
@@ -346,7 +346,7 @@ const LarkQuickCreatePage = observer(() => {
         >
           {submitting ? "创建中…" : "创建任务"}
         </Button>
-        <Button variant="neutral-primary" onClick={() => window.tt?.closeWebView?.()}>
+        <Button variant="neutral-primary" onClick={() => window.tt?.closeWindow?.()}>
           取消
         </Button>
       </div>
