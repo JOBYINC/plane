@@ -182,14 +182,32 @@ const LarkQuickCreatePage = observer(() => {
         const pageUrl = window.location.href.split("#")[0];
         const cfg = await fetchSignature(pageUrl);
 
+        const configPayload = {
+          ...cfg,
+          jsApiList: JS_API_LIST,
+        };
+        // eslint-disable-next-line no-console
+        console.log("[lark-quick-create] signing URL:", pageUrl);
+        // eslint-disable-next-line no-console
+        console.log("[lark-quick-create] h5sdk.config payload:", configPayload);
+        // eslint-disable-next-line no-console
+        console.log("[lark-quick-create] navigator.userAgent:", navigator.userAgent);
+
         await new Promise<void>((resolve, reject) => {
           if (!window.h5sdk) return reject(new Error("h5sdk missing"));
-          window.h5sdk.error((err) => reject(err));
+          window.h5sdk.error((err) => {
+            // eslint-disable-next-line no-console
+            console.error("[lark-quick-create] h5sdk.error fired:", err);
+            reject(err);
+          });
           window.h5sdk.config({
-            ...cfg,
-            jsApiList: JS_API_LIST,
+            ...configPayload,
             onSuccess: () => resolve(),
-            onFail: (err) => reject(err),
+            onFail: (err) => {
+              // eslint-disable-next-line no-console
+              console.error("[lark-quick-create] h5sdk.config onFail:", err);
+              reject(err);
+            },
           });
         });
 
