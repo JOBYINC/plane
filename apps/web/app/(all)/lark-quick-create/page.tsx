@@ -30,7 +30,12 @@ import { useProject } from "@/hooks/store/use-project";
 import { useUser } from "@/hooks/store/user";
 import { IssueService } from "@/services/issue/issue.service";
 
-const H5_SDK_URL = "https://lf1-cdn-tos.bytegoofy.com/goofy/lark/op/h5-js-sdk-1.5.23.js";
+// CN region CDN — more reliable for feishu.cn clients than the bytegoofy
+// fallback. If load fails we retry on bytegoofy.com.
+const H5_SDK_URLS = [
+  "https://lf-scm-cn.feishucdn.com/lark/op/h5-js-sdk-1.5.34.js",
+  "https://lf1-cdn-tos.bytegoofy.com/goofy/lark/op/h5-js-sdk-1.5.23.js",
+];
 const JS_API_LIST = ["getBlockActionSourceDetail", "getTriggerContext", "closeWebView"];
 const TITLE_MAX = 80;
 
@@ -89,23 +94,52 @@ async function fetchSignature(url: string): Promise<{
   return resp.json();
 }
 
-function loadSdkOnce(): Promise<void> {
+function waitForH5sdk(timeoutMs = 4000): Promise<void> {
   if (window.h5sdk) return Promise.resolve();
   return new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[data-lark-h5sdk]`);
-    if (existing) {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () => reject(new Error("sdk load failed")));
-      return;
-    }
+    const started = Date.now();
+    const id = window.setInterval(() => {
+      if (window.h5sdk) {
+        window.clearInterval(id);
+        resolve();
+      } else if (Date.now() - started > timeoutMs) {
+        window.clearInterval(id);
+        reject(new Error(`h5sdk did not appear within ${timeoutMs}ms`));
+      }
+    }, 80);
+  });
+}
+
+async function injectScript(url: string): Promise<void> {
+  return new Promise((resolve, reject) => {
     const s = document.createElement("script");
-    s.src = H5_SDK_URL;
+    s.src = url;
     s.async = true;
-    s.dataset.larkH5sdk = "1";
+    s.dataset.larkH5sdk = url;
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error("sdk load failed"));
+    s.onerror = () => reject(new Error(`script load failed: ${url}`));
     document.head.appendChild(s);
   });
+}
+
+async function loadSdkOnce(): Promise<void> {
+  if (window.h5sdk) return;
+  // If a prior call started an inject we'll see the marker script - just wait.
+  if (document.querySelector(`script[data-lark-h5sdk]`)) {
+    await waitForH5sdk();
+    return;
+  }
+  let lastErr: unknown = null;
+  for (const url of H5_SDK_URLS) {
+    try {
+      await injectScript(url);
+      await waitForH5sdk();
+      return;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("all sdk CDNs failed");
 }
 
 function deriveTitle(text: string | undefined): string {
