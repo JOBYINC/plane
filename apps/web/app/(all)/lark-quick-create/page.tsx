@@ -560,9 +560,9 @@ const LarkQuickCreatePage = observer(() => {
   return (
     <div className="mx-auto flex h-full max-w-md flex-col">
       <div className="flex-1 overflow-y-auto p-4 pb-24">
-      <h1 className="mb-3 text-base font-semibold">{t("lark_quick_create.new_task_title")}</h1>
+      <h1 className="mb-3 text-sm font-semibold">{t("lark_quick_create.new_task_title")}</h1>
 
-      <label className="flex flex-col gap-1 text-sm">
+      <label className="flex flex-col gap-1 text-xs">
         <span className="text-custom-text-300">{t("lark_quick_create.field_project")}</span>
         <select
           className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1.5 text-sm"
@@ -581,7 +581,7 @@ const LarkQuickCreatePage = observer(() => {
         </select>
       </label>
 
-      <label className="flex flex-col gap-1 text-sm">
+      <label className="flex flex-col gap-1 text-xs">
         <span className="text-custom-text-300">{t("lark_quick_create.field_title")}</span>
         <input
           type="text"
@@ -593,7 +593,7 @@ const LarkQuickCreatePage = observer(() => {
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm">
+      <label className="flex flex-col gap-1 text-xs">
         <span className="text-custom-text-300">{t("lark_quick_create.field_description")}</span>
         <textarea
           rows={4}
@@ -605,7 +605,7 @@ const LarkQuickCreatePage = observer(() => {
       </label>
 
       {/* Due date with quick buttons (Lark-native style) */}
-      <div className="flex flex-col gap-1 text-sm">
+      <div className="flex flex-col gap-1 text-xs">
         <span className="text-custom-text-300">{t("lark_quick_create.field_due_date")}</span>
         <div className="flex flex-wrap items-center gap-2">
           {[
@@ -645,34 +645,33 @@ const LarkQuickCreatePage = observer(() => {
         </div>
       </div>
 
-      {/* Priority */}
-      <div className="flex flex-col gap-1 text-sm">
-        <span className="text-custom-text-300">{t("lark_quick_create.field_priority")}</span>
-        <div>
-          <PriorityDropdown
-            value={priority as TIssuePriorities}
-            onChange={(p) => setPriority(p as typeof priority)}
-            buttonVariant="border-with-text"
-          />
-        </div>
-      </div>
-
-      {/* Assignee — Plane native MemberDropdown scoped to selected project.
-          This automatically restricts the picker to project members, so the
-          old non-member warning isn't needed. */}
-      <div className="mb-3 flex flex-col gap-1 text-sm">
-        <span className="text-custom-text-300">{t("lark_quick_create.field_assignee")}</span>
-        <div>
-          {projectId ? (
-            <MemberDropdown
-              memberIds={Array.from(projectMemberIds)}
-              value={assigneeId ? [assigneeId] : []}
-              onChange={(ids: string[]) => setAssigneeId(ids[0] ?? "")}
+      {/* Priority + Assignee on one row so they don't waste vertical space.
+          MemberDropdown auto-scopes to the selected project's members. */}
+      <div className="flex gap-3">
+        <div className="flex flex-1 flex-col gap-1 text-xs">
+          <span className="text-custom-text-300">{t("lark_quick_create.field_priority")}</span>
+          <div>
+            <PriorityDropdown
+              value={priority as TIssuePriorities}
+              onChange={(p) => setPriority(p as typeof priority)}
               buttonVariant="border-with-text"
-              placeholder={t("lark_quick_create.field_assignee")}
-              multiple={false}
             />
-          ) : null}
+          </div>
+        </div>
+        <div className="flex flex-1 flex-col gap-1 text-xs">
+          <span className="text-custom-text-300">{t("lark_quick_create.field_assignee")}</span>
+          <div>
+            {projectId ? (
+              <MemberDropdown
+                memberIds={Array.from(projectMemberIds)}
+                value={assigneeId ? [assigneeId] : []}
+                onChange={(ids: string[]) => setAssigneeId(ids[0] ?? "")}
+                buttonVariant="border-with-text"
+                placeholder={t("lark_quick_create.field_assignee")}
+                multiple={false}
+              />
+            ) : null}
+          </div>
         </div>
       </div>
 
