@@ -154,6 +154,17 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+// Local-date YYYY-MM-DD offset by `days` from today. Used for the Lark-style
+// quick-pick buttons (今天/明天/后天/一周后).
+function ymd(daysFromToday: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromToday);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 const LarkQuickCreatePage = observer(() => {
   const workspaceRoot = useWorkspace();
   const projectStore = useProject();
@@ -175,6 +186,11 @@ const LarkQuickCreatePage = observer(() => {
   const [projectOptions, setProjectOptions] = useState<
     Array<{ id: string; name: string }>
   >([]);
+  // Mirror Lark native task panel: priority + due date.
+  const [priority, setPriority] = useState<"urgent" | "high" | "medium" | "low" | "none">(
+    "none",
+  );
+  const [targetDate, setTargetDate] = useState<string>(""); // YYYY-MM-DD or empty
 
   // Default to the user's first joined workspace. The shortcut doesn't carry
   // workspace context; multi-workspace switching can come later.
@@ -367,11 +383,14 @@ const LarkQuickCreatePage = observer(() => {
     }
     setSubmitting(true);
     try {
-      await issueService.createIssue(workspace.slug, projectId, {
+      const payload: Record<string, unknown> = {
         name: title.trim(),
         description_html: description ? `<p>${escapeHtml(description)}</p>` : "<p></p>",
         assignee_ids: [currentUser.id],
-      });
+        priority,
+      };
+      if (targetDate) payload.target_date = targetDate;
+      await issueService.createIssue(workspace.slug, projectId, payload);
       setToast({ type: TOAST_TYPE.SUCCESS, title: "已创建 Tick 任务" });
       window.tt?.closeWindow?.();
     } catch (err) {
@@ -463,7 +482,7 @@ const LarkQuickCreatePage = observer(() => {
       <label className="flex flex-col gap-1 text-sm">
         <span className="text-custom-text-300">描述</span>
         <textarea
-          rows={5}
+          rows={4}
           className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1.5 text-sm"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -471,9 +490,71 @@ const LarkQuickCreatePage = observer(() => {
         />
       </label>
 
+      {/* Due date with quick buttons (Lark-native style) */}
+      <div className="flex flex-col gap-1 text-sm">
+        <span className="text-custom-text-300">截止日期</span>
+        <div className="flex flex-wrap items-center gap-2">
+          {[
+            { label: "今天", value: ymd(0) },
+            { label: "明天", value: ymd(1) },
+            { label: "后天", value: ymd(2) },
+            { label: "一周后", value: ymd(7) },
+          ].map((opt) => (
+            <button
+              key={opt.label}
+              type="button"
+              onClick={() => setTargetDate(opt.value === targetDate ? "" : opt.value)}
+              className={`rounded border px-2 py-1 text-xs ${
+                targetDate === opt.value
+                  ? "border-custom-primary-100 bg-custom-primary-100/10 text-custom-primary-100"
+                  : "border-custom-border-200 bg-custom-background-100"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+          <input
+            type="date"
+            className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs"
+            value={targetDate}
+            onChange={(e) => setTargetDate(e.target.value)}
+          />
+          {targetDate ? (
+            <button
+              type="button"
+              onClick={() => setTargetDate("")}
+              className="text-xs text-custom-text-400 underline"
+            >
+              清除
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Priority */}
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-custom-text-300">优先级</span>
+        <select
+          className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1.5 text-sm"
+          value={priority}
+          onChange={(e) => setPriority(e.target.value as typeof priority)}
+        >
+          <option value="none">无</option>
+          <option value="low">低</option>
+          <option value="medium">中</option>
+          <option value="high">高</option>
+          <option value="urgent">紧急</option>
+        </select>
+      </label>
+
+      {/* Assignee (auto: self) */}
+      <p className="text-xs text-custom-text-400">
+        负责人：{currentUser?.display_name ?? currentUser?.email ?? "我"}
+      </p>
+
       {source?.sender?.open_id ? (
         <p className="text-xs text-custom-text-400">
-          来自 Lark 消息 · 发件人 {source.sender.open_id.slice(0, 8)}…
+          ↪ 来自 Lark 消息 · 发件人 {source.sender.open_id.slice(0, 8)}…
         </p>
       ) : null}
 
