@@ -36,12 +36,9 @@ const H5_SDK_URLS = [
   "https://lf-scm-cn.feishucdn.com/lark/op/h5-js-sdk-1.5.34.js",
   "https://lf1-cdn-tos.bytegoofy.com/goofy/lark/op/h5-js-sdk-1.5.23.js",
 ];
-// DIAGNOSTIC: start with the bare-minimum list to isolate errno 104.
-// closeWindow is the JSAPI documented as universally available on web_app.
-// If config succeeds with just this, errno 104 was caused by something
-// else in our previous jsApiList. We add getBlockActionSourceDetail back
-// in a follow-up commit once we know which entry was the culprit.
-const JS_API_LIST = ["closeWindow"];
+// errno 104 was caused by getTriggerContext (gadget-only). With that
+// removed the remaining web_app-compatible methods are safe to request.
+const JS_API_LIST = ["getBlockActionSourceDetail", "closeWindow"];
 const TITLE_MAX = 80;
 
 declare global {
@@ -419,8 +416,11 @@ const LarkQuickCreatePage = observer(() => {
         <pre className="mt-1 overflow-auto whitespace-pre-wrap break-all leading-tight">
           {JSON.stringify(
             {
+              projectOptionsLength: projectOptions.length,
+              projectOptionsSample: projectOptions.slice(0, 3),
+              currentProjectId: projectId,
+              sourcePrefill: source ? { hasContent: !!source.content?.text } : null,
               joinedProjectIdsLength: joinedProjectIds.length,
-              joinedProjectIds: joinedProjectIds.slice(0, 5),
               ...diagInfo,
             },
             null,
