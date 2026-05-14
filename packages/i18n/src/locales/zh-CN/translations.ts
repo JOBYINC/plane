@@ -2657,5 +2657,6 @@ export default {
     error_create_failed: "创建失败",
     sdk_init_failed: "Lark SDK 初始化失败",
     debug_panel: "🔧 调试 (开发用)",
+    warning_assignee_not_member: "该负责人不是当前项目的成员，将看不到这个任务。请改用共享项目（例如 Team Inbox），或先把他/她加入此项目。",
   },
 } as const;

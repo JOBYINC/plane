@@ -31,6 +31,7 @@ import { useProject } from "@/hooks/store/use-project";
 import { useUser } from "@/hooks/store/user";
 import { IssueService } from "@/services/issue/issue.service";
 import { WorkspaceService } from "@/services/workspace.service";
+import { ProjectMemberService } from "@/services/project/project-member.service";
 
 // CN region CDN — more reliable for feishu.cn clients than the bytegoofy
 // fallback. If load fails we retry on bytegoofy.com.
@@ -78,6 +79,7 @@ type LarkSourceDetail = {
 
 const issueService = new IssueService();
 const workspaceService = new WorkspaceService();
+const projectMemberService = new ProjectMemberService();
 
 type MemberOption = { id: string; name: string; avatar: string };
 
@@ -201,6 +203,9 @@ const LarkQuickCreatePage = observer(() => {
   const [assigneeId, setAssigneeId] = useState<string>("");
   const [assigneeQuery, setAssigneeQuery] = useState<string>("");
   const [assigneeOpen, setAssigneeOpen] = useState<boolean>(false);
+  // Project-member check: warn when the chosen assignee isn't a member of
+  // the chosen project (they'd be assigned an issue they can't see).
+  const [projectMemberIds, setProjectMemberIds] = useState<Set<string>>(new Set());
 
   // Default to the user's first joined workspace. The shortcut doesn't carry
   // workspace context; multi-workspace switching can come later.
@@ -450,6 +455,38 @@ const LarkQuickCreatePage = observer(() => {
     if (!assigneeId && currentUser?.id) setAssigneeId(String(currentUser.id));
   }, [currentUser, assigneeId]);
 
+  // Fetch the chosen project's members whenever the project changes, so we
+  // can warn when the assignee isn't a member (they'd be assigned a task
+  // they can't see in any project / kanban view).
+  useEffect(() => {
+    if (!workspace?.slug || !projectId) {
+      setProjectMemberIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await projectMemberService.fetchProjectMembers(workspace.slug, projectId);
+        if (cancelled) return;
+        const ids = new Set<string>();
+        (rows ?? []).forEach((row: Record<string, unknown>) => {
+          const memberObj = (row?.member as Record<string, unknown> | undefined) ?? null;
+          const id = String(memberObj?.id ?? row?.member_id ?? "");
+          if (id) ids.add(id);
+        });
+        setProjectMemberIds(ids);
+      } catch {
+        if (!cancelled) setProjectMemberIds(new Set());
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspace?.slug, projectId]);
+
+  const assigneeIsMember =
+    !assigneeId || projectMemberIds.size === 0 || projectMemberIds.has(assigneeId);
+
   const handleSubmit = async () => {
     if (!workspace || !projectId || !currentUser) {
       setToast({ type: TOAST_TYPE.ERROR, title: t("lark_quick_create.error_no_project") });
@@ -508,24 +545,6 @@ const LarkQuickCreatePage = observer(() => {
     <div className="mx-auto flex h-full max-w-md flex-col">
       <div className="flex-1 overflow-y-auto p-4 pb-24">
       <h1 className="mb-3 text-base font-semibold">{t("lark_quick_create.new_task_title")}</h1>
-
-      <details className="mb-3 rounded border border-custom-border-200 p-2 text-[10px]">
-        <summary className="cursor-pointer text-custom-text-400">{t("lark_quick_create.debug_panel")}</summary>
-        <pre className="mt-1 overflow-auto whitespace-pre-wrap break-all leading-tight">
-          {JSON.stringify(
-            {
-              projectOptionsLength: projectOptions.length,
-              projectOptionsSample: projectOptions.slice(0, 3),
-              currentProjectId: projectId,
-              sourcePrefill: source ? { hasContent: !!source.content?.text } : null,
-              joinedProjectIdsLength: joinedProjectIds.length,
-              ...diagInfo,
-            },
-            null,
-            2,
-          )}
-        </pre>
-      </details>
 
       <label className="flex flex-col gap-1 text-sm">
         <span className="text-custom-text-300">{t("lark_quick_create.field_project")}</span>
@@ -698,6 +717,11 @@ const LarkQuickCreatePage = observer(() => {
               ));
             })()}
           </div>
+        ) : null}
+        {!assigneeIsMember ? (
+          <p className="mt-1 rounded bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-300">
+            ⚠️ {t("lark_quick_create.warning_assignee_not_member")}
+          </p>
         ) : null}
       </div>
 
