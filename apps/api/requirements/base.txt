@@ -1,5 +1,11 @@
 # base requirements
 
+# Lark/Feishu SDK -- powers the outbound long-poll worker that receives URL
+# preview + card-action events. Inbound webhook path is blocked by trans-
+# Pacific latency from this deploy, so the SDK's WebSocket mode is the only
+# viable channel. Pin major.minor to insulate from breaking releases.
+lark-oapi==1.4.16
+
 # django
 Django==4.2.30
 # rest framework

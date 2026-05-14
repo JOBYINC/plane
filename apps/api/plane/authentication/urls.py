@@ -4,6 +4,8 @@
 
 from django.urls import path
 
+from plane.app.views.lark import LarkBotEventEndpoint
+
 from .views import (
     CSRFTokenEndpoint,
     ForgotPasswordEndpoint,
@@ -166,5 +168,13 @@ urlpatterns = [
         "spaces/lark/callback/",
         LarkCallbackSpaceEndpoint.as_view(),
         name="space-lark-callback",
+    ),
+    # Lark Bot event webhook (URL preview today; card-action callbacks later).
+    # Sits under /auth/ rather than top-level because Plane's nginx proxy
+    # only forwards a fixed set of path prefixes to the API container.
+    path(
+        "lark/bot/event/",
+        LarkBotEventEndpoint.as_view(),
+        name="lark-bot-event",
     ),
 ]
