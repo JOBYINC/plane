@@ -90,20 +90,25 @@ def build_h5_config(url):
         return None
 
     nonce = secrets.token_hex(_NONCE_BYTES)
-    timestamp = str(int(time.time()))
+    timestamp_int = int(time.time())
     page_url = _strip_fragment(url)
 
+    # Signature concatenates the timestamp as digit characters - the same
+    # bytes whether we wrote it as str or int, so this is invariant.
     raw = (
         f"jsapi_ticket={ticket}"
         f"&noncestr={nonce}"
-        f"&timestamp={timestamp}"
+        f"&timestamp={timestamp_int}"
         f"&url={page_url}"
     )
     signature = hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
+    # Send timestamp as a JSON number, not string. Some Lark client versions
+    # type-check the h5sdk.config payload and reject string timestamps with
+    # errno 104 "invalid parameter".
     return {
         "appId": app_id,
-        "timestamp": timestamp,
+        "timestamp": timestamp_int,
         "nonceStr": nonce,
         "signature": signature,
     }

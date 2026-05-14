@@ -51,7 +51,7 @@ declare global {
       error: (cb: (err: unknown) => void) => void;
       config: (cfg: {
         appId: string;
-        timestamp: string;
+        timestamp: number;
         nonceStr: string;
         signature: string;
         jsApiList: string[];
@@ -81,7 +81,7 @@ const issueService = new IssueService();
 
 async function fetchSignature(url: string): Promise<{
   appId: string;
-  timestamp: string;
+  timestamp: number;
   nonceStr: string;
   signature: string;
 }> {
