@@ -197,6 +197,8 @@ const LarkQuickCreatePage = observer(() => {
   const [targetDate, setTargetDate] = useState<string>(""); // YYYY-MM-DD or empty
   const [memberOptions, setMemberOptions] = useState<MemberOption[]>([]);
   const [assigneeId, setAssigneeId] = useState<string>("");
+  const [assigneeQuery, setAssigneeQuery] = useState<string>("");
+  const [assigneeOpen, setAssigneeOpen] = useState<boolean>(false);
 
   // Default to the user's first joined workspace. The shortcut doesn't carry
   // workspace context; multi-workspace switching can come later.
@@ -292,18 +294,41 @@ const LarkQuickCreatePage = observer(() => {
                 triggerCode,
                 success: (res: unknown) => {
                   // eslint-disable-next-line no-console
-                  console.log("[lark-quick-create] source detail:", res);
-                  const detail =
-                    (res as { detail?: LarkSourceDetail } | undefined)?.detail ?? null;
-                  setSource(detail);
-                  const prefill = deriveTitle(detail?.content?.text ?? detail?.content?.title);
-                  setTitle(prefill);
-                  setDescription(detail?.content?.text ?? "");
+                  console.log("[lark-quick-create] source detail raw:", res);
+                  // Per the doc: response shape is {support: bool, content: str|json}
+                  // When support=true and message is text, content is a JSON
+                  // string we need to parse to get the message body. When
+                  // support=false, content is a plain string explanation.
+                  const r = res as { support?: boolean; content?: unknown } | undefined;
+                  setDiagInfo((d) => ({
+                    ...d,
+                    sourceRaw: res,
+                  }));
+                  if (r?.support && r.content) {
+                    let parsedContent: Record<string, unknown> | null = null;
+                    if (typeof r.content === "string") {
+                      try {
+                        parsedContent = JSON.parse(r.content);
+                      } catch {
+                        parsedContent = { text: r.content };
+                      }
+                    } else if (typeof r.content === "object") {
+                      parsedContent = r.content as Record<string, unknown>;
+                    }
+                    const text =
+                      (parsedContent?.text as string | undefined) ??
+                      (parsedContent?.content as string | undefined) ??
+                      "";
+                    setSource({ content: { text } });
+                    setTitle(deriveTitle(text));
+                    setDescription(text);
+                  }
                   resolve();
                 },
                 fail: (err: unknown) => {
                   // eslint-disable-next-line no-console
                   console.error("[lark-quick-create] getBlockActionSourceDetail fail:", err);
+                  setDiagInfo((d) => ({ ...d, sourceDetailError: err }));
                   resolve();
                 },
               });
@@ -587,27 +612,66 @@ const LarkQuickCreatePage = observer(() => {
         </select>
       </label>
 
-      {/* Assignee dropdown */}
-      <label className="mb-3 flex flex-col gap-1 text-sm">
+      {/* Assignee searchable picker (workspace can have hundreds of members
+          so a plain <select> is unusable). */}
+      <div className="relative mb-3 flex flex-col gap-1 text-sm">
         <span className="text-custom-text-300">负责人</span>
-        <select
+        <input
+          type="text"
           className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1.5 text-sm"
-          value={assigneeId}
-          onChange={(e) => setAssigneeId(e.target.value)}
-        >
-          {memberOptions.length === 0 ? (
-            <option value={String(currentUser?.id ?? "")}>
-              {currentUser?.display_name ?? currentUser?.email ?? "我"}
-            </option>
-          ) : (
-            memberOptions.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))
-          )}
-        </select>
-      </label>
+          placeholder="输入姓名搜索..."
+          value={
+            assigneeOpen
+              ? assigneeQuery
+              : memberOptions.find((m) => m.id === assigneeId)?.name ??
+                currentUser?.display_name ??
+                currentUser?.email ??
+                ""
+          }
+          onFocus={() => {
+            setAssigneeOpen(true);
+            setAssigneeQuery("");
+          }}
+          onChange={(e) => setAssigneeQuery(e.target.value)}
+          onBlur={() => {
+            // Delay so click on option fires first.
+            window.setTimeout(() => setAssigneeOpen(false), 150);
+          }}
+        />
+        {assigneeOpen ? (
+          <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-60 overflow-y-auto rounded border border-custom-border-200 bg-custom-background-100 shadow">
+            {(() => {
+              const q = assigneeQuery.trim().toLowerCase();
+              const filtered = q
+                ? memberOptions.filter((m) => m.name.toLowerCase().includes(q))
+                : memberOptions;
+              if (filtered.length === 0) {
+                return (
+                  <div className="px-2 py-2 text-xs text-custom-text-400">
+                    {memberOptions.length === 0 ? "成员加载中..." : "无匹配"}
+                  </div>
+                );
+              }
+              return filtered.slice(0, 50).map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={`block w-full px-2 py-1.5 text-left text-sm hover:bg-custom-background-90 ${
+                    m.id === assigneeId ? "bg-custom-background-90" : ""
+                  }`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    setAssigneeId(m.id);
+                    setAssigneeOpen(false);
+                  }}
+                >
+                  {m.name}
+                </button>
+              ));
+            })()}
+          </div>
+        ) : null}
+      </div>
 
       {source?.sender?.open_id ? (
         <p className="mb-3 text-xs text-custom-text-400">
