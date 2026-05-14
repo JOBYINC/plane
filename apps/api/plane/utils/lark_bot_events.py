@@ -146,14 +146,18 @@ def parse_issue_url(url):
     return None
 
 
-def build_url_preview_card(issue):
+def build_url_preview_card(issue, lang="en"):
     """Build the inline card Lark renders next to the pasted Plane URL.
 
     Compact by design: short id, title, state, assignees, due date. The full
-    issue detail is one click away via the "查看任务 →" button. We avoid the
-    "actions" button row used in DM cards because Lark URL previews can't
-    callback to us anyway -- it's view-only by spec.
+    issue detail is one click away via the view-task button. URL previews
+    are view-only by spec (no callback path), so no action row.
+
+    `lang` defaults to "en" since URL previews don't have a single recipient.
+    Pass the paster's user_lang() when available.
     """
+    from plane.utils.lark_i18n import lark_t
+
     short = _short_id(issue)
     url = issue_url(issue.workspace.slug, issue.project_id, issue.id)
 
@@ -165,13 +169,25 @@ def build_url_preview_card(issue):
             for a in assignees
         )
     else:
-        names = "未分配"
+        names = lark_t("common.unassigned", lang)
 
     due = issue.target_date.strftime("%Y-%m-%d") if issue.target_date else "—"
 
     fields = [
-        {"is_short": True, "text": {"tag": "lark_md", "content": f"**状态**\n{state_name}"}},
-        {"is_short": True, "text": {"tag": "lark_md", "content": f"**截止**\n{due}"}},
+        {
+            "is_short": True,
+            "text": {
+                "tag": "lark_md",
+                "content": f"**{lark_t('field.state', lang)}**\n{state_name}",
+            },
+        },
+        {
+            "is_short": True,
+            "text": {
+                "tag": "lark_md",
+                "content": f"**{lark_t('field.due', lang)}**\n{due}",
+            },
+        },
         {"is_short": False, "text": {"tag": "lark_md", "content": f"**Assignee**\n{names}"}},
     ]
 
@@ -188,7 +204,10 @@ def build_url_preview_card(issue):
                 "actions": [
                     {
                         "tag": "button",
-                        "text": {"tag": "plain_text", "content": "查看任务 →"},
+                        "text": {
+                            "tag": "plain_text",
+                            "content": lark_t("button.view_task", lang),
+                        },
                         "type": "primary",
                         "url": url,
                     }

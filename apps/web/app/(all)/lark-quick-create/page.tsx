@@ -25,6 +25,7 @@ import useSWR from "swr";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import { Button } from "@plane/propel/button";
 import { Loader } from "@plane/ui";
+import { useTranslation } from "@plane/i18n";
 import { useWorkspace } from "@/hooks/store/use-workspace";
 import { useProject } from "@/hooks/store/use-project";
 import { useUser } from "@/hooks/store/user";
@@ -170,6 +171,7 @@ function ymd(daysFromToday: number): string {
 }
 
 const LarkQuickCreatePage = observer(() => {
+  const { t } = useTranslation();
   const workspaceRoot = useWorkspace();
   const projectStore = useProject();
   const { data: currentUser } = useUser();
@@ -450,11 +452,11 @@ const LarkQuickCreatePage = observer(() => {
 
   const handleSubmit = async () => {
     if (!workspace || !projectId || !currentUser) {
-      setToast({ type: TOAST_TYPE.ERROR, title: "缺少工作区或项目" });
+      setToast({ type: TOAST_TYPE.ERROR, title: t("lark_quick_create.error_no_project") });
       return;
     }
     if (!title.trim()) {
-      setToast({ type: TOAST_TYPE.ERROR, title: "任务标题不能为空" });
+      setToast({ type: TOAST_TYPE.ERROR, title: t("lark_quick_create.error_no_title") });
       return;
     }
     setSubmitting(true);
@@ -467,10 +469,10 @@ const LarkQuickCreatePage = observer(() => {
       };
       if (targetDate) payload.target_date = targetDate;
       await issueService.createIssue(workspace.slug, projectId, payload);
-      setToast({ type: TOAST_TYPE.SUCCESS, title: "已创建 Tick 任务" });
+      setToast({ type: TOAST_TYPE.SUCCESS, title: t("lark_quick_create.success_created") });
       window.tt?.closeWindow?.();
     } catch (err) {
-      setToast({ type: TOAST_TYPE.ERROR, title: "创建失败", message: String(err) });
+      setToast({ type: TOAST_TYPE.ERROR, title: t("lark_quick_create.error_create_failed"), message: String(err) });
     } finally {
       setSubmitting(false);
     }
@@ -480,7 +482,7 @@ const LarkQuickCreatePage = observer(() => {
     return (
       <div className="p-4 text-xs">
         <div className="mb-2 font-semibold text-red-600">
-          Lark SDK 初始化失败：{bootError}
+          {t("lark_quick_create.sdk_init_failed")}: {bootError}
         </div>
         <details open className="mt-3 rounded border border-custom-border-200 p-2">
           <summary className="cursor-pointer font-medium">诊断信息 (截图发我)</summary>
@@ -505,10 +507,10 @@ const LarkQuickCreatePage = observer(() => {
   return (
     <div className="mx-auto flex h-full max-w-md flex-col">
       <div className="flex-1 overflow-y-auto p-4 pb-24">
-      <h1 className="mb-3 text-base font-semibold">新建 Tick 任务</h1>
+      <h1 className="mb-3 text-base font-semibold">{t("lark_quick_create.new_task_title")}</h1>
 
       <details className="mb-3 rounded border border-custom-border-200 p-2 text-[10px]">
-        <summary className="cursor-pointer text-custom-text-400">🔧 调试 (开发用)</summary>
+        <summary className="cursor-pointer text-custom-text-400">{t("lark_quick_create.debug_panel")}</summary>
         <pre className="mt-1 overflow-auto whitespace-pre-wrap break-all leading-tight">
           {JSON.stringify(
             {
@@ -526,14 +528,14 @@ const LarkQuickCreatePage = observer(() => {
       </details>
 
       <label className="flex flex-col gap-1 text-sm">
-        <span className="text-custom-text-300">项目</span>
+        <span className="text-custom-text-300">{t("lark_quick_create.field_project")}</span>
         <select
           className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1.5 text-sm"
           value={projectId ?? ""}
           onChange={(e) => setProjectId(e.target.value)}
         >
           {projectOptions.length === 0 ? (
-            <option value="">无可用项目</option>
+            <option value="">{t("lark_quick_create.no_projects")}</option>
           ) : (
             projectOptions.map((p) => (
               <option key={p.id} value={p.id}>
@@ -545,37 +547,37 @@ const LarkQuickCreatePage = observer(() => {
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        <span className="text-custom-text-300">标题</span>
+        <span className="text-custom-text-300">{t("lark_quick_create.field_title")}</span>
         <input
           type="text"
           maxLength={TITLE_MAX}
           className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1.5 text-sm"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="任务标题"
+          placeholder={t("lark_quick_create.placeholder_title")}
         />
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        <span className="text-custom-text-300">描述</span>
+        <span className="text-custom-text-300">{t("lark_quick_create.field_description")}</span>
         <textarea
           rows={4}
           className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1.5 text-sm"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="任务详情（可选）"
+          placeholder={t("lark_quick_create.placeholder_description")}
         />
       </label>
 
       {/* Due date with quick buttons (Lark-native style) */}
       <div className="flex flex-col gap-1 text-sm">
-        <span className="text-custom-text-300">截止日期</span>
+        <span className="text-custom-text-300">{t("lark_quick_create.field_due_date")}</span>
         <div className="flex flex-wrap items-center gap-2">
           {[
-            { label: "今天", value: ymd(0) },
-            { label: "明天", value: ymd(1) },
-            { label: "后天", value: ymd(2) },
-            { label: "一周后", value: ymd(7) },
+            { label: t("lark_quick_create.due_today"), value: ymd(0) },
+            { label: t("lark_quick_create.due_tomorrow"), value: ymd(1) },
+            { label: t("lark_quick_create.due_day_after"), value: ymd(2) },
+            { label: t("lark_quick_create.due_one_week"), value: ymd(7) },
           ].map((opt) => (
             <button
               key={opt.label}
@@ -602,7 +604,7 @@ const LarkQuickCreatePage = observer(() => {
               onClick={() => setTargetDate("")}
               className="text-xs text-custom-text-400 underline"
             >
-              清除
+              {t("lark_quick_create.clear")}
             </button>
           ) : null}
         </div>
@@ -610,28 +612,28 @@ const LarkQuickCreatePage = observer(() => {
 
       {/* Priority */}
       <label className="flex flex-col gap-1 text-sm">
-        <span className="text-custom-text-300">优先级</span>
+        <span className="text-custom-text-300">{t("lark_quick_create.field_priority")}</span>
         <select
           className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1.5 text-sm"
           value={priority}
           onChange={(e) => setPriority(e.target.value as typeof priority)}
         >
-          <option value="none">无</option>
-          <option value="low">低</option>
-          <option value="medium">中</option>
-          <option value="high">高</option>
-          <option value="urgent">紧急</option>
+          <option value="none">{t("lark_quick_create.priority_none")}</option>
+          <option value="low">{t("lark_quick_create.priority_low")}</option>
+          <option value="medium">{t("lark_quick_create.priority_medium")}</option>
+          <option value="high">{t("lark_quick_create.priority_high")}</option>
+          <option value="urgent">{t("lark_quick_create.priority_urgent")}</option>
         </select>
       </label>
 
       {/* Assignee searchable picker (workspace can have hundreds of members
           so a plain <select> is unusable). */}
       <div className="relative mb-3 flex flex-col gap-1 text-sm">
-        <span className="text-custom-text-300">负责人</span>
+        <span className="text-custom-text-300">{t("lark_quick_create.field_assignee")}</span>
         <input
           type="text"
           className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1.5 text-sm"
-          placeholder="输入姓名搜索..."
+          placeholder={t("lark_quick_create.placeholder_search_member")}
           value={
             assigneeOpen
               ? assigneeQuery
@@ -660,7 +662,9 @@ const LarkQuickCreatePage = observer(() => {
               if (filtered.length === 0) {
                 return (
                   <div className="px-2 py-2 text-xs text-custom-text-400">
-                    {memberOptions.length === 0 ? "成员加载中..." : "无匹配"}
+                    {memberOptions.length === 0
+                      ? t("lark_quick_create.loading_members")
+                      : t("lark_quick_create.no_match")}
                   </div>
                 );
               }
@@ -706,10 +710,10 @@ const LarkQuickCreatePage = observer(() => {
           onClick={handleSubmit}
           disabled={submitting || !title.trim() || !projectId}
         >
-          {submitting ? "创建中…" : "创建任务"}
+          {submitting ? t("lark_quick_create.creating") : t("lark_quick_create.create_task")}
         </Button>
         <Button variant="neutral-primary" onClick={() => window.tt?.closeWindow?.()}>
-          取消
+          {t("lark_quick_create.cancel")}
         </Button>
       </div>
     </div>

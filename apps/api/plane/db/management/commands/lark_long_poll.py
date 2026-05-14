@@ -101,16 +101,29 @@ class Command(BaseCommand):
 
             short = _short_id(issue)
             state = getattr(getattr(issue, "state", None), "name", None) or "—"
-            due = issue.target_date.strftime("%Y-%m-%d") if issue.target_date else "无"
-            # Inline previews are one-liners; cram the high-signal fields into
-            # the title since this is the only text the user sees inline.
-            title = f"📋 {short} · {issue.name[:60]} · {state} · 截止 {due}"
+            from plane.utils.lark_i18n import lark_t
+
+            def _title_for(lang):
+                due = (
+                    issue.target_date.strftime("%Y-%m-%d")
+                    if issue.target_date
+                    else lark_t("url_preview.due_unset_long", lang)
+                )
+                return lark_t(
+                    "url_preview.title",
+                    lang,
+                    short=short,
+                    name=issue.name[:60],
+                    state=state,
+                    due_label=lark_t("url_preview.due_label", lang),
+                    due=due,
+                )
 
             return {
                 "inline": {
                     "i18n_title": {
-                        "zh_cn": title,
-                        "en_us": title,
+                        "zh_cn": _title_for("zh-CN"),
+                        "en_us": _title_for("en"),
                     }
                 }
             }
@@ -129,6 +142,7 @@ class Command(BaseCommand):
             """
             from plane.db.models import Account, Issue, State
             from plane.utils.lark_notify import card_issue_completed
+            from plane.utils.lark_i18n import lark_t, user_lang
 
             try:
                 action = getattr(data.event, "action", None)
@@ -159,8 +173,15 @@ class Command(BaseCommand):
                     .filter(id=issue_id)
                     .first()
                 )
+                lang = user_lang(actor_user)
+
                 if issue is None:
-                    return {"toast": {"type": "error", "content": "任务不存在"}}
+                    return {
+                        "toast": {
+                            "type": "error",
+                            "content": lark_t("toast.issue_not_found", lang),
+                        }
+                    }
 
                 done_state = (
                     State.objects.filter(project_id=issue.project_id, group="completed")
@@ -168,22 +189,33 @@ class Command(BaseCommand):
                     .first()
                 )
                 if done_state is None:
-                    return {"toast": {"type": "error", "content": "项目里没有完成态"}}
+                    return {
+                        "toast": {
+                            "type": "error",
+                            "content": lark_t("toast.no_completed_state", lang),
+                        }
+                    }
 
-                actor_name = "未知"
+                fallback_unknown = lark_t("common.unknown", lang)
+                actor_name = fallback_unknown
                 if actor_user is not None:
                     actor_name = (
                         actor_user.display_name
                         or getattr(actor_user, "first_name", None)
-                        or "未知"
+                        or fallback_unknown
                     )
 
                 if issue.state_id == done_state.id:
                     return {
-                        "toast": {"type": "info", "content": "已经是完成状态"},
+                        "toast": {
+                            "type": "info",
+                            "content": lark_t("toast.already_done", lang),
+                        },
                         "card": {
                             "type": "raw",
-                            "data": card_issue_completed(issue, actor_name, issue.state.name),
+                            "data": card_issue_completed(
+                                issue, actor_name, issue.state.name, lang=lang
+                            ),
                         },
                     }
 
@@ -195,18 +227,27 @@ class Command(BaseCommand):
 
                 # Per docs the `card` field of a card-callback response is
                 # wrapped: {"type":"raw","data":<full card JSON>}. Returning
-                # the raw dict alone (what we tried first) triggered Lark's
-                # "目标回调服务当前未在线" error.
+                # the raw dict alone triggered Lark's "目标回调服务当前未在线" error.
                 return {
-                    "toast": {"type": "success", "content": f"✅ 已标记为「{done_state.name}」"},
+                    "toast": {
+                        "type": "success",
+                        "content": lark_t("toast.marked_done", lang, state=done_state.name),
+                    },
                     "card": {
                         "type": "raw",
-                        "data": card_issue_completed(issue, actor_name, done_state.name),
+                        "data": card_issue_completed(
+                            issue, actor_name, done_state.name, lang=lang
+                        ),
                     },
                 }
             except Exception:
                 logger.exception("card.action.trigger handler failed")
-                return {"toast": {"type": "error", "content": "操作失败,请稍后重试"}}
+                return {
+                    "toast": {
+                        "type": "error",
+                        "content": lark_t("toast.action_failed", lang if "lang" in dir() else "en"),
+                    }
+                }
 
         handler = (
             lark.EventDispatcherHandler.builder("", "")

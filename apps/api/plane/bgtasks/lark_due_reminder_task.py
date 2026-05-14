@@ -65,6 +65,7 @@ def remind_due_dates_task():
         get_union_id,
         send_interactive_card,
     )
+    from plane.utils.lark_i18n import user_lang
 
     today = date.today()
     tomorrow = today + timedelta(days=1)
@@ -96,17 +97,20 @@ def remind_due_dates_task():
         else:
             continue  # outside the windows we care about (shouldn't hit -- query bounds us)
 
-        try:
-            card = card_issue_due_reminder(issue, stage, delta)
-        except Exception:
-            logger.exception("Failed to build due-reminder card for issue=%s", issue.id)
-            errored += 1
-            continue
-
         for assignee in issue.assignees.all():
             key = _dedup_key(issue.id, assignee.id, stage, today)
             if cache.get(key):
                 skipped_dup += 1
+                continue
+
+            # Build the card per-recipient so each assignee sees their own
+            # language. The dict construction is cheap; we'd otherwise have
+            # to cache N cards keyed by language, which isn't worth it.
+            try:
+                card = card_issue_due_reminder(issue, stage, delta, lang=user_lang(assignee))
+            except Exception:
+                logger.exception("Failed to build due-reminder card for issue=%s", issue.id)
+                errored += 1
                 continue
 
             try:

@@ -28,6 +28,7 @@ from plane.utils.lark_notify import (
     get_union_id,
     send_interactive_card,
 )
+from plane.utils.lark_i18n import user_lang
 
 logger = logging.getLogger("plane.bgtasks.lark_notify_task")
 
@@ -133,7 +134,10 @@ def notify_issue_assigned_task(issue_id, assignee_id, by_user_id):
             return
 
         by_user = User.objects.filter(id=by_user_id).first() if by_user_id else None
-        send_interactive_card(union_id, card_issue_assigned(issue, _user_display(by_user)))
+        send_interactive_card(
+            union_id,
+            card_issue_assigned(issue, _user_display(by_user), lang=user_lang(assignee)),
+        )
     except Exception:
         logger.exception("notify_issue_assigned_task failed: issue=%s assignee=%s", issue_id, assignee_id)
 
@@ -171,6 +175,7 @@ def notify_issue_state_changed_task(issue_id, old_state_id, new_state_id, by_use
                     getattr(old_state, "name", None),
                     getattr(new_state, "name", None),
                     by_display,
+                    lang=user_lang(assignee),
                 ),
             )
     except Exception:
@@ -207,6 +212,9 @@ def notify_issue_comment_task(issue_id, comment_id, by_user_id):
             union_id = get_union_id(assignee)
             if not union_id:
                 continue
-            send_interactive_card(union_id, card_issue_comment(issue, excerpt, by_display))
+            send_interactive_card(
+                union_id,
+                card_issue_comment(issue, excerpt, by_display, lang=user_lang(assignee)),
+            )
     except Exception:
         logger.exception("notify_issue_comment_task failed: issue=%s comment=%s", issue_id, comment_id)

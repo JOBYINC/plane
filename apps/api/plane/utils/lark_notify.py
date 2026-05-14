@@ -20,6 +20,9 @@ import requests
 # Django imports
 from django.core.cache import cache
 
+# Local
+from plane.utils.lark_i18n import lark_t
+
 logger = logging.getLogger("plane.utils.lark_notify")
 
 _TOKEN_CACHE_KEY = "lark:tenant_token"
@@ -146,16 +149,15 @@ def _short_id(issue):
     return f"{project_identifier}-{issue.sequence_id}" if project_identifier else f"#{issue.sequence_id}"
 
 
-def _issue_action_row(issue):
+def _issue_action_row(issue, lang="en"):
     """Standard action row appended to every issue DM card.
 
-    "✅ 完成" fires a card.action.trigger callback handled by the long-poll
-    worker (sets state -> first 'completed' group state for the project).
-    "查看任务 →" is a plain URL button -- no callback needed.
+    "✅ 完成" / "✅ Done" fires a card.action.trigger callback handled by the
+    long-poll worker (sets state -> first 'completed' group state).
+    "View task →" is a plain URL button -- no callback needed.
 
     Button `value` payload uses single-char keys ("a"=action, "i"=issue_id)
-    because Lark caps action value size and we want headroom for richer
-    actions later (comment modal, state picker, etc.).
+    because Lark caps action value size.
     """
     url = issue_url(issue.workspace.slug, issue.project_id, issue.id)
     return {
@@ -163,13 +165,13 @@ def _issue_action_row(issue):
         "actions": [
             {
                 "tag": "button",
-                "text": {"tag": "plain_text", "content": "✅ 完成"},
+                "text": {"tag": "plain_text", "content": lark_t("button.complete", lang)},
                 "type": "primary",
                 "value": {"a": "done", "i": str(issue.id)},
             },
             {
                 "tag": "button",
-                "text": {"tag": "plain_text", "content": "查看任务 →"},
+                "text": {"tag": "plain_text", "content": lark_t("button.view_task", lang)},
                 "type": "default",
                 "url": url,
             },
@@ -177,37 +179,57 @@ def _issue_action_row(issue):
     }
 
 
-def card_issue_assigned(issue, assigner_name):
+def card_issue_assigned(issue, assigner_name, lang="en"):
     short = _short_id(issue)
+    assigner = assigner_name or lark_t("common.system", lang)
     return {
         "config": {"wide_screen_mode": True},
         "header": {
-            "title": {"tag": "plain_text", "content": "📋 你被分配了新任务"},
+            "title": {"tag": "plain_text", "content": lark_t("card.issue_assigned.header", lang)},
             "template": "blue",
         },
         "elements": [
             {
                 "tag": "div",
                 "fields": [
-                    {"is_short": True, "text": {"tag": "lark_md", "content": f"**任务**\n{short}"}},
                     {
                         "is_short": True,
-                        "text": {"tag": "lark_md", "content": f"**分配人**\n{assigner_name or '系统'}"},
+                        "text": {
+                            "tag": "lark_md",
+                            "content": f"**{lark_t('field.task', lang)}**\n{short}",
+                        },
+                    },
+                    {
+                        "is_short": True,
+                        "text": {
+                            "tag": "lark_md",
+                            "content": f"**{lark_t('field.assigner', lang)}**\n{assigner}",
+                        },
                     },
                 ],
             },
-            {"tag": "div", "text": {"tag": "lark_md", "content": f"**标题**\n{issue.name}"}},
-            _issue_action_row(issue),
+            {
+                "tag": "div",
+                "text": {
+                    "tag": "lark_md",
+                    "content": f"**{lark_t('field.title', lang)}**\n{issue.name}",
+                },
+            },
+            _issue_action_row(issue, lang),
         ],
     }
 
 
-def card_issue_state_changed(issue, old_state_name, new_state_name, changer_name):
+def card_issue_state_changed(issue, old_state_name, new_state_name, changer_name, lang="en"):
     short = _short_id(issue)
+    who = changer_name or lark_t("common.system", lang)
     return {
         "config": {"wide_screen_mode": True},
         "header": {
-            "title": {"tag": "plain_text", "content": "🔄 任务状态变更"},
+            "title": {
+                "tag": "plain_text",
+                "content": lark_t("card.issue_state_changed.header", lang),
+            },
             "template": "turquoise",
         },
         "elements": [
@@ -216,41 +238,47 @@ def card_issue_state_changed(issue, old_state_name, new_state_name, changer_name
                 "tag": "div",
                 "text": {
                     "tag": "lark_md",
-                    "content": f"**{old_state_name or '?'}** → **{new_state_name or '?'}** _by {changer_name or '系统'}_",
+                    "content": lark_t(
+                        "card.issue_state_changed.line",
+                        lang,
+                        old=old_state_name or "?",
+                        new=new_state_name or "?",
+                        who=who,
+                    ),
                 },
             },
-            _issue_action_row(issue),
+            _issue_action_row(issue, lang),
         ],
     }
 
 
-def card_issue_due_reminder(issue, stage, days):
+def card_issue_due_reminder(issue, stage, days, lang="en"):
     """Card sent by the hourly Celery beat job for approaching deadlines.
 
     `stage` is one of:
-      - "soon":    24h-48h before target_date -> orange, "明天到期"
-      - "today":   target_date == today      -> red,    "今日到期"
-      - "overdue": target_date in the past   -> red,    "已逾期 N 天"
+      - "soon":    24h-48h before target_date -> orange
+      - "today":   target_date == today      -> red
+      - "overdue": target_date in the past   -> red
 
-    Reuses the standard action row (✅ 完成 + 查看任务) so the recipient can
-    one-click complete from the reminder DM without opening Plane.
+    Reuses the standard action row so the recipient can one-click complete
+    from the reminder DM without opening Plane.
     """
     short = _short_id(issue)
     due = issue.target_date.strftime("%Y-%m-%d") if issue.target_date else "—"
     state_name = getattr(getattr(issue, "state", None), "name", None) or "—"
 
     if stage == "overdue":
-        header_title = f"❗ 任务已逾期 {abs(days)} 天"
+        header_title = lark_t("card.due.overdue.header", lang, days=abs(days))
         template = "red"
-        timing = f"原定截止: **{due}** (已过期)"
+        timing = lark_t("card.due.overdue.timing", lang, due=due)
     elif stage == "today":
-        header_title = "🔥 任务今日到期"
+        header_title = lark_t("card.due.today.header", lang)
         template = "red"
-        timing = f"截止: **{due}** (今天)"
+        timing = lark_t("card.due.today.timing", lang, due=due)
     else:  # soon
-        header_title = "⏰ 任务明天到期"
+        header_title = lark_t("card.due.soon.header", lang)
         template = "orange"
-        timing = f"截止: **{due}** (明天)"
+        timing = lark_t("card.due.soon.timing", lang, due=due)
 
     return {
         "config": {"wide_screen_mode": True},
@@ -262,30 +290,50 @@ def card_issue_due_reminder(issue, stage, days):
             {
                 "tag": "div",
                 "fields": [
-                    {"is_short": True, "text": {"tag": "lark_md", "content": f"**任务**\n{short}"}},
-                    {"is_short": True, "text": {"tag": "lark_md", "content": f"**状态**\n{state_name}"}},
+                    {
+                        "is_short": True,
+                        "text": {
+                            "tag": "lark_md",
+                            "content": f"**{lark_t('field.task', lang)}**\n{short}",
+                        },
+                    },
+                    {
+                        "is_short": True,
+                        "text": {
+                            "tag": "lark_md",
+                            "content": f"**{lark_t('field.state', lang)}**\n{state_name}",
+                        },
+                    },
                 ],
             },
-            {"tag": "div", "text": {"tag": "lark_md", "content": f"**标题**\n{issue.name}"}},
+            {
+                "tag": "div",
+                "text": {
+                    "tag": "lark_md",
+                    "content": f"**{lark_t('field.title', lang)}**\n{issue.name}",
+                },
+            },
             {"tag": "div", "text": {"tag": "lark_md", "content": timing}},
-            _issue_action_row(issue),
+            _issue_action_row(issue, lang),
         ],
     }
 
 
-def card_issue_completed(issue, completer_name, completed_state_name):
-    """Replacement card returned after the user clicks ✅ 完成.
+def card_issue_completed(issue, completer_name, completed_state_name, lang="en"):
+    """Replacement card returned after the user clicks ✅ Done.
 
     Lark replaces the original card with this one when we return it under
-    `card` in the action callback response, so the 完成 button visually
-    disappears and can't be clicked twice. Green header signals success.
+    `card` in the action callback response, so the Done button visually
+    disappears and can't be clicked twice.
     """
     short = _short_id(issue)
     url = issue_url(issue.workspace.slug, issue.project_id, issue.id)
+    completer = completer_name or lark_t("common.unknown", lang)
+    state = completed_state_name or "Done"
     return {
         "config": {"wide_screen_mode": True},
         "header": {
-            "title": {"tag": "plain_text", "content": "✅ 任务已完成"},
+            "title": {"tag": "plain_text", "content": lark_t("card.issue_completed.header", lang)},
             "template": "green",
         },
         "elements": [
@@ -294,7 +342,12 @@ def card_issue_completed(issue, completer_name, completed_state_name):
                 "tag": "div",
                 "text": {
                     "tag": "lark_md",
-                    "content": f"已由 **{completer_name or '未知'}** 标记为 **{completed_state_name or 'Done'}**",
+                    "content": lark_t(
+                        "card.issue_completed.line",
+                        lang,
+                        completer=completer,
+                        state=state,
+                    ),
                 },
             },
             {
@@ -302,7 +355,7 @@ def card_issue_completed(issue, completer_name, completed_state_name):
                 "actions": [
                     {
                         "tag": "button",
-                        "text": {"tag": "plain_text", "content": "查看任务 →"},
+                        "text": {"tag": "plain_text", "content": lark_t("button.view_task", lang)},
                         "type": "default",
                         "url": url,
                     }
@@ -312,20 +365,29 @@ def card_issue_completed(issue, completer_name, completed_state_name):
     }
 
 
-def card_issue_comment(issue, comment_excerpt, commenter_name):
+def card_issue_comment(issue, comment_excerpt, commenter_name, lang="en"):
     short = _short_id(issue)
+    commenter = commenter_name or lark_t("common.someone", lang)
     return {
         "config": {"wide_screen_mode": True},
         "header": {
-            "title": {"tag": "plain_text", "content": "💬 任务有新评论"},
+            "title": {"tag": "plain_text", "content": lark_t("card.issue_comment.header", lang)},
             "template": "green",
         },
         "elements": [
             {"tag": "div", "text": {"tag": "lark_md", "content": f"**{short}**: {issue.name}"}},
             {
                 "tag": "div",
-                "text": {"tag": "lark_md", "content": f"**{commenter_name or '某人'}**: {comment_excerpt}"},
+                "text": {
+                    "tag": "lark_md",
+                    "content": lark_t(
+                        "card.issue_comment.line",
+                        lang,
+                        commenter=commenter,
+                        excerpt=comment_excerpt,
+                    ),
+                },
             },
-            _issue_action_row(issue),
+            _issue_action_row(issue, lang),
         ],
     }
