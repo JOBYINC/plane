@@ -14,11 +14,26 @@ import logging
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from plane.utils.lark_jssdk import build_h5_config
+
+
+class CsrfExemptSessionAuthentication(SessionAuthentication):
+    """SessionAuthentication that skips CSRF enforcement.
+
+    DRF's SessionAuthentication runs an internal CSRF check inside
+    .authenticate() regardless of Django's @csrf_exempt decorator on the
+    view. This subclass disables that inner check so raw `fetch` calls
+    (which don't auto-attach the XSRF token Plane's axios APIService
+    does) can authenticate via the session cookie alone.
+    """
+
+    def enforce_csrf(self, request):
+        return
 
 logger = logging.getLogger("plane.app.views.lark.jssdk_signature")
 
@@ -38,6 +53,7 @@ class LarkJsSdkSignatureEndpoint(APIView):
     endpoint cannot be used to grief Lark rate limits.
     """
 
+    authentication_classes = [CsrfExemptSessionAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
