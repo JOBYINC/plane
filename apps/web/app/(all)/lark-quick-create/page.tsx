@@ -158,9 +158,11 @@ function escapeHtml(s: string): string {
 }
 
 const LarkQuickCreatePage = observer(() => {
-  const { workspaces } = useWorkspace();
-  const { joinedProjectIds, getProjectById } = useProject();
+  const workspaceRoot = useWorkspace();
+  const projectStore = useProject();
   const { data: currentUser } = useUser();
+  const { workspaces } = workspaceRoot;
+  const { joinedProjectIds, getProjectById } = projectStore;
 
   const [ready, setReady] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
@@ -282,6 +284,14 @@ const LarkQuickCreatePage = observer(() => {
               });
             });
           }
+        }
+
+        // Page lives outside the workspace-slug layout, so the workspace +
+        // project MobX stores aren't auto-hydrated. Fetch them here.
+        const ws = await workspaceRoot.fetchWorkspaces();
+        const primaryWorkspace = ws?.[0];
+        if (primaryWorkspace?.slug) {
+          await projectStore.fetchProjects(primaryWorkspace.slug);
         }
 
         setReady(true);
