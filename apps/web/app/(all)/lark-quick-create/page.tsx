@@ -36,7 +36,10 @@ const H5_SDK_URLS = [
   "https://lf-scm-cn.feishucdn.com/lark/op/h5-js-sdk-1.5.34.js",
   "https://lf1-cdn-tos.bytegoofy.com/goofy/lark/op/h5-js-sdk-1.5.23.js",
 ];
-const JS_API_LIST = ["getBlockActionSourceDetail", "getTriggerContext", "closeWindow"];
+// Only methods we actually call. getTriggerContext is gadget-only per the
+// H5 JSAPI table; including it in jsApiList for a web_app made h5sdk.config
+// reject the whole payload with errno 104 "invalid parameter".
+const JS_API_LIST = ["getBlockActionSourceDetail", "closeWindow"];
 const TITLE_MAX = 80;
 
 declare global {
@@ -57,10 +60,6 @@ declare global {
     tt?: {
       getBlockActionSourceDetail: (args: {
         triggerCode: string;
-        success: (res: unknown) => void;
-        fail: (err: unknown) => void;
-      }) => void;
-      getTriggerContext: (args: {
         success: (res: unknown) => void;
         fail: (err: unknown) => void;
       }) => void;
@@ -216,24 +215,56 @@ const LarkQuickCreatePage = observer(() => {
           window.h5sdk.ready(() => resolve());
         });
 
-        const entry = new URLSearchParams(window.location.search).get("entry");
-        if (entry === "message_shortcut" && window.tt?.getBlockActionSourceDetail) {
-          const triggerCode =
-            new URLSearchParams(window.location.search).get("bdp_launch_query") ?? "";
-          await new Promise<void>((resolve) => {
-            window.tt!.getBlockActionSourceDetail({
-              triggerCode,
-              success: (res: unknown) => {
-                const detail = (res as { detail?: LarkSourceDetail } | undefined)?.detail ?? null;
-                setSource(detail);
-                const prefill = deriveTitle(detail?.content?.text ?? detail?.content?.title);
-                setTitle(prefill);
-                setDescription(detail?.content?.text ?? "");
-                resolve();
-              },
-              fail: () => resolve(),
+        // Per the Feishu message-shortcut doc:
+        //   - PC adds `from=message_action`, mobile adds `required_launch_ability=message_action`
+        //   - `bdp_launch_query` is a JSON-encoded string containing `__trigger_id__`
+        // Read those (and fall back to our explicit ?entry= hint) to decide
+        // whether to fetch the message source body.
+        const qp = new URLSearchParams(window.location.search);
+        const isMessageShortcut =
+          qp.get("from") === "message_action" ||
+          qp.get("required_launch_ability") === "message_action" ||
+          qp.get("entry") === "message_shortcut";
+
+        if (isMessageShortcut && window.tt?.getBlockActionSourceDetail) {
+          const rawLaunchQuery = qp.get("bdp_launch_query") ?? "";
+          let triggerCode = "";
+          if (rawLaunchQuery) {
+            try {
+              const parsed = JSON.parse(rawLaunchQuery);
+              triggerCode = parsed?.__trigger_id__ ?? "";
+            } catch {
+              // Some Lark versions may already deliver an unwrapped trigger_id;
+              // tolerate by using the raw value as a last resort.
+              triggerCode = rawLaunchQuery;
+            }
+          }
+          // eslint-disable-next-line no-console
+          console.log("[lark-quick-create] message shortcut triggerCode:", triggerCode);
+
+          if (triggerCode) {
+            await new Promise<void>((resolve) => {
+              window.tt!.getBlockActionSourceDetail({
+                triggerCode,
+                success: (res: unknown) => {
+                  // eslint-disable-next-line no-console
+                  console.log("[lark-quick-create] source detail:", res);
+                  const detail =
+                    (res as { detail?: LarkSourceDetail } | undefined)?.detail ?? null;
+                  setSource(detail);
+                  const prefill = deriveTitle(detail?.content?.text ?? detail?.content?.title);
+                  setTitle(prefill);
+                  setDescription(detail?.content?.text ?? "");
+                  resolve();
+                },
+                fail: (err: unknown) => {
+                  // eslint-disable-next-line no-console
+                  console.error("[lark-quick-create] getBlockActionSourceDetail fail:", err);
+                  resolve();
+                },
+              });
             });
-          });
+          }
         }
 
         setReady(true);
