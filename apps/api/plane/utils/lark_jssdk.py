@@ -90,25 +90,24 @@ def build_h5_config(url):
         return None
 
     nonce = secrets.token_hex(_NONCE_BYTES)
-    timestamp_int = int(time.time())
+    # Lark's H5 SDK interprets the timestamp as milliseconds, not seconds.
+    # Sending Unix seconds triggers errno 2601002 "signature is expired"
+    # because Lark reads e.g. 1.78e9 as 1970-08-21. Both the signature
+    # input string and the payload field must use milliseconds.
+    timestamp_ms = int(time.time() * 1000)
     page_url = _strip_fragment(url)
 
-    # Signature concatenates the timestamp as digit characters - the same
-    # bytes whether we wrote it as str or int, so this is invariant.
     raw = (
         f"jsapi_ticket={ticket}"
         f"&noncestr={nonce}"
-        f"&timestamp={timestamp_int}"
+        f"&timestamp={timestamp_ms}"
         f"&url={page_url}"
     )
     signature = hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
-    # Send timestamp as a JSON number, not string. Some Lark client versions
-    # type-check the h5sdk.config payload and reject string timestamps with
-    # errno 104 "invalid parameter".
     return {
         "appId": app_id,
-        "timestamp": timestamp_int,
+        "timestamp": timestamp_ms,
         "nonceStr": nonce,
         "signature": signature,
     }
