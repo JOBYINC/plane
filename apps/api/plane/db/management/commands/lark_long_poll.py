@@ -50,10 +50,10 @@ class Command(BaseCommand):
         )
 
         domain_env = (os.environ.get("LARK_BASE_DOMAIN") or "feishu.cn").strip()
-        # Lark SDK exposes two domains -- Feishu (China) and Lark (overseas).
-        # Pick whichever matches the LARK_BASE_DOMAIN we already use for the
-        # IM send / OAuth flows so we stay on the same tenant region.
-        domain = lark.LARK if "larksuite" in domain_env else lark.FEISHU
+        # SDK exposes the regional Open Platform URL as a string constant per
+        # tenant region. Pick the one that matches LARK_BASE_DOMAIN so we
+        # stay on the same region as the IM-send / OAuth flows.
+        domain = lark.LARK_DOMAIN if "larksuite" in domain_env else lark.FEISHU_DOMAIN
 
         def _on_url_preview(data):
             """Lark hands us a URL list; we return a preview card per URL."""
@@ -86,16 +86,16 @@ class Command(BaseCommand):
 
         handler = (
             lark.EventDispatcherHandler.builder("", "")
-            .register_p2_url_preview_get_v1(_on_url_preview)
+            .register_p2_url_preview_get(_on_url_preview)
             .build()
         )
 
         client = lark.ws.Client(
             app_id,
             app_secret,
-            domain=domain,
-            event_handler=handler,
             log_level=lark.LogLevel.INFO,
+            event_handler=handler,
+            domain=domain,
         )
 
         def _graceful_shutdown(signum, _frame):
