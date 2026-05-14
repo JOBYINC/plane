@@ -36,10 +36,12 @@ const H5_SDK_URLS = [
   "https://lf-scm-cn.feishucdn.com/lark/op/h5-js-sdk-1.5.34.js",
   "https://lf1-cdn-tos.bytegoofy.com/goofy/lark/op/h5-js-sdk-1.5.23.js",
 ];
-// Only methods we actually call. getTriggerContext is gadget-only per the
-// H5 JSAPI table; including it in jsApiList for a web_app made h5sdk.config
-// reject the whole payload with errno 104 "invalid parameter".
-const JS_API_LIST = ["getBlockActionSourceDetail", "closeWindow"];
+// DIAGNOSTIC: start with the bare-minimum list to isolate errno 104.
+// closeWindow is the JSAPI documented as universally available on web_app.
+// If config succeeds with just this, errno 104 was caused by something
+// else in our previous jsApiList. We add getBlockActionSourceDetail back
+// in a follow-up commit once we know which entry was the culprit.
+const JS_API_LIST = ["closeWindow"];
 const TITLE_MAX = 80;
 
 declare global {
@@ -162,6 +164,7 @@ const LarkQuickCreatePage = observer(() => {
 
   const [ready, setReady] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
+  const [diagInfo, setDiagInfo] = useState<Record<string, unknown>>({});
   const [source, setSource] = useState<LarkSourceDetail | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -179,7 +182,21 @@ const LarkQuickCreatePage = observer(() => {
       try {
         await loadSdkOnce();
         const pageUrl = window.location.href.split("#")[0];
+        setDiagInfo((d) => ({
+          ...d,
+          windowLocation: window.location.href,
+          pageUrlSent: pageUrl,
+          userAgent: navigator.userAgent,
+        }));
         const cfg = await fetchSignature(pageUrl);
+        setDiagInfo((d) => ({
+          ...d,
+          appId: cfg.appId,
+          timestamp: cfg.timestamp,
+          nonceStr: cfg.nonceStr,
+          signature: cfg.signature,
+          jsApiList: JS_API_LIST,
+        }));
 
         const configPayload = {
           ...cfg,
@@ -320,8 +337,16 @@ const LarkQuickCreatePage = observer(() => {
 
   if (bootError) {
     return (
-      <div className="p-4 text-sm text-red-600">
-        Lark SDK 初始化失败：{bootError}
+      <div className="p-4 text-xs">
+        <div className="mb-2 font-semibold text-red-600">
+          Lark SDK 初始化失败：{bootError}
+        </div>
+        <details open className="mt-3 rounded border border-custom-border-200 p-2">
+          <summary className="cursor-pointer font-medium">诊断信息 (截图发我)</summary>
+          <pre className="mt-2 overflow-auto whitespace-pre-wrap break-all text-[10px] leading-tight">
+            {JSON.stringify(diagInfo, null, 2)}
+          </pre>
+        </details>
       </div>
     );
   }
