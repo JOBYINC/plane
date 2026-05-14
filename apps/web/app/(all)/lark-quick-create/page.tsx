@@ -645,34 +645,29 @@ const LarkQuickCreatePage = observer(() => {
         </div>
       </div>
 
-      {/* Priority + Assignee on one row so they don't waste vertical space.
-          MemberDropdown auto-scopes to the selected project's members. */}
-      <div className="flex gap-3">
-        <div className="flex flex-1 flex-col gap-1 text-xs">
-          <span className="text-custom-text-300">{t("lark_quick_create.field_priority")}</span>
-          <div>
-            <PriorityDropdown
-              value={priority as TIssuePriorities}
-              onChange={(p) => setPriority(p as typeof priority)}
-              buttonVariant="border-with-text"
-            />
-          </div>
-        </div>
-        <div className="flex flex-1 flex-col gap-1 text-xs">
-          <span className="text-custom-text-300">{t("lark_quick_create.field_assignee")}</span>
-          <div>
-            {projectId ? (
-              <MemberDropdown
-                memberIds={Array.from(projectMemberIds)}
-                value={assigneeId ? [assigneeId] : []}
-                onChange={(ids: string[]) => setAssigneeId(ids[0] ?? "")}
-                buttonVariant="border-with-text"
-                placeholder={t("lark_quick_create.field_assignee")}
-                multiple={false}
-              />
-            ) : null}
-          </div>
-        </div>
+      {/* Label-on-left, control-on-right rows. Labels share a fixed width
+          so the controls line up visually. */}
+      <div className="flex items-center gap-3 text-xs">
+        <span className="w-16 shrink-0 text-custom-text-300">{t("lark_quick_create.field_priority")}</span>
+        <PriorityDropdown
+          value={priority as TIssuePriorities}
+          onChange={(p) => setPriority(p as typeof priority)}
+          buttonVariant="border-with-text"
+        />
+      </div>
+
+      <div className="flex items-center gap-3 text-xs">
+        <span className="w-16 shrink-0 text-custom-text-300">{t("lark_quick_create.field_assignee")}</span>
+        {projectId ? (
+          <MemberDropdown
+            memberIds={Array.from(projectMemberIds)}
+            value={assigneeId ? [assigneeId] : []}
+            onChange={(ids: string[]) => setAssigneeId(ids[0] ?? "")}
+            buttonVariant="border-with-text"
+            placeholder={t("lark_quick_create.field_assignee")}
+            multiple={false}
+          />
+        ) : null}
       </div>
 
       </div>
