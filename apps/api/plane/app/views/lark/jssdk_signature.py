@@ -11,6 +11,8 @@ single-use-per-URL; the page can re-call this endpoint after navigation.
 
 import logging
 
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -23,6 +25,11 @@ logger = logging.getLogger("plane.app.views.lark.jssdk_signature")
 MAX_URL_LENGTH = 2048
 
 
+# CSRF-exempt because the frontend uses raw fetch (not the axios APIService
+# that auto-attaches XSRF tokens). Safe: the endpoint only returns a signature
+# bound to the URL the caller passes -- Lark's h5sdk.config rejects mismatched
+# signatures, so a forged request cannot escape the caller's own domain.
+@method_decorator(csrf_exempt, name="dispatch")
 class LarkJsSdkSignatureEndpoint(APIView):
     """Returns a signed h5sdk.config payload for the URL the caller is on.
 
