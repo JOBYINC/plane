@@ -509,13 +509,14 @@ const LarkQuickCreatePage = observer(() => {
   const assigneeIsMember =
     !assigneeId || projectMemberIds.size === 0 || projectMemberIds.has(assigneeId);
 
-  // Search pool for the assignee dropdown = full workspace (not just project
-  // members). The store's `workspaceMemberIds` getter reads from
-  // routerStore.workspaceSlug, which is empty on this standalone page, so we
-  // call getWorkspaceMemberIds(slug) with an explicit slug instead.
-  const workspaceMemberIds: string[] = workspace?.slug
-    ? memberRoot.workspace.getWorkspaceMemberIds(workspace.slug) ?? []
-    : [];
+  // Search pool for the assignee dropdown = the workspace members we already
+  // fetched into local state above. Going through `memberRoot.workspace.
+  // getWorkspaceMemberIds(slug)` would also work in theory, but its sort step
+  // reads from routerStore + userStore which aren't fully hydrated on this
+  // standalone page, so the computed sometimes returns []. The fetch above
+  // already populates memberRoot.memberMap, so MemberDropdown's
+  // getUserDetails(id) lookup still resolves names + avatars.
+  const workspaceMemberIds: string[] = memberOptions.map((m) => m.id);
 
   const handleSubmit = async () => {
     if (!workspace || !projectId || !currentUser) {
