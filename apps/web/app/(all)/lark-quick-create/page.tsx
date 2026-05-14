@@ -295,31 +295,40 @@ const LarkQuickCreatePage = observer(() => {
                 success: (res: unknown) => {
                   // eslint-disable-next-line no-console
                   console.log("[lark-quick-create] source detail raw:", res);
-                  // Per the doc: response shape is {support: bool, content: str|json}
-                  // When support=true and message is text, content is a JSON
-                  // string we need to parse to get the message body. When
-                  // support=false, content is a plain string explanation.
-                  const r = res as { support?: boolean; content?: unknown } | undefined;
-                  setDiagInfo((d) => ({
-                    ...d,
-                    sourceRaw: res,
-                  }));
-                  if (r?.support && r.content) {
-                    let parsedContent: Record<string, unknown> | null = null;
-                    if (typeof r.content === "string") {
-                      try {
-                        parsedContent = JSON.parse(r.content);
-                      } catch {
-                        parsedContent = { text: r.content };
+                  setDiagInfo((d) => ({ ...d, sourceRaw: res }));
+
+                  // Real shape (Lark 7.67):
+                  //   {errMsg, bizType: "message", content: {actionTime,
+                  //     messages: [{support, content: '{"text":"..."}',
+                  //                  sender: {name, open_id}, ...}]}}
+                  const r = res as
+                    | {
+                        content?: {
+                          messages?: Array<{
+                            support?: boolean;
+                            content?: string;
+                            messageType?: string;
+                            sender?: { name?: string; open_id?: string };
+                          }>;
+                        };
                       }
-                    } else if (typeof r.content === "object") {
-                      parsedContent = r.content as Record<string, unknown>;
+                    | undefined;
+                  const msg = r?.content?.messages?.[0];
+                  if (msg?.support && msg.content) {
+                    let text = "";
+                    try {
+                      const parsed = JSON.parse(msg.content);
+                      text =
+                        (parsed?.text as string | undefined) ??
+                        (parsed?.title as string | undefined) ??
+                        "";
+                    } catch {
+                      text = msg.content;
                     }
-                    const text =
-                      (parsedContent?.text as string | undefined) ??
-                      (parsedContent?.content as string | undefined) ??
-                      "";
-                    setSource({ content: { text } });
+                    setSource({
+                      sender: msg.sender,
+                      content: { text },
+                    });
                     setTitle(deriveTitle(text));
                     setDescription(text);
                   }
