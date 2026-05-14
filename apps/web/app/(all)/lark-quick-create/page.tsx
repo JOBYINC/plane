@@ -78,7 +78,7 @@ type LarkSourceDetail = {
 const issueService = new IssueService();
 const workspaceService = new WorkspaceService();
 
-type MemberOption = { id: string; name: string };
+type MemberOption = { id: string; name: string; avatar: string };
 
 async function fetchSignature(url: string): Promise<{
   appId: string;
@@ -382,7 +382,10 @@ const LarkQuickCreatePage = observer(() => {
                     id ??
                     "",
                 );
-                return { id, name };
+                const avatar = String(
+                  memberObj?.avatar_url ?? memberObj?.avatar ?? m?.avatar_url ?? "",
+                );
+                return { id, name, avatar };
               })
               .filter((x: MemberOption) => x.id && x.name);
             setMemberOptions(mapped);
@@ -656,7 +659,7 @@ const LarkQuickCreatePage = observer(() => {
                 <button
                   key={m.id}
                   type="button"
-                  className={`block w-full px-2 py-1.5 text-left text-sm hover:bg-custom-background-90 ${
+                  className={`flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-custom-background-90 ${
                     m.id === assigneeId ? "bg-custom-background-90" : ""
                   }`}
                   onMouseDown={(e) => e.preventDefault()}
@@ -665,7 +668,19 @@ const LarkQuickCreatePage = observer(() => {
                     setAssigneeOpen(false);
                   }}
                 >
-                  {m.name}
+                  {m.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={m.avatar}
+                      alt=""
+                      className="h-6 w-6 flex-shrink-0 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-custom-background-80 text-[10px] text-custom-text-300">
+                      {m.name.slice(0, 1).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="truncate">{m.name}</span>
                 </button>
               ));
             })()}
