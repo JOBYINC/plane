@@ -115,9 +115,80 @@ class Command(BaseCommand):
                 }
             }
 
+        def _on_card_action(data):
+            """Handle button clicks on DM cards we sent.
+
+            Action payload shape -- card builder packs short keys:
+              {"a": "done", "i": "<issue_uuid>"}
+            Operator info comes via data.event.operator.open_id; we look up
+            the Plane User via the Account.provider_account_id index (Lark's
+            union_id matches the provider_account_id we stored at SSO time).
+
+            Response shape per Lark docs accepts {"toast": {...}, "card": {...}}.
+            For v1 we just toast success/failure; updating the card with the
+            new state is a follow-up.
+            """
+            from plane.db.models import Account, Issue, State
+
+            try:
+                action = getattr(data.event, "action", None)
+                value = getattr(action, "value", None) if action else None
+                if value is None:
+                    return {}
+                # SDK gives us a dict-like; tolerate both attribute and key access.
+                act = value.get("a") if hasattr(value, "get") else getattr(value, "a", None)
+                issue_id = value.get("i") if hasattr(value, "get") else getattr(value, "i", None)
+
+                if act != "done" or not issue_id:
+                    return {}
+
+                # Identify the clicker so audit (updated_by) reflects them.
+                operator = getattr(data.event, "operator", None)
+                actor_user = None
+                if operator is not None:
+                    union_id = getattr(operator, "union_id", None) or getattr(operator, "open_id", None)
+                    if union_id:
+                        acct = Account.objects.filter(
+                            provider="lark", provider_account_id=union_id
+                        ).select_related("user").first()
+                        if acct:
+                            actor_user = acct.user
+
+                issue = (
+                    Issue.objects.select_related("project", "state")
+                    .filter(id=issue_id)
+                    .first()
+                )
+                if issue is None:
+                    return {"toast": {"type": "error", "content": "任务不存在"}}
+
+                # Pick the project's first 'completed' group state. Plane's
+                # State.group enum: backlog/unstarted/started/completed/cancelled.
+                done_state = (
+                    State.objects.filter(project_id=issue.project_id, group="completed")
+                    .order_by("sequence")
+                    .first()
+                )
+                if done_state is None:
+                    return {"toast": {"type": "error", "content": "项目里没有完成态"}}
+
+                if issue.state_id == done_state.id:
+                    return {"toast": {"type": "info", "content": "已经是完成状态"}}
+
+                issue.state_id = done_state.id
+                if actor_user is not None:
+                    issue.updated_by_id = actor_user.id
+                issue.save(update_fields=["state_id", "updated_by_id", "updated_at"])
+
+                return {"toast": {"type": "success", "content": f"✅ 已标记为「{done_state.name}」"}}
+            except Exception:
+                logger.exception("card.action.trigger handler failed")
+                return {"toast": {"type": "error", "content": "操作失败,请稍后重试"}}
+
         handler = (
             lark.EventDispatcherHandler.builder("", "")
             .register_p2_url_preview_get(_on_url_preview)
+            .register_p2_card_action_trigger(_on_card_action)
             .build()
         )
 

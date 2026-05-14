@@ -146,9 +146,39 @@ def _short_id(issue):
     return f"{project_identifier}-{issue.sequence_id}" if project_identifier else f"#{issue.sequence_id}"
 
 
+def _issue_action_row(issue):
+    """Standard action row appended to every issue DM card.
+
+    "✅ 完成" fires a card.action.trigger callback handled by the long-poll
+    worker (sets state -> first 'completed' group state for the project).
+    "查看任务 →" is a plain URL button -- no callback needed.
+
+    Button `value` payload uses single-char keys ("a"=action, "i"=issue_id)
+    because Lark caps action value size and we want headroom for richer
+    actions later (comment modal, state picker, etc.).
+    """
+    url = issue_url(issue.workspace.slug, issue.project_id, issue.id)
+    return {
+        "tag": "action",
+        "actions": [
+            {
+                "tag": "button",
+                "text": {"tag": "plain_text", "content": "✅ 完成"},
+                "type": "primary",
+                "value": {"a": "done", "i": str(issue.id)},
+            },
+            {
+                "tag": "button",
+                "text": {"tag": "plain_text", "content": "查看任务 →"},
+                "type": "default",
+                "url": url,
+            },
+        ],
+    }
+
+
 def card_issue_assigned(issue, assigner_name):
     short = _short_id(issue)
-    url = issue_url(issue.workspace.slug, issue.project_id, issue.id)
     return {
         "config": {"wide_screen_mode": True},
         "header": {
@@ -167,24 +197,13 @@ def card_issue_assigned(issue, assigner_name):
                 ],
             },
             {"tag": "div", "text": {"tag": "lark_md", "content": f"**标题**\n{issue.name}"}},
-            {
-                "tag": "action",
-                "actions": [
-                    {
-                        "tag": "button",
-                        "text": {"tag": "plain_text", "content": "查看任务 →"},
-                        "type": "primary",
-                        "url": url,
-                    }
-                ],
-            },
+            _issue_action_row(issue),
         ],
     }
 
 
 def card_issue_state_changed(issue, old_state_name, new_state_name, changer_name):
     short = _short_id(issue)
-    url = issue_url(issue.workspace.slug, issue.project_id, issue.id)
     return {
         "config": {"wide_screen_mode": True},
         "header": {
@@ -200,23 +219,13 @@ def card_issue_state_changed(issue, old_state_name, new_state_name, changer_name
                     "content": f"**{old_state_name or '?'}** → **{new_state_name or '?'}** _by {changer_name or '系统'}_",
                 },
             },
-            {
-                "tag": "action",
-                "actions": [
-                    {
-                        "tag": "button",
-                        "text": {"tag": "plain_text", "content": "查看任务 →"},
-                        "url": url,
-                    }
-                ],
-            },
+            _issue_action_row(issue),
         ],
     }
 
 
 def card_issue_comment(issue, comment_excerpt, commenter_name):
     short = _short_id(issue)
-    url = issue_url(issue.workspace.slug, issue.project_id, issue.id)
     return {
         "config": {"wide_screen_mode": True},
         "header": {
@@ -229,15 +238,6 @@ def card_issue_comment(issue, comment_excerpt, commenter_name):
                 "tag": "div",
                 "text": {"tag": "lark_md", "content": f"**{commenter_name or '某人'}**: {comment_excerpt}"},
             },
-            {
-                "tag": "action",
-                "actions": [
-                    {
-                        "tag": "button",
-                        "text": {"tag": "plain_text", "content": "查看任务 →"},
-                        "url": url,
-                    }
-                ],
-            },
+            _issue_action_row(issue),
         ],
     }
