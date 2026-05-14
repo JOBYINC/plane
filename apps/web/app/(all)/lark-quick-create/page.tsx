@@ -186,7 +186,21 @@ const LarkQuickCreatePage = observer(() => {
 
         setReady(true);
       } catch (err) {
-        setBootError(err instanceof Error ? err.message : String(err));
+        let msg: string;
+        if (err instanceof Error) {
+          msg = err.message;
+        } else if (typeof err === "string") {
+          msg = err;
+        } else {
+          try {
+            msg = JSON.stringify(err);
+          } catch {
+            msg = String(err);
+          }
+        }
+        // eslint-disable-next-line no-console
+        console.error("[lark-quick-create] boot failed:", err);
+        setBootError(msg);
       }
     },
     { revalidateOnFocus: false },
