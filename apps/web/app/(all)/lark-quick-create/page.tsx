@@ -697,11 +697,6 @@ const LarkQuickCreatePage = observer(() => {
         ) : null}
       </div>
 
-      {source?.sender?.open_id ? (
-        <p className="mb-3 text-xs text-custom-text-400">
-          ↪ 来自 Lark 消息 · 发件人 {source.sender.open_id.slice(0, 8)}…
-        </p>
-      ) : null}
       </div>
 
       {/* Sticky footer so Create/Cancel stay visible even when content overflows. */}
