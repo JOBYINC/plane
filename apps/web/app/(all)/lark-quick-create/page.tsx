@@ -444,9 +444,17 @@ const LarkQuickCreatePage = observer(() => {
 
   useEffect(() => {
     if (!projectId && projectOptions.length > 0) {
-      // Prefer an "INBOX" project if present, otherwise the first one.
-      const inbox = projectOptions.find((p) => /^(inbox|收纳|未分类)/i.test(p.name));
-      setProjectId((inbox ?? projectOptions[0]).id);
+      // Default project selection priority:
+      //   1. Anything containing "team inbox" (the shared workspace landing)
+      //   2. Anything containing "inbox" / "收纳" / "未分类" (single-user inbox)
+      //   3. First project in the list (fallback)
+      // Matching anywhere in the name -- not just prefix -- so "Team Inbox"
+      // wins over a personal "INBOX" if both exist.
+      const teamInbox = projectOptions.find((p) =>
+        /team[\s_-]*inbox|团队[\s_-]*(inbox|收纳|收件)/i.test(p.name),
+      );
+      const anyInbox = projectOptions.find((p) => /(inbox|收纳|未分类)/i.test(p.name));
+      setProjectId((teamInbox ?? anyInbox ?? projectOptions[0]).id);
     }
   }, [projectOptions, projectId]);
 
