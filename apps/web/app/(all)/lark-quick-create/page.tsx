@@ -29,6 +29,7 @@ import { useWorkspace } from "@/hooks/store/use-workspace";
 import { useProject } from "@/hooks/store/use-project";
 import { useUser } from "@/hooks/store/user";
 import { IssueService } from "@/services/issue/issue.service";
+import { WorkspaceService } from "@/services/workspace.service";
 
 // CN region CDN — more reliable for feishu.cn clients than the bytegoofy
 // fallback. If load fails we retry on bytegoofy.com.
@@ -75,6 +76,9 @@ type LarkSourceDetail = {
 };
 
 const issueService = new IssueService();
+const workspaceService = new WorkspaceService();
+
+type MemberOption = { id: string; name: string };
 
 async function fetchSignature(url: string): Promise<{
   appId: string;
@@ -186,11 +190,13 @@ const LarkQuickCreatePage = observer(() => {
   const [projectOptions, setProjectOptions] = useState<
     Array<{ id: string; name: string }>
   >([]);
-  // Mirror Lark native task panel: priority + due date.
+  // Mirror Lark native task panel: priority + due date + assignee.
   const [priority, setPriority] = useState<"urgent" | "high" | "medium" | "low" | "none">(
     "none",
   );
   const [targetDate, setTargetDate] = useState<string>(""); // YYYY-MM-DD or empty
+  const [memberOptions, setMemberOptions] = useState<MemberOption[]>([]);
+  const [assigneeId, setAssigneeId] = useState<string>("");
 
   // Default to the user's first joined workspace. The shortcut doesn't carry
   // workspace context; multi-workspace switching can come later.
@@ -331,6 +337,34 @@ const LarkQuickCreatePage = observer(() => {
             .filter((p) => p.id && p.name);
           setProjectOptions(arr);
         }
+
+        // Workspace members for the assignee picker.
+        if (primaryWorkspace?.slug) {
+          try {
+            const rawMembers = await workspaceService.fetchWorkspaceMembers(
+              primaryWorkspace.slug,
+            );
+            const mapped: MemberOption[] = (rawMembers ?? [])
+              .map((m: Record<string, unknown>) => {
+                const memberObj =
+                  (m?.member as Record<string, unknown> | undefined) ?? null;
+                const id = String(memberObj?.id ?? m?.member_id ?? m?.id ?? "");
+                const name = String(
+                  memberObj?.display_name ??
+                    memberObj?.first_name ??
+                    memberObj?.email ??
+                    m?.display_name ??
+                    id ??
+                    "",
+                );
+                return { id, name };
+              })
+              .filter((x: MemberOption) => x.id && x.name);
+            setMemberOptions(mapped);
+          } catch {
+            /* silent - assignee falls back to current user */
+          }
+        }
         setDiagInfo((d) => ({
           ...d,
           workspacesReturned: Array.isArray(ws) ? ws.length : "undefined",
@@ -372,6 +406,11 @@ const LarkQuickCreatePage = observer(() => {
     }
   }, [projectOptions, projectId]);
 
+  // Default assignee to current user once both are known.
+  useEffect(() => {
+    if (!assigneeId && currentUser?.id) setAssigneeId(String(currentUser.id));
+  }, [currentUser, assigneeId]);
+
   const handleSubmit = async () => {
     if (!workspace || !projectId || !currentUser) {
       setToast({ type: TOAST_TYPE.ERROR, title: "缺少工作区或项目" });
@@ -386,7 +425,7 @@ const LarkQuickCreatePage = observer(() => {
       const payload: Record<string, unknown> = {
         name: title.trim(),
         description_html: description ? `<p>${escapeHtml(description)}</p>` : "<p></p>",
-        assignee_ids: [currentUser.id],
+        assignee_ids: [assigneeId || String(currentUser.id)],
         priority,
       };
       if (targetDate) payload.target_date = targetDate;
@@ -427,11 +466,12 @@ const LarkQuickCreatePage = observer(() => {
   }
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-3 p-4">
-      <h1 className="text-base font-semibold">新建 Tick 任务</h1>
+    <div className="mx-auto flex h-full max-w-md flex-col">
+      <div className="flex-1 overflow-y-auto p-4 pb-24">
+      <h1 className="mb-3 text-base font-semibold">新建 Tick 任务</h1>
 
-      <details open className="rounded border border-custom-border-200 p-2 text-[10px]">
-        <summary className="cursor-pointer font-medium">诊断 (截给我)</summary>
+      <details className="mb-3 rounded border border-custom-border-200 p-2 text-[10px]">
+        <summary className="cursor-pointer text-custom-text-400">🔧 调试 (开发用)</summary>
         <pre className="mt-1 overflow-auto whitespace-pre-wrap break-all leading-tight">
           {JSON.stringify(
             {
@@ -547,18 +587,37 @@ const LarkQuickCreatePage = observer(() => {
         </select>
       </label>
 
-      {/* Assignee (auto: self) */}
-      <p className="text-xs text-custom-text-400">
-        负责人：{currentUser?.display_name ?? currentUser?.email ?? "我"}
-      </p>
+      {/* Assignee dropdown */}
+      <label className="mb-3 flex flex-col gap-1 text-sm">
+        <span className="text-custom-text-300">负责人</span>
+        <select
+          className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1.5 text-sm"
+          value={assigneeId}
+          onChange={(e) => setAssigneeId(e.target.value)}
+        >
+          {memberOptions.length === 0 ? (
+            <option value={String(currentUser?.id ?? "")}>
+              {currentUser?.display_name ?? currentUser?.email ?? "我"}
+            </option>
+          ) : (
+            memberOptions.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))
+          )}
+        </select>
+      </label>
 
       {source?.sender?.open_id ? (
-        <p className="text-xs text-custom-text-400">
+        <p className="mb-3 text-xs text-custom-text-400">
           ↪ 来自 Lark 消息 · 发件人 {source.sender.open_id.slice(0, 8)}…
         </p>
       ) : null}
+      </div>
 
-      <div className="mt-2 flex gap-2">
+      {/* Sticky footer so Create/Cancel stay visible even when content overflows. */}
+      <div className="sticky bottom-0 flex gap-2 border-t border-custom-border-200 bg-custom-background-100 p-3">
         <Button
           variant="primary"
           onClick={handleSubmit}
