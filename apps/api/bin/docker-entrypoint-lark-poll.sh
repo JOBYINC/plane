@@ -1,6 +1,13 @@
 #!/bin/bash
 set -e
 
+# Lark SDK dispatches event handlers from inside an asyncio loop, but our
+# Issue lookups are vanilla synchronous Django ORM. Django blocks sync ORM
+# from async contexts by default; export the escape hatch BEFORE Python
+# starts so the check is disabled at module-import time. Safe here because
+# queries are tiny PK lookups (<50ms) that never starve the event loop.
+export DJANGO_ALLOW_ASYNC_UNSAFE=1
+
 # Wait for DB so the management command can resolve Issue -> Card lookups.
 # Migrations are not strictly required (this worker only reads), but waiting
 # is cheap and keeps logs aligned with the api/worker startup pattern.

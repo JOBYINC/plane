@@ -112,24 +112,38 @@ def verify_lark_request(headers, body_bytes):
     return False
 
 
-# Plane URL pattern: /<workspace>/projects/<project_id>/issues/<issue_id>/
-# Slug may contain letters, digits, _ -; UUIDs are 32 hex + 4 dashes.
-_ISSUE_URL_RE = re.compile(
+# Plane exposes two URL shapes for the same issue:
+#   1. Full UUID form: /<slug>/projects/<project_uuid>/issues/<issue_uuid>/
+#   2. Short / shareable form: /<slug>/browse/<PROJECT_IDENT>-<SEQ>/
+# Users copy whichever the browser address bar shows them (the short form is
+# what the new "Copy link" button puts on the clipboard), so we accept both.
+_ISSUE_URL_RE_FULL = re.compile(
     r"/(?P<slug>[A-Za-z0-9_-]+)/projects/"
     r"(?P<project_id>[0-9a-fA-F-]{36})/issues/"
     r"(?P<issue_id>[0-9a-fA-F-]{36})/?"
 )
+_ISSUE_URL_RE_SHORT = re.compile(
+    r"/(?P<slug>[A-Za-z0-9_-]+)/browse/"
+    r"(?P<identifier>[A-Za-z0-9]+)-(?P<seq>\d+)/?"
+)
 
 
 def parse_issue_url(url):
-    """Extract (workspace_slug, project_id, issue_id) from a Plane issue URL.
+    """Resolve an issue URL to a lookup spec.
 
-    Returns a 3-tuple or None when the URL doesn't match the issue path.
+    Returns either:
+      ("uuid",  slug, project_id, issue_id)        for the /projects/.../issues/... form, or
+      ("short", slug, identifier,  sequence_id)    for the /browse/IDENT-N form,
+    or None when neither pattern matches.
     """
-    m = _ISSUE_URL_RE.search(url or "")
-    if not m:
-        return None
-    return m.group("slug"), m.group("project_id"), m.group("issue_id")
+    text = url or ""
+    m = _ISSUE_URL_RE_FULL.search(text)
+    if m:
+        return "uuid", m.group("slug"), m.group("project_id"), m.group("issue_id")
+    m = _ISSUE_URL_RE_SHORT.search(text)
+    if m:
+        return "short", m.group("slug"), m.group("identifier"), int(m.group("seq"))
+    return None
 
 
 def build_url_preview_card(issue):
@@ -187,18 +201,32 @@ def build_url_preview_card(issue):
 def lookup_issue_for_url(url):
     """Resolve a Plane URL to an Issue ORM row, or None.
 
-    Late import keeps this module importable during app loading.
+    Handles both `/projects/<uuid>/issues/<uuid>/` (full) and `/browse/IDENT-N`
+    (short) URL forms -- see parse_issue_url. Late import keeps this module
+    importable during Django app loading.
     """
     parsed = parse_issue_url(url)
     if parsed is None:
         return None
-    slug, project_id, issue_id = parsed
 
     from plane.db.models import Issue
 
-    return (
+    base_qs = (
         Issue.objects.select_related("workspace", "project", "state")
         .prefetch_related("assignees")
-        .filter(id=issue_id, project_id=project_id, workspace__slug=slug)
-        .first()
     )
+
+    kind = parsed[0]
+    if kind == "uuid":
+        _, slug, project_id, issue_id = parsed
+        return base_qs.filter(
+            id=issue_id, project_id=project_id, workspace__slug=slug
+        ).first()
+    if kind == "short":
+        _, slug, identifier, seq = parsed
+        return base_qs.filter(
+            workspace__slug=slug,
+            project__identifier__iexact=identifier,
+            sequence_id=seq,
+        ).first()
+    return None

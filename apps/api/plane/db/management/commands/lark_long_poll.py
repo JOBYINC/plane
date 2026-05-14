@@ -30,6 +30,12 @@ class Command(BaseCommand):
     help = "Run the Lark long-poll event worker (URL preview, card actions)."
 
     def handle(self, *args, **options):
+        # SDK dispatches event handlers from inside its asyncio loop, but our
+        # Issue lookup is a vanilla Django ORM call. Django blocks sync ORM in
+        # async contexts by default; opt out since our queries are tiny PK
+        # lookups (<50ms) and never block the loop meaningfully.
+        os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "1")
+
         app_id = (os.environ.get("LARK_CLIENT_ID") or "").strip()
         app_secret = (os.environ.get("LARK_CLIENT_SECRET") or "").strip()
         if not (app_id and app_secret):
@@ -55,34 +61,59 @@ class Command(BaseCommand):
         # stay on the same region as the IM-send / OAuth flows.
         domain = lark.LARK_DOMAIN if "larksuite" in domain_env else lark.FEISHU_DOMAIN
 
+        from plane.utils.lark_notify import _short_id
+
         def _on_url_preview(data):
-            """Lark hands us a URL list; we return a preview card per URL."""
-            urls = []
+            """Build the inline link preview for a pasted Plane URL.
+
+            Response shape per Lark docs:
+              { "inline": { "i18n_title": { "zh_cn": "..." } }, "card": {...} }
+
+            - `inline` is required and renders as a one-line preview chip.
+            - `card` is OPTIONAL and requires a pre-built template (template_id
+              from Card Builder) -- raw interactive-card JSON is rejected.
+              We skip card for now and ship a rich inline title; card support
+              is the obvious next iteration once we build the template.
+            - `preview_token` is NOT echoed back (the SDK correlates events
+              by message id internally).
+            """
+            url = None
             try:
-                urls = list(getattr(data.event, "url_list", []) or [])
+                ctx = getattr(data.event, "context", None)
+                if ctx is not None:
+                    url = getattr(ctx, "url", None)
+                if url is None:
+                    url = getattr(data.event, "url", None)
             except Exception:
-                logger.exception("Failed to read url_list from event")
+                logger.exception("Failed to read url from event")
 
-            preview_list = []
-            for url in urls:
-                try:
-                    issue = lookup_issue_for_url(url)
-                except Exception:
-                    logger.exception("Issue lookup failed for %s", url)
-                    issue = None
-                if issue is None:
-                    continue
-                preview_list.append(
-                    {
-                        "url": url,
-                        "inline_message": {
-                            "title": f"📋 {issue.name[:80]}",
-                            "card": build_url_preview_card(issue),
-                        },
+            if not url:
+                return {}
+
+            try:
+                issue = lookup_issue_for_url(url)
+            except Exception:
+                logger.exception("Issue lookup failed for %s", url)
+                issue = None
+
+            if issue is None:
+                return {}
+
+            short = _short_id(issue)
+            state = getattr(getattr(issue, "state", None), "name", None) or "—"
+            due = issue.target_date.strftime("%Y-%m-%d") if issue.target_date else "无"
+            # Inline previews are one-liners; cram the high-signal fields into
+            # the title since this is the only text the user sees inline.
+            title = f"📋 {short} · {issue.name[:60]} · {state} · 截止 {due}"
+
+            return {
+                "inline": {
+                    "i18n_title": {
+                        "zh_cn": title,
+                        "en_us": title,
                     }
-                )
-
-            return {"preview_list": preview_list}
+                }
+            }
 
         handler = (
             lark.EventDispatcherHandler.builder("", "")
