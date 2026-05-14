@@ -509,6 +509,14 @@ const LarkQuickCreatePage = observer(() => {
   const assigneeIsMember =
     !assigneeId || projectMemberIds.size === 0 || projectMemberIds.has(assigneeId);
 
+  // Search pool for the assignee dropdown = full workspace (not just project
+  // members). The store's `workspaceMemberIds` getter reads from
+  // routerStore.workspaceSlug, which is empty on this standalone page, so we
+  // call getWorkspaceMemberIds(slug) with an explicit slug instead.
+  const workspaceMemberIds: string[] = workspace?.slug
+    ? memberRoot.workspace.getWorkspaceMemberIds(workspace.slug) ?? []
+    : [];
+
   const handleSubmit = async () => {
     if (!workspace || !projectId || !currentUser) {
       setToast({ type: TOAST_TYPE.ERROR, title: t("lark_quick_create.error_no_project") });
@@ -664,18 +672,25 @@ const LarkQuickCreatePage = observer(() => {
         />
       </div>
 
-      <div className="flex items-center gap-3 text-xs">
-        <span className="w-16 shrink-0 text-custom-text-300">{t("lark_quick_create.field_assignee")}</span>
-        {projectId ? (
-          <MemberDropdown
-            memberIds={Array.from(projectMemberIds)}
-            value={assigneeId ? [assigneeId] : []}
-            onChange={(ids: string[]) => setAssigneeId(ids[0] ?? "")}
-            buttonVariant="border-with-text"
-            placeholder={t("lark_quick_create.field_assignee")}
-            multiple={false}
-            buttonClassName="border-2 bg-white"
-          />
+      <div className="flex flex-col gap-1 text-xs">
+        <div className="flex items-center gap-3">
+          <span className="w-16 shrink-0 text-custom-text-300">{t("lark_quick_create.field_assignee")}</span>
+          {projectId ? (
+            <MemberDropdown
+              memberIds={workspaceMemberIds}
+              value={assigneeId ? [assigneeId] : []}
+              onChange={(ids: string[]) => setAssigneeId(ids[0] ?? "")}
+              buttonVariant="border-with-text"
+              placeholder={t("lark_quick_create.field_assignee")}
+              multiple={false}
+              buttonClassName="border-2 bg-white"
+            />
+          ) : null}
+        </div>
+        {!assigneeIsMember ? (
+          <span className="pl-[4.75rem] text-[11px] text-amber-600">
+            {t("lark_quick_create.warning_assignee_not_member")}
+          </span>
         ) : null}
       </div>
 
