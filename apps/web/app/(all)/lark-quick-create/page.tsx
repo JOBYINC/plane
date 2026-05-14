@@ -559,7 +559,7 @@ const LarkQuickCreatePage = observer(() => {
 
   return (
     <div className="mx-auto flex h-full max-w-md flex-col">
-      <div className="flex-1 overflow-y-auto p-4 pb-24">
+      <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-4 pb-24">
       <h1 className="mb-3 text-sm font-semibold">{t("lark_quick_create.new_task_title")}</h1>
 
       <label className="flex flex-col gap-1 text-xs">
