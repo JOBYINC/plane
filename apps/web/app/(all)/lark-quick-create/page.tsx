@@ -288,11 +288,39 @@ const LarkQuickCreatePage = observer(() => {
 
         // Page lives outside the workspace-slug layout, so the workspace +
         // project MobX stores aren't auto-hydrated. Fetch them here.
-        const ws = await workspaceRoot.fetchWorkspaces();
+        let ws: Array<{ slug?: string }> | undefined;
+        let fetchedProjects: unknown = null;
+        let fetchError: string | null = null;
+        try {
+          ws = await workspaceRoot.fetchWorkspaces();
+        } catch (e) {
+          fetchError = `fetchWorkspaces: ${e instanceof Error ? e.message : String(e)}`;
+        }
         const primaryWorkspace = ws?.[0];
         if (primaryWorkspace?.slug) {
-          await projectStore.fetchProjects(primaryWorkspace.slug);
+          try {
+            fetchedProjects = await projectStore.fetchProjects(primaryWorkspace.slug);
+          } catch (e) {
+            fetchError = `fetchProjects: ${e instanceof Error ? e.message : String(e)}`;
+          }
         }
+        setDiagInfo((d) => ({
+          ...d,
+          workspacesReturned: Array.isArray(ws) ? ws.length : "undefined",
+          primaryWorkspaceSlug: primaryWorkspace?.slug ?? null,
+          fetchProjectsReturned: Array.isArray(fetchedProjects)
+            ? fetchedProjects.length
+            : "non-array",
+          joinedProjectIdsAfterFetch: projectStore.joinedProjectIds.length,
+          fetchedProjectsSample: Array.isArray(fetchedProjects)
+            ? (fetchedProjects as Array<Record<string, unknown>>).slice(0, 5).map((p) => ({
+                id: p?.id,
+                name: p?.name,
+                is_member: p?.is_member,
+              }))
+            : null,
+          fetchError,
+        }));
 
         setReady(true);
       } catch (err) {
