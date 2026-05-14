@@ -29,6 +29,7 @@ import { useTranslation } from "@plane/i18n";
 import { useWorkspace } from "@/hooks/store/use-workspace";
 import { useProject } from "@/hooks/store/use-project";
 import { useUser } from "@/hooks/store/user";
+import { useMember } from "@/hooks/store/use-member";
 import { IssueService } from "@/services/issue/issue.service";
 import { WorkspaceService } from "@/services/workspace.service";
 import { ProjectMemberService } from "@/services/project/project-member.service";
@@ -185,6 +186,8 @@ const LarkQuickCreatePage = observer(() => {
   const workspaceRoot = useWorkspace();
   const projectStore = useProject();
   const { data: currentUser } = useUser();
+  // Member store -- MemberDropdown resolves names/avatars via this map.
+  const memberRoot = useMember();
   const { workspaces } = workspaceRoot;
   const { joinedProjectIds, getProjectById } = projectStore;
 
@@ -387,10 +390,13 @@ const LarkQuickCreatePage = observer(() => {
           setProjectOptions(arr);
         }
 
-        // Workspace members for the assignee picker.
+        // Workspace members -- use the store action (NOT the raw service)
+        // so memberRoot.memberMap gets hydrated. MemberDropdown reads names
+        // and avatars from that map via getUserDetails(id); without it we
+        // see "no match" for every member.
         if (primaryWorkspace?.slug) {
           try {
-            const rawMembers = await workspaceService.fetchWorkspaceMembers(
+            const rawMembers = await memberRoot.workspace.fetchWorkspaceMembers(
               primaryWorkspace.slug,
             );
             const mapped: MemberOption[] = (rawMembers ?? [])
