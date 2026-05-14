@@ -172,6 +172,12 @@ const LarkQuickCreatePage = observer(() => {
   const [description, setDescription] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Local project list -- bypasses the store's joinedProjectIds getter which
+  // requires currentWorkspace + project.member_role, both unset on this
+  // standalone page. We trust whatever the project-list API returned.
+  const [projectOptions, setProjectOptions] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
 
   // Default to the user's first joined workspace. The shortcut doesn't carry
   // workspace context; multi-workspace switching can come later.
@@ -304,6 +310,14 @@ const LarkQuickCreatePage = observer(() => {
             fetchError = `fetchProjects: ${e instanceof Error ? e.message : String(e)}`;
           }
         }
+        // Hydrate local options regardless of the store's joined-filter.
+        if (Array.isArray(fetchedProjects)) {
+          const arr = (fetchedProjects as Array<Record<string, unknown>>)
+            .filter((p) => !p?.archived_at)
+            .map((p) => ({ id: String(p?.id ?? ""), name: String(p?.name ?? "") }))
+            .filter((p) => p.id && p.name);
+          setProjectOptions(arr);
+        }
         setDiagInfo((d) => ({
           ...d,
           workspacesReturned: Array.isArray(ws) ? ws.length : "undefined",
@@ -312,13 +326,6 @@ const LarkQuickCreatePage = observer(() => {
             ? fetchedProjects.length
             : "non-array",
           joinedProjectIdsAfterFetch: projectStore.joinedProjectIds.length,
-          fetchedProjectsSample: Array.isArray(fetchedProjects)
-            ? (fetchedProjects as Array<Record<string, unknown>>).slice(0, 5).map((p) => ({
-                id: p?.id,
-                name: p?.name,
-                is_member: p?.is_member,
-              }))
-            : null,
           fetchError,
         }));
 
@@ -345,8 +352,12 @@ const LarkQuickCreatePage = observer(() => {
   );
 
   useEffect(() => {
-    if (!projectId && joinedProjectIds.length > 0) setProjectId(joinedProjectIds[0]);
-  }, [joinedProjectIds, projectId]);
+    if (!projectId && projectOptions.length > 0) {
+      // Prefer an "INBOX" project if present, otherwise the first one.
+      const inbox = projectOptions.find((p) => /^(inbox|收纳|未分类)/i.test(p.name));
+      setProjectId((inbox ?? projectOptions[0]).id);
+    }
+  }, [projectOptions, projectId]);
 
   const handleSubmit = async () => {
     if (!workspace || !projectId || !currentUser) {
@@ -425,14 +436,15 @@ const LarkQuickCreatePage = observer(() => {
           value={projectId ?? ""}
           onChange={(e) => setProjectId(e.target.value)}
         >
-          {joinedProjectIds.map((id) => {
-            const p = getProjectById(id);
-            return (
-              <option key={id} value={id}>
-                {p?.name ?? id}
+          {projectOptions.length === 0 ? (
+            <option value="">无可用项目</option>
+          ) : (
+            projectOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
               </option>
-            );
-          })}
+            ))
+          )}
         </select>
       </label>
 
