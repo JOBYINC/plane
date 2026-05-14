@@ -43,6 +43,12 @@ export const coreRoutes: RouteConfigEntry[] = [
     route("workspace-invitations", "./(all)/workspace-invitations/page.tsx"),
   ]),
 
+  // Lark quick-create shortcut handler (opens via applink.feishu.cn for "+"
+  // menu and message shortcuts; signature minted by /auth/lark/jssdk-signature/).
+  layout("./(all)/lark-quick-create/layout.tsx", [
+    route("lark-quick-create", "./(all)/lark-quick-create/page.tsx"),
+  ]),
+
   // ========================================================================
   // ALL APP ROUTES
   // ========================================================================

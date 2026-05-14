@@ -4,7 +4,7 @@
 
 from django.urls import path
 
-from plane.app.views.lark import LarkBotEventEndpoint
+from plane.app.views.lark import LarkBotEventEndpoint, LarkJsSdkSignatureEndpoint
 
 from .views import (
     CSRFTokenEndpoint,
@@ -176,5 +176,12 @@ urlpatterns = [
         "lark/bot/event/",
         LarkBotEventEndpoint.as_view(),
         name="lark-bot-event",
+    ),
+    # H5 JSSDK signature for Lark-embedded pages (quick-create shortcuts etc).
+    # Authenticated; mints a signed h5sdk.config payload for the caller's URL.
+    path(
+        "lark/jssdk-signature/",
+        LarkJsSdkSignatureEndpoint.as_view(),
+        name="lark-jssdk-signature",
     ),
 ]

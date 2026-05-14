@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import Script from "next/script";
 import { Links, Meta, Outlet, Scripts } from "react-router";
 import type { LinksFunction } from "react-router";
@@ -120,9 +120,40 @@ export const meta: Route.MetaFunction = () => [
   { name: "twitter:image:alt", content: "Tick - 任务管理" },
 ];
 
+// Lark's left-nav app label mirrors document.title. React Router's meta()
+// system rewrites document.title on every navigation, racing per-component
+// fixes. We pin the title with a MutationObserver so the label stays "Tick"
+// regardless of which route is rendering. UA check covers Lark desktop
+// client (a webview, not a same-origin iframe); window.top check covers
+// browser-embedded iframe usage.
+function isLarkClient(): boolean {
+  if (typeof window === "undefined") return false;
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
+  if (/(Lark|Feishu)\//i.test(ua)) return true;
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
+function LarkTitleGuard() {
+  useEffect(() => {
+    if (!isLarkClient()) return;
+    if (document.title !== APP_TITLE) document.title = APP_TITLE;
+    const obs = new MutationObserver(() => {
+      if (document.title !== APP_TITLE) document.title = APP_TITLE;
+    });
+    obs.observe(document.head, { childList: true, subtree: true, characterData: true });
+    return () => obs.disconnect();
+  }, []);
+  return null;
+}
+
 export default function Root() {
   return (
     <AppProvider>
+      <LarkTitleGuard />
       <div className={cn("relative flex h-screen w-full flex-col overflow-hidden bg-canvas", "desktop-app-container")}>
         <main className="relative h-full w-full overflow-hidden">
           <Outlet />

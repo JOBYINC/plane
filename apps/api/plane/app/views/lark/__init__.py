@@ -3,3 +3,4 @@
 # See the LICENSE file for details.
 
 from .bot_events import LarkBotEventEndpoint
+from .jssdk_signature import LarkJsSdkSignatureEndpoint
