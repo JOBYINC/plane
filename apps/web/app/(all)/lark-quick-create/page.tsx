@@ -375,6 +375,21 @@ const LarkQuickCreatePage = observer(() => {
     <div className="mx-auto flex max-w-md flex-col gap-3 p-4">
       <h1 className="text-base font-semibold">新建 Tick 任务</h1>
 
+      <details open className="rounded border border-custom-border-200 p-2 text-[10px]">
+        <summary className="cursor-pointer font-medium">诊断 (截给我)</summary>
+        <pre className="mt-1 overflow-auto whitespace-pre-wrap break-all leading-tight">
+          {JSON.stringify(
+            {
+              joinedProjectIdsLength: joinedProjectIds.length,
+              joinedProjectIds: joinedProjectIds.slice(0, 5),
+              ...diagInfo,
+            },
+            null,
+            2,
+          )}
+        </pre>
+      </details>
+
       <label className="flex flex-col gap-1 text-sm">
         <span className="text-custom-text-300">项目</span>
         <select
