@@ -604,10 +604,10 @@ const LarkQuickCreatePage = observer(() => {
         />
       </label>
 
-      {/* Due date with quick buttons (Lark-native style) */}
-      <div className="flex flex-col gap-1 text-xs">
-        <span className="text-custom-text-300">{t("lark_quick_create.field_due_date")}</span>
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Due date — label on left, quick buttons + calendar picker on right */}
+      <div className="flex items-start gap-3 text-xs">
+        <span className="w-16 shrink-0 pt-1 text-custom-text-300">{t("lark_quick_create.field_due_date")}</span>
+        <div className="flex flex-1 flex-wrap items-center gap-2">
           {[
             { label: t("lark_quick_create.due_today"), value: ymd(0) },
             { label: t("lark_quick_create.due_tomorrow"), value: ymd(1) },
@@ -618,10 +618,10 @@ const LarkQuickCreatePage = observer(() => {
               key={opt.label}
               type="button"
               onClick={() => setTargetDate(opt.value === targetDate ? "" : opt.value)}
-              className={`rounded border px-2 py-1 text-xs ${
+              className={`rounded border-2 bg-white px-2 py-1 text-xs ${
                 targetDate === opt.value
-                  ? "border-custom-primary-100 bg-custom-primary-100/10 text-custom-primary-100"
-                  : "border-custom-border-200 bg-custom-background-100"
+                  ? "border-custom-primary-100 text-custom-primary-100"
+                  : "border-custom-border-200"
               }`}
             >
               {opt.label}
@@ -632,6 +632,7 @@ const LarkQuickCreatePage = observer(() => {
             onChange={(d) => setTargetDate(d ? ymdFromDate(d) : "")}
             buttonVariant="border-with-text"
             placeholder={t("lark_quick_create.field_due_date")}
+            buttonClassName="border-2 bg-white"
           />
           {targetDate ? (
             <button
@@ -653,6 +654,7 @@ const LarkQuickCreatePage = observer(() => {
           value={priority as TIssuePriorities}
           onChange={(p) => setPriority(p as typeof priority)}
           buttonVariant="border-with-text"
+          buttonClassName="border-2 bg-white"
         />
       </div>
 
@@ -666,6 +668,7 @@ const LarkQuickCreatePage = observer(() => {
             buttonVariant="border-with-text"
             placeholder={t("lark_quick_create.field_assignee")}
             multiple={false}
+            buttonClassName="border-2 bg-white"
           />
         ) : null}
       </div>
