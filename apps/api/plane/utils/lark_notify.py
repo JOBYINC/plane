@@ -224,6 +224,55 @@ def card_issue_state_changed(issue, old_state_name, new_state_name, changer_name
     }
 
 
+def card_issue_due_reminder(issue, stage, days):
+    """Card sent by the hourly Celery beat job for approaching deadlines.
+
+    `stage` is one of:
+      - "soon":    24h-48h before target_date -> orange, "明天到期"
+      - "today":   target_date == today      -> red,    "今日到期"
+      - "overdue": target_date in the past   -> red,    "已逾期 N 天"
+
+    Reuses the standard action row (✅ 完成 + 查看任务) so the recipient can
+    one-click complete from the reminder DM without opening Plane.
+    """
+    short = _short_id(issue)
+    due = issue.target_date.strftime("%Y-%m-%d") if issue.target_date else "—"
+    state_name = getattr(getattr(issue, "state", None), "name", None) or "—"
+
+    if stage == "overdue":
+        header_title = f"❗ 任务已逾期 {abs(days)} 天"
+        template = "red"
+        timing = f"原定截止: **{due}** (已过期)"
+    elif stage == "today":
+        header_title = "🔥 任务今日到期"
+        template = "red"
+        timing = f"截止: **{due}** (今天)"
+    else:  # soon
+        header_title = "⏰ 任务明天到期"
+        template = "orange"
+        timing = f"截止: **{due}** (明天)"
+
+    return {
+        "config": {"wide_screen_mode": True},
+        "header": {
+            "title": {"tag": "plain_text", "content": header_title},
+            "template": template,
+        },
+        "elements": [
+            {
+                "tag": "div",
+                "fields": [
+                    {"is_short": True, "text": {"tag": "lark_md", "content": f"**任务**\n{short}"}},
+                    {"is_short": True, "text": {"tag": "lark_md", "content": f"**状态**\n{state_name}"}},
+                ],
+            },
+            {"tag": "div", "text": {"tag": "lark_md", "content": f"**标题**\n{issue.name}"}},
+            {"tag": "div", "text": {"tag": "lark_md", "content": timing}},
+            _issue_action_row(issue),
+        ],
+    }
+
+
 def card_issue_completed(issue, completer_name, completed_state_name):
     """Replacement card returned after the user clicks ✅ 完成.
 

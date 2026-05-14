@@ -18,6 +18,10 @@ from plane.bgtasks.lark_project_autojoin import (
 # startup. Without this, only the lazy import inside issue_activities_task
 # would load the module — too late for the worker's autodiscovery sweep.
 from plane.bgtasks import lark_notify_task  # noqa: F401
+
+# Same eager-import trick for the periodic due-date reminder task; otherwise
+# Celery beat finds no handler when its schedule fires remind_due_dates_task.
+from plane.bgtasks import lark_due_reminder_task  # noqa: F401
 from plane.db.models import Project
 
 logger = logging.getLogger("plane.bgtasks.signals")

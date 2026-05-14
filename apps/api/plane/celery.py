@@ -84,6 +84,13 @@ app.conf.beat_schedule = {
         "task": "plane.bgtasks.lark_sync_task.sync_lark_directory_task",
         "schedule": crontab(minute=0),  # Top of every hour, UTC
     },
+    # Hourly DM to assignees of issues approaching / past target_date.
+    # Self-dedupes via Redis (one DM per assignee/stage/day), so the hourly
+    # cadence is safe. No-op unless LARK_NOTIFICATIONS_ENABLED is truthy.
+    "lark-due-date-reminders": {
+        "task": "plane.bgtasks.lark_due_reminder_task.remind_due_dates_task",
+        "schedule": crontab(minute=10),  # Top of every hour + 10, offset from sync to spread load
+    },
 }
 
 
