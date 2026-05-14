@@ -224,6 +224,45 @@ def card_issue_state_changed(issue, old_state_name, new_state_name, changer_name
     }
 
 
+def card_issue_completed(issue, completer_name, completed_state_name):
+    """Replacement card returned after the user clicks ✅ 完成.
+
+    Lark replaces the original card with this one when we return it under
+    `card` in the action callback response, so the 完成 button visually
+    disappears and can't be clicked twice. Green header signals success.
+    """
+    short = _short_id(issue)
+    url = issue_url(issue.workspace.slug, issue.project_id, issue.id)
+    return {
+        "config": {"wide_screen_mode": True},
+        "header": {
+            "title": {"tag": "plain_text", "content": "✅ 任务已完成"},
+            "template": "green",
+        },
+        "elements": [
+            {"tag": "div", "text": {"tag": "lark_md", "content": f"**{short}**: {issue.name}"}},
+            {
+                "tag": "div",
+                "text": {
+                    "tag": "lark_md",
+                    "content": f"已由 **{completer_name or '未知'}** 标记为 **{completed_state_name or 'Done'}**",
+                },
+            },
+            {
+                "tag": "action",
+                "actions": [
+                    {
+                        "tag": "button",
+                        "text": {"tag": "plain_text", "content": "查看任务 →"},
+                        "type": "default",
+                        "url": url,
+                    }
+                ],
+            },
+        ],
+    }
+
+
 def card_issue_comment(issue, comment_excerpt, commenter_name):
     short = _short_id(issue)
     return {

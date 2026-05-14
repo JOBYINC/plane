@@ -120,29 +120,29 @@ class Command(BaseCommand):
 
             Action payload shape -- card builder packs short keys:
               {"a": "done", "i": "<issue_uuid>"}
-            Operator info comes via data.event.operator.open_id; we look up
-            the Plane User via the Account.provider_account_id index (Lark's
-            union_id matches the provider_account_id we stored at SSO time).
 
             Response shape per Lark docs accepts {"toast": {...}, "card": {...}}.
-            For v1 we just toast success/failure; updating the card with the
-            new state is a follow-up.
+            On success / already-done we ALSO return a replacement card so the
+            原 完成 button visually disappears and can't be clicked twice;
+            only the error paths leave the original card intact (user might
+            want to retry).
             """
             from plane.db.models import Account, Issue, State
+            from plane.utils.lark_notify import card_issue_completed
 
             try:
                 action = getattr(data.event, "action", None)
                 value = getattr(action, "value", None) if action else None
                 if value is None:
                     return {}
-                # SDK gives us a dict-like; tolerate both attribute and key access.
                 act = value.get("a") if hasattr(value, "get") else getattr(value, "a", None)
                 issue_id = value.get("i") if hasattr(value, "get") else getattr(value, "i", None)
 
                 if act != "done" or not issue_id:
                     return {}
 
-                # Identify the clicker so audit (updated_by) reflects them.
+                # Identify the clicker so audit (updated_by) and the "已由 X
+                # 完成" line on the replacement card reflect them.
                 operator = getattr(data.event, "operator", None)
                 actor_user = None
                 if operator is not None:
@@ -155,15 +155,13 @@ class Command(BaseCommand):
                             actor_user = acct.user
 
                 issue = (
-                    Issue.objects.select_related("project", "state")
+                    Issue.objects.select_related("workspace", "project", "state")
                     .filter(id=issue_id)
                     .first()
                 )
                 if issue is None:
                     return {"toast": {"type": "error", "content": "任务不存在"}}
 
-                # Pick the project's first 'completed' group state. Plane's
-                # State.group enum: backlog/unstarted/started/completed/cancelled.
                 done_state = (
                     State.objects.filter(project_id=issue.project_id, group="completed")
                     .order_by("sequence")
@@ -172,15 +170,40 @@ class Command(BaseCommand):
                 if done_state is None:
                     return {"toast": {"type": "error", "content": "项目里没有完成态"}}
 
+                actor_name = "未知"
+                if actor_user is not None:
+                    actor_name = (
+                        actor_user.display_name
+                        or getattr(actor_user, "first_name", None)
+                        or "未知"
+                    )
+
                 if issue.state_id == done_state.id:
-                    return {"toast": {"type": "info", "content": "已经是完成状态"}}
+                    return {
+                        "toast": {"type": "info", "content": "已经是完成状态"},
+                        "card": {
+                            "type": "raw",
+                            "data": card_issue_completed(issue, actor_name, issue.state.name),
+                        },
+                    }
 
                 issue.state_id = done_state.id
                 if actor_user is not None:
                     issue.updated_by_id = actor_user.id
                 issue.save(update_fields=["state_id", "updated_by_id", "updated_at"])
+                issue.state = done_state
 
-                return {"toast": {"type": "success", "content": f"✅ 已标记为「{done_state.name}」"}}
+                # Per docs the `card` field of a card-callback response is
+                # wrapped: {"type":"raw","data":<full card JSON>}. Returning
+                # the raw dict alone (what we tried first) triggered Lark's
+                # "目标回调服务当前未在线" error.
+                return {
+                    "toast": {"type": "success", "content": f"✅ 已标记为「{done_state.name}」"},
+                    "card": {
+                        "type": "raw",
+                        "data": card_issue_completed(issue, actor_name, done_state.name),
+                    },
+                }
             except Exception:
                 logger.exception("card.action.trigger handler failed")
                 return {"toast": {"type": "error", "content": "操作失败,请稍后重试"}}
