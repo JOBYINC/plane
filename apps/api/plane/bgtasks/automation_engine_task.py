@@ -151,6 +151,80 @@ def dispatch_automation_for_activities(activities):
                 "dispatch_automation_for_activities: group failed", exc_info=exc
             )
 
+    # Second pass: target_date changes should also fire any active
+    # `due_soon` rules in the project scoped to the changed issue. This
+    # bridges the gap between event-driven triggers (which only fire on
+    # field-matching activity rows) and the scheduled `due_soon` trigger
+    # (which would otherwise wait up to 60 minutes for the next beat).
+    _kick_due_soon_for_target_date_changes(activities)
+
+
+def _kick_due_soon_for_target_date_changes(activities):
+    """When an issue's target_date is set/changed, immediately evaluate
+    every active `due_soon` rule in that project against that one issue,
+    if the new target_date falls inside the rule's window.
+
+    Best-effort: any failure here logs and continues so it never blocks
+    the originating issue write.
+    """
+    from datetime import date as _date, timedelta as _td
+
+    from plane.db.models import AutomationRule, Issue, StateGroup
+
+    by_project = {}
+    for a in activities:
+        if (getattr(a, "field", "") or "").strip() != "target_date":
+            continue
+        if a.project_id and a.issue_id:
+            by_project.setdefault(a.project_id, set()).add(a.issue_id)
+    if not by_project:
+        return
+
+    today = _date.today()
+    for project_id, issue_ids in by_project.items():
+        try:
+            due_soon_rules = list(
+                AutomationRule.objects.filter(
+                    project_id=project_id,
+                    trigger_type="due_soon",
+                    is_active=True,
+                    deleted_at__isnull=True,
+                )
+            )
+            if not due_soon_rules:
+                continue
+            issues = (
+                Issue.issue_objects.select_related("state", "workspace", "project")
+                .prefetch_related("assignees", "labels")
+                .filter(id__in=issue_ids)
+                .exclude(
+                    state__group__in=[
+                        StateGroup.COMPLETED.value,
+                        StateGroup.CANCELLED.value,
+                    ]
+                )
+            )
+            for issue in issues:
+                if issue.target_date is None or issue.target_date < today:
+                    continue
+                for rule in due_soon_rules:
+                    days_before = int((rule.trigger_config or {}).get("days_before", 7))
+                    if today <= issue.target_date <= today + _td(days=days_before):
+                        evaluate_and_execute_rule_task.delay(
+                            str(rule.id),
+                            str(issue.id),
+                            {
+                                "trigger_type": "due_soon",
+                                "via": "target_date_changed",
+                                "days_before": days_before,
+                            },
+                            True,  # bypass_dedup so re-saving target_date re-fires
+                        )
+        except Exception as exc:
+            logger.exception(
+                "dispatch_automation_for_activities: due_soon kick failed", exc_info=exc
+            )
+
 
 # ---------------------------------------------------------------------------
 # Condition evaluator
@@ -364,40 +438,58 @@ def _action_notify_lark(rule, issue, config):
     )
     from plane.utils.lark_i18n import user_lang
 
+    from plane.db.models import User
+
+    def _resolve_creator():
+        if issue.created_by_id:
+            u = User.objects.filter(id=issue.created_by_id).first()
+            return [u] if u else []
+        return []
+
     to_spec = (config.get("to") or "assignees").strip()
     recipients = []
     if to_spec == "assignees":
         recipients = list(issue.assignees.all())
+        # Fallback: if the rule says "DM assignees" but the issue is
+        # unassigned, surface to the creator so nothing falls silently.
+        if not recipients:
+            recipients = _resolve_creator()
     elif to_spec == "creator":
-        if issue.created_by_id:
-            from plane.db.models import User
-
-            user = User.objects.filter(id=issue.created_by_id).first()
-            if user:
-                recipients = [user]
+        recipients = _resolve_creator()
     elif to_spec.startswith("user_id:"):
-        from plane.db.models import User
-
         uid = to_spec.split(":", 1)[1]
-        user = User.objects.filter(id=uid).first()
-        if user:
-            recipients = [user]
+        u = User.objects.filter(id=uid).first()
+        if u:
+            recipients = [u]
 
     if not recipients:
         return {"ok": False, "reason": "no_recipients"}
 
+    # The card builders treat the second arg as a name string used in the
+    # DM headline ("X assigned you to ..."). For automation-fired DMs we
+    # pass the rule name as the "actor" so the recipient knows it came
+    # from a rule, not a human.
+    actor_name = f"Automation: {rule.name}"
     delivered = 0
+    delivery_errors = []
     for user in recipients:
         union_id = get_union_id(user)
         if not union_id:
+            delivery_errors.append({"user_id": str(user.id), "reason": "no_union_id"})
             continue
         try:
-            card = card_issue_assigned(issue, actor=None, lang=user_lang(user))
+            card = card_issue_assigned(issue, actor_name, lang=user_lang(user))
             send_interactive_card(union_id, card)
             delivered += 1
         except Exception as exc:
             logger.exception("notify_lark: send failed", exc_info=exc)
-    return {"ok": True, "delivered": delivered}
+            delivery_errors.append({"user_id": str(user.id), "reason": str(exc)[:200]})
+    return {
+        "ok": delivered > 0,
+        "delivered": delivered,
+        "recipients": len(recipients),
+        "errors": delivery_errors or None,
+    }
 
 
 # Registry of supported actions -- look up by `action["type"]`.
@@ -523,11 +615,16 @@ def execute_rule_on_issue(rule, issue, ctx=None, bypass_dedup=False):
 
 
 @shared_task
-def evaluate_and_execute_rule_task(rule_id, issue_id, ctx=None):
+def evaluate_and_execute_rule_task(rule_id, issue_id, ctx=None, bypass_dedup=False):
     """Celery wrapper around `execute_rule_on_issue`.
 
     Loads the rule + issue, skipping silently if either was deleted /
     deactivated between dispatch and task execution.
+
+    `bypass_dedup` is passed through to `execute_rule_on_issue` and is
+    used by the target_date-changed kick in
+    `_kick_due_soon_for_target_date_changes` so a rapid sequence of
+    target_date edits each re-fires the rule.
     """
     from plane.db.models import AutomationRule, Issue
 
@@ -545,4 +642,4 @@ def evaluate_and_execute_rule_task(rule_id, issue_id, ctx=None):
     if not issue:
         return
 
-    execute_rule_on_issue(rule, issue, ctx or {})
+    execute_rule_on_issue(rule, issue, ctx or {}, bypass_dedup=bypass_dedup)
