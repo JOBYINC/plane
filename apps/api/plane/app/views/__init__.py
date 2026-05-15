@@ -90,6 +90,7 @@ from .workspace.sticky import WorkspaceStickyViewSet
 
 from .state.base import StateViewSet, IntakeStateEndpoint
 from .automation import AutomationRuleViewSet, AutomationRuleRunListView
+from .section import ProjectSectionViewSet
 from .view.base import (
     WorkspaceViewViewSet,
     WorkspaceViewIssuesViewSet,
