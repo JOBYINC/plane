@@ -160,9 +160,11 @@ def dispatch_automation_for_activities(activities):
 
 
 def _kick_due_soon_for_target_date_changes(activities):
-    """When an issue's target_date is set/changed, immediately evaluate
-    every active `due_soon` rule in that project against that one issue,
-    if the new target_date falls inside the rule's window.
+    """When an issue's target_date is set/changed (including via the
+    initial create, which only emits a verb='created' row rather than a
+    field-specific one), immediately evaluate every active `due_soon`
+    rule in that project against that one issue, if the new target_date
+    falls inside the rule's window.
 
     Best-effort: any failure here logs and continues so it never blocks
     the originating issue write.
@@ -173,9 +175,15 @@ def _kick_due_soon_for_target_date_changes(activities):
 
     by_project = {}
     for a in activities:
-        if (getattr(a, "field", "") or "").strip() != "target_date":
+        field = (getattr(a, "field", "") or "").strip()
+        verb = (getattr(a, "verb", "") or "").strip()
+        if not a.project_id or not a.issue_id:
             continue
-        if a.project_id and a.issue_id:
+        # Two signals worth re-evaluating due_soon against:
+        #   1. field=target_date update (the obvious case)
+        #   2. verb=created (issue may have been created with a date
+        #      already set; we check on the Issue row below)
+        if field == "target_date" or verb == "created":
             by_project.setdefault(a.project_id, set()).add(a.issue_id)
     if not by_project:
         return
