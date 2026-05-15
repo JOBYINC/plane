@@ -178,6 +178,17 @@ apps/api/plane/db/migrations/0123_workitemfield_workitemfieldoption_workitemfiel
 
 No backfill — empty by default; users opt in by creating fields per project.
 
+> **Verified 2026-05-15 on real Postgres.** Hand-written `0123` was
+> previously only `py_compile`-checked (no Django env). It has now been
+> applied as part of the full `0001→0123` chain against an ephemeral
+> Postgres (`uv`-provisioned Py 3.12 venv + the `pgserver` pip-bundled
+> binary — no Docker/system PG). `MIGRATE_OK`; `0123` recorded in
+> `django_migrations`; all three tables created; **both halves of the
+> dual-pattern uniqueness directly confirmed** — the `unique_together`
+> (incl. `deleted_at`) entries in `pg_constraint` _and_ the partial
+> `…_when_deleted_at_null` unique indexes in `pg_indexes`, sitting
+> alongside upstream's identical `module_/state_…` ones.
+
 ---
 
 ## 5. REST API
@@ -384,12 +395,23 @@ field_values__field_id=<uuid>&field_values__value_text=<value>
 
 Backend serializer translates these into ORM `.filter(field_values__...)`.
 
-**Implemented (2026-05-15, isolated):**
+**Implemented + UNIT-VERIFIED (2026-05-15, isolated):**
 `plane/app/views/work_item_field/filters.py :: build_custom_field_filter
-(query_params) -> Q`. Unit-testable, `py_compile`-clean. **Not wired
-into the issue-list queryset** — that one-line edit is gated (a wrong
-predicate silently drops/dupes issues; no runtime here). Wire as:
-`qs = qs.filter(build_custom_field_filter(request.query_params))`.
+(query_params) -> Q`. Now backed by **20 passing tests**
+(`plane/tests/unit/work_item_field/test_filters.py`, commit
+`001c75a3b1`) — the pure Q-construction (operator suffixes, `__gt`/`__gte`
+disambiguation, `__contains`→`__icontains`, multi-predicate AND, no-op
+on absent field_id) is verified, not just `py_compile`-clean.
+
+**Still not wired into the issue-list queryset** —
+`qs = qs.filter(build_custom_field_filter(request.query_params))` is a
+separate edit, but the original gating fear ("wrong predicate silently
+drops/dupes issues, no runtime") is now substantially retired: the
+predicate is a _single combined Q_ (unit-proven → one JOIN), and the
+`(issue, field, deleted_at)` partial unique index (confirmed in §4's
+Postgres run) bounds that JOIN to ≤1 `field_values` row/issue → no
+duplicate Issue rows, no `.distinct()` needed. Residual = a live
+end-to-end run against production-shaped data (staging-appropriate).
 Frontend filter chip in `issue-filter.helper.ts` = a separate gated UI
 edit (shared filter zone).
 
@@ -409,10 +431,12 @@ ORDER BY value_date   (for date)
 A query param like `?order_by=custom_field__<field_id>` is parsed server-side
 into the right `value_*` column on `WorkItemFieldValue`.
 
-**Implemented (2026-05-15, isolated):**
+**Implemented + UNIT-VERIFIED (2026-05-15, isolated):**
 `plane/app/views/work_item_field/filters.py :: parse_custom_field_order_by
-(order_by_param)`, `py_compile`-clean, handles `-` desc prefix and maps
-field*type → `value**`. **Server parser is ready now**; the UI sort-menu
+(order_by_param)` — covered by the same commit `001c75a3b1`: all 6
+field types → correct `value_*` column, `-` desc prefix, non-custom /
+unknown-field params → `None` (DB hit mocked). Verified, not just
+`py_compile`-clean. **Server parser is ready now**; the UI sort-menu
 side stays **BLOCKED** until PR2's 24-option menu lands in
 `feature/lark-oauth-provider` (external dep). Issue-list wiring
 (`qs.order_by(*parse_custom_field_order_by(...))`) is gated like §8.
@@ -423,7 +447,9 @@ side stays **BLOCKED** until PR2's 24-option menu lands in
 
 Each numbered step = ~one commit.
 
-1. **Models + migration** (backend only, no API) — done
+1. **Models + migration** (backend only, no API) — done + **migration
+   applied & dual-pattern uniqueness verified on real Postgres
+   2026-05-15** (see §4 verification note)
 2. **Serializers + viewsets for schema CRUD** (no values yet) — done
 3. **MobX data layer** (types + service + schema store + RootStore wiring +
    `useWorkItemField` hook). Resequenced ahead of the UI (2026-05-15): the
@@ -443,10 +469,11 @@ Each numbered step = ~one commit.
 8. **Peek panel** — done + **WIRED 2026-05-15**: `WorkItemFieldSection`
    mounted in `peek-overview/properties.tsx` after the additional
    sidebar properties (`isReadOnly={disabled}`). Type-clean.
-9. **Filter** — backend `build_custom_field_filter` done (isolated,
-   py_compile). Issue-list wiring + frontend chip = gated.
-10. **Sort** — server parser `parse_custom_field_order_by` done
-    (isolated, py_compile). UI/menu BLOCKED by external PR2 dep.
+9. **Filter** — backend `build_custom_field_filter` done + **20 unit
+   tests pass 2026-05-15** (`001c75a3b1`). Issue-list wiring ≈ retired
+   risk (see §8); frontend chip still gated (shared filter zone).
+10. **Sort** — server parser `parse_custom_field_order_by` done +
+    **unit-verified** (same commit). UI/menu BLOCKED by external PR2 dep.
 
 Steps 1-6 are pure backend / store layer with zero overlap with PR2/PR3.
 Step 7 onward touches files also in PR2/PR3 zone — coordinate via rebase.
