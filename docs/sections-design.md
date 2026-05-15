@@ -311,6 +311,20 @@ Verification status (run 2026-05-15 — local `uv` venv for API, built
 --dry-run`: proposes **nothing** for `ProjectSection` / `Issue.section`
   → `0124` exactly matches the models. Migration loader confirms `0124`
   in graph with `dependencies = [('db','0122_automationrule…')]` (§4).
+  ORM smoke test on real Postgres: 10/10 (SET_NULL, unique_together,
+  workspace auto-set, §2 state-independence). **HTTP integration test
+  through the real DRF stack + Postgres (authed Client): 18/18** —
+  POST/GET/PATCH(rename,reorder)/DELETE sections, PUT issues/<id>/section
+  (assign/clear/invalid), duplicate-name 400, soft-archive keeps
+  section_id, archived hidden, §2 state-unchanged, issue-list payload
+  carries section_id. This test caught a real gap the unit/type layers
+  could not: the cursor-paginated issue list builds its payload from
+  `plane/utils/grouper.py` `required_fields` (NOT `IssueSerializer`), so
+  `section_id` was missing from the list response → `group_by=section`
+  would have dumped every issue into "(No section)". Fixed: added
+  `section_id` to `grouper.py required_fields` + the three
+  `base.py` `.values()`/required-field lists + a `section_id` branch in
+  `issue_group_values` for server-side grouping. Re-verified 18/18.
 - **Frontend — VERIFIED.** Full `pnpm check:types` (after building
   `@plane/*`): **zero** section-related type errors. The tsc cascade
   surfaced exhaustive maps the step-5 self-review missed (tsc wasn't
