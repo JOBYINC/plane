@@ -253,6 +253,16 @@ class ProjectListCreateAPIEndpoint(BaseAPIView):
                     ]
                 )
 
+                # Pre-install the standard automation rule set. Mirrors
+                # the equivalent block in plane/app/views/project/base.py.
+                from plane.utils.automation_templates import (
+                    create_default_automation_rules_for_project,
+                )
+
+                create_default_automation_rules_for_project(
+                    serializer.instance, created_by=request.user
+                )
+
                 project = self.get_queryset().filter(pk=serializer.instance.id).first()
 
                 # Model activity
