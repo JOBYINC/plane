@@ -10,6 +10,8 @@ import { useParams } from "next/navigation";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import { draggable, dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { Archive, MoreHorizontal, Pencil } from "lucide-react";
+// i18n
+import { useTranslation } from "@plane/i18n";
 // ui
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { TIssueGroupByOptions } from "@plane/types";
@@ -44,6 +46,7 @@ const SECTION_SORT_GAP = 10000;
 export const SectionGroupActions = observer(function SectionGroupActions(props: ISectionGroupActions) {
   const { groupBy, groupId, title } = props;
   const { workspaceSlug, projectId } = useParams();
+  const { t } = useTranslation();
   const { renameSection, archiveSection, reorderSection, getSections } = useProjectSection();
   // states
   const [isEditing, setIsEditing] = useState(false);
@@ -91,12 +94,12 @@ export const SectionGroupActions = observer(function SectionGroupActions(props: 
           const newSortOrder = prev ? (prev.sort_order + target.sort_order) / 2 : target.sort_order - SECTION_SORT_GAP;
 
           reorderSection(ws, pid, sourceId, newSortOrder).catch(() => {
-            setToast({ type: TOAST_TYPE.ERROR, title: "Error!", message: "Could not reorder the section." });
+            setToast({ type: TOAST_TYPE.ERROR, title: t("common.error"), message: t("common.section_update_failed") });
           });
         },
       })
     );
-  }, [groupId, isRealSection, ws, pid, getSections, reorderSection]);
+  }, [groupId, isRealSection, ws, pid, getSections, reorderSection, t]);
 
   // Only real sections get controls — not the "(No section)" bucket.
   if (!isRealSection || !ws || !pid) return null;
@@ -112,16 +115,16 @@ export const SectionGroupActions = observer(function SectionGroupActions(props: 
       await renameSection(ws, pid, groupId, next);
     } catch {
       setDraftName(title);
-      setToast({ type: TOAST_TYPE.ERROR, title: "Error!", message: "Could not rename the section." });
+      setToast({ type: TOAST_TYPE.ERROR, title: t("common.error"), message: t("common.section_update_failed") });
     }
   };
 
   const handleArchive = async () => {
     try {
       await archiveSection(ws, pid, groupId);
-      setToast({ type: TOAST_TYPE.SUCCESS, title: "Archived", message: `Section "${title}" archived.` });
+      setToast({ type: TOAST_TYPE.SUCCESS, title: t("common.success"), message: t("common.section_archived") });
     } catch {
-      setToast({ type: TOAST_TYPE.ERROR, title: "Error!", message: "Could not archive the section." });
+      setToast({ type: TOAST_TYPE.ERROR, title: t("common.error"), message: t("common.section_update_failed") });
     }
   };
 
@@ -162,13 +165,13 @@ export const SectionGroupActions = observer(function SectionGroupActions(props: 
         >
           <span className="flex items-center justify-start gap-2">
             <Pencil className="h-3 w-3" />
-            Rename
+            {t("common.rename")}
           </span>
         </CustomMenu.MenuItem>
         <CustomMenu.MenuItem onClick={handleArchive}>
           <span className="flex items-center justify-start gap-2">
             <Archive className="h-3 w-3" />
-            Archive
+            {t("common.archive")}
           </span>
         </CustomMenu.MenuItem>
       </CustomMenu>

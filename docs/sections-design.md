@@ -264,6 +264,54 @@ on `lark-stable`).
   whatever Views already do for group_by.
 - Reorder: single PATCH per move (start here) vs bulk endpoint.
 
+## 11. Resolution log (steps 1–8 implemented 2026-05-15)
+
+Steps 1–8 of §7 are implemented and committed on `feature/asana-sections`
+(one commit per step). Resolutions to §10 / notes for follow-up:
+
+- **Archived section** — keeps issues' `section_id` (reversible). DELETE
+  soft-archives (`is_archived=True`); issues fall back to "(No section)"
+  in the picker/grouping but retain their id. (§5 implemented as designed.)
+- **"(No section)" bucket** — RESOLVED: always emitted by
+  `getSectionColumns`, but the existing list `validateEmptyIssueGroups` /
+  `showEmptyGroup` machinery already hides any empty group (including this
+  one) unless "show empty groups" is on. No extra code; behaviour matches
+  the rest of the list. Label kept hard-coded `"(No section)"` to stay
+  consistent with sibling synthetic columns (`getCycleColumns` /
+  `getModuleColumns` hard-code `"None"`; those are non-React store
+  functions with no `useTranslation`).
+- **`is_collapsed_default`** — DEFERRED (data layer complete, UI honoring
+  is a scoped follow-up). The field is fully plumbed end-to-end
+  (model → 0124 migration → serializer → store → `TProjectSection`), but
+  list-view collapse state derives from the persisted, **cross-view
+  (kanban+list), cross-group-type** `kanbanFilters.group_by` set in
+  `base-list-root`. Seeding section defaults into that shared persisted
+  state cleanly (default applies only until the user toggles; "never set"
+  vs "user expanded" needs extra state) is regression-prone and out of
+  proportion to a polish step. Follow-up: honor `is_collapsed_default` on
+  first render without polluting persisted user filter state.
+- **group-by selector i18n** — reuses the pre-existing `common.sections`
+  key; new component strings use `common.{rename,add_section,
+section_name,section_archived,section_update_failed}` (en + zh-CN added).
+- **Drag affordance / drop precision** (step 7) — v1 confines the SECTION
+  drag to the header actions area and always inserts before the target
+  (no above/below hitbox split); no reorder relative to synthetic
+  "(No section)". Functional but needs **manual browser QA** (dnd is not
+  verifiable headless; CI image build deferred per §9).
+- **Not yet done (out of original §7 scope, future)**: `group_by=section`
+  as new-project default vs opt-in (§10); Saved-View section grouping
+  persistence (§10 — follow Views' existing group_by behaviour); bulk
+  reorder endpoint (§10 — single PATCH per move shipped).
+
+Verification status: backend migration/`makemigrations --check` and full
+`tsc` were NOT run here (no local Django/venv; Plane dev is Docker).
+Per-file `oxlint --deny-warnings` is clean for all new code; pre-existing
+upstream lint/a11y/enum debt in forced-touch files is handled with scoped
+`oxlint-disable` headers (user-approved). Run Django `makemigrations
+db --check` + `migrate`, `tsc`, and manual browser QA of group-by=section
+(grouping, quick-add, issue drag between sections, section CRUD, section
+reorder drag) in the Docker dev env before merge.
+
 Related: `docs/asana-list-phase2-design.md` §4 (S1/S2/S3),
 [[custom-fields-branch]] (parallel branch), [[automation-engine-loop-guard]]
 (why State must stay under S1).

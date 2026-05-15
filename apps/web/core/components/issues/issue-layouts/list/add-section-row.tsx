@@ -8,6 +8,8 @@ import { useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 import { Plus } from "lucide-react";
+// i18n
+import { useTranslation } from "@plane/i18n";
 // ui
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { TIssueGroupByOptions } from "@plane/types";
@@ -29,6 +31,7 @@ interface IAddSectionRow {
 export const AddSectionRow = observer(function AddSectionRow(props: IAddSectionRow) {
   const { groupBy } = props;
   const { workspaceSlug, projectId } = useParams();
+  const { t } = useTranslation();
   const { createSection } = useProjectSection();
   // states
   const [isAdding, setIsAdding] = useState(false);
@@ -62,7 +65,7 @@ export const AddSectionRow = observer(function AddSectionRow(props: IAddSectionR
       await createSection(ws, pid, { name: trimmed });
       reset();
     } catch {
-      setToast({ type: TOAST_TYPE.ERROR, title: "Error!", message: "Could not create the section." });
+      setToast({ type: TOAST_TYPE.ERROR, title: t("common.error"), message: t("common.section_update_failed") });
     } finally {
       setIsSubmitting(false);
     }
@@ -75,7 +78,7 @@ export const AddSectionRow = observer(function AddSectionRow(props: IAddSectionR
           ref={inputRef}
           disabled={isSubmitting}
           className="text-sm w-64 rounded-xs border border-strong bg-surface-1 px-2 py-1 text-primary outline-none"
-          placeholder="Section name"
+          placeholder={t("common.section_name")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={submit}
@@ -95,7 +98,7 @@ export const AddSectionRow = observer(function AddSectionRow(props: IAddSectionR
       className="text-sm flex items-center gap-1.5 px-3 py-2 font-medium text-tertiary transition-colors hover:text-primary"
     >
       <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-      Add section
+      {t("common.add_section")}
     </button>
   );
 });
