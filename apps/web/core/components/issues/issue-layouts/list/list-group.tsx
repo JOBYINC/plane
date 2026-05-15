@@ -144,6 +144,11 @@ export const ListGroup = observer(function ListGroup(props: Props) {
   );
 
   const validateEmptyIssueGroups = (issueCount: number = 0) => {
+    // Sections are deliberate, user-created containers (Asana-style):
+    // an empty one must stay visible regardless of the "show empty
+    // groups" filter, otherwise "Add section" appears to do nothing
+    // until an issue lands in it. docs/sections-design.md §6.2.
+    if (group_by === "section") return true;
     if (!showEmptyGroup && issueCount <= 0) return false;
     return true;
   };
