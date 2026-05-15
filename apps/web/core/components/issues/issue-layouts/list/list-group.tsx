@@ -169,6 +169,10 @@ export const ListGroup = observer(function ListGroup(props: Props) {
         preloadedData = { ...preloadedData, module_ids: [value] };
       } else if (groupByKey === "created_by") {
         preloadedData = { ...preloadedData };
+      } else if (groupByKey === "section" && value != "None") {
+        // Per-section quick-add prePopulates section_id (independent of
+        // State — §2). "None" => leave unset = "(No section)".
+        preloadedData = { ...preloadedData, section_id: value };
       } else {
         preloadedData = { ...preloadedData, [groupByKey]: value };
       }

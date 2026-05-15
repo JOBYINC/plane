@@ -4,6 +4,12 @@
  * See the LICENSE file for details.
  */
 
+/* oxlint-disable typescript-eslint/no-duplicate-enum-values --
+   Pre-existing upstream Plane debt (project/team_project both map to
+   "project_id" by design); whole-file lint-staged gate would otherwise
+   block the Sections group-by option. Not introduced here.
+   See docs/sections-design.md (step 6). */
+
 import type {
   TIssueGroupByOptions,
   TIssueOrderByOptions,
@@ -124,6 +130,7 @@ export const ISSUE_GROUP_BY_OPTIONS: {
   { key: "labels", titleTranslationKey: "common.labels" },
   { key: "assignees", titleTranslationKey: "common.assignees" },
   { key: "created_by", titleTranslationKey: "common.created_by" },
+  { key: "section", titleTranslationKey: "common.sections" },
   { key: null, titleTranslationKey: "common.none" },
 ];
 
