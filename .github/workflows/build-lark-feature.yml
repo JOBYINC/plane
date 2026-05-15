@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - feature/lark-oauth-provider
+      - feature/custom-fields
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -17,7 +18,6 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_OWNER: jobyinc
-  IMAGE_TAG: lark-stable
 
 jobs:
   build:
@@ -50,6 +50,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Map branch -> image tag.
+      #   feature/lark-oauth-provider -> lark-stable (auto-deploys to staging)
+      #   feature/custom-fields       -> lark-custom-fields (manual pull only)
+      - name: Resolve image tag from branch
+        id: tag
+        run: |
+          case "${GITHUB_REF_NAME}" in
+            feature/lark-oauth-provider) echo "image_tag=lark-stable" >> "$GITHUB_OUTPUT" ;;
+            feature/custom-fields)       echo "image_tag=lark-custom-fields" >> "$GITHUB_OUTPUT" ;;
+            *)                           echo "image_tag=lark-${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -67,7 +79,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image }}:${{ steps.tag.outputs.image_tag }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image }}:${{ github.sha }}
           # Default the UI to Simplified Chinese for vijim's tenant. Backend
           # Dockerfile ignores unknown ARGs; users can still change language
