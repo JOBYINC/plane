@@ -1421,8 +1421,8 @@ export default {
       issue_delete: "删除任务失败",
     },
     state: {
-      backlog: "待办",
-      unstarted: "未开始",
+      backlog: "收件",
+      unstarted: "待做",
       started: "进行中",
       completed: "已完成",
       cancelled: "已取消",
@@ -2722,8 +2722,8 @@ export default {
       none: "无",
     },
     state_group: {
-      backlog: "待办",
-      unstarted: "未开始",
+      backlog: "收件",
+      unstarted: "待做",
       started: "进行中",
       completed: "已完成",
       cancelled: "已取消",

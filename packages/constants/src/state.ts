@@ -19,33 +19,40 @@ export const STATE_GROUPS: {
     color: string;
   };
 } = {
+  // Group `label` values track our task-management-style default state
+  // names (Inbox / Todo / In Progress / Done) so dashboard charts and the
+  // "Your work" workload widget read sensibly. Keys (backlog / unstarted
+  // / started / completed / cancelled) are NOT renamed — they're the
+  // wire-protocol enum from the API; renaming would be a breaking
+  // migration. `started` covers In Progress + Waiting; the label uses
+  // the more common state name.
   backlog: {
     key: "backlog",
-    label: "Backlog",
-    defaultStateName: "Backlog",
+    label: "Inbox",
+    defaultStateName: "Inbox",
     color: "#d9d9d9",
   },
   unstarted: {
     key: "unstarted",
-    label: "Unstarted",
+    label: "Todo",
     defaultStateName: "Todo",
     color: "#3f76ff",
   },
   started: {
     key: "started",
-    label: "Started",
+    label: "In Progress",
     defaultStateName: "In Progress",
     color: "#f59e0b",
   },
   completed: {
     key: "completed",
-    label: "Completed",
+    label: "Done",
     defaultStateName: "Done",
     color: "#16a34a",
   },
   cancelled: {
     key: "cancelled",
-    label: "Canceled",
+    label: "Cancelled",
     defaultStateName: "Cancelled",
     color: "#dc2626",
   },
@@ -91,22 +98,22 @@ export const STATE_DISTRIBUTION = {
 export const PROGRESS_STATE_GROUPS_DETAILS = [
   {
     key: "completed_issues",
-    title: "Completed",
+    title: "Done",
     color: "#16A34A",
   },
   {
     key: "started_issues",
-    title: "Started",
+    title: "In Progress",
     color: "#F59E0B",
   },
   {
     key: "unstarted_issues",
-    title: "Unstarted",
+    title: "Todo",
     color: "#3A3A3A",
   },
   {
     key: "backlog_issues",
-    title: "Backlog",
+    title: "Inbox",
     color: "#A3A3A3",
   },
 ];
