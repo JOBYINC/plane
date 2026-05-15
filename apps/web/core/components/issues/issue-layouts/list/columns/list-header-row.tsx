@@ -17,13 +17,17 @@ interface Props {
   context: TListColumnContext;
   displayFilters?: IIssueDisplayFilterOptions | undefined;
   handleDisplayFilterUpdate?: (data: Partial<IIssueDisplayFilterOptions>) => void;
+  // Supplies the responsive display (e.g. "hidden lg:flex"). Replaces the
+  // static `flex` so the row is a direct child of the scroll container —
+  // required for position:sticky to track the scrollport, not a short wrapper.
+  visibilityClassName?: string;
 }
 
 export const LIST_HEADER_HEIGHT_CLASS = "h-9";
 export const LIST_HEADER_GROUP_STICKY_OFFSET_CLASS = "top-9";
 
 export function ListHeaderRow(props: Props) {
-  const { displayProperties, context, displayFilters, handleDisplayFilterUpdate } = props;
+  const { displayProperties, context, displayFilters, handleDisplayFilterUpdate, visibilityClassName } = props;
   const { t } = useTranslation();
   if (!displayProperties) return null;
   const columns = getVisibleListColumns(displayProperties, context);
@@ -32,7 +36,8 @@ export function ListHeaderRow(props: Props) {
   return (
     <Row
       className={cn(
-        "sticky top-0 z-[3] flex w-full flex-shrink-0 items-center border-b border-subtle bg-layer-1 text-caption-sm-medium text-secondary",
+        "sticky top-0 z-[3] w-full flex-shrink-0 items-center border-b border-subtle bg-layer-1 text-caption-sm-medium text-secondary",
+        visibilityClassName ?? "flex",
         LIST_HEADER_HEIGHT_CLASS
       )}
     >

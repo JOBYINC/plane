@@ -158,14 +158,13 @@ export const List = observer(function List(props: IList) {
                 className="vertical-scrollbar relative scrollbar-lg size-full overflow-auto bg-surface-1"
                 style={{ ["--list-cols" as string]: gridTemplateColumns }}
               >
-                <div className={gridVisibilityClass}>
-                  <ListHeaderRow
-                    displayProperties={displayProperties}
-                    context={{ isEpic }}
-                    displayFilters={displayFilters}
-                    handleDisplayFilterUpdate={handleDisplayFilterUpdate}
-                  />
-                </div>
+                <ListHeaderRow
+                  displayProperties={displayProperties}
+                  context={{ isEpic }}
+                  displayFilters={displayFilters}
+                  handleDisplayFilterUpdate={handleDisplayFilterUpdate}
+                  visibilityClassName={gridVisibilityClass}
+                />
                 {groups.map((group: IGroupByColumn) => (
                   <ListGroup
                     key={group.id}
