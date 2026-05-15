@@ -18,9 +18,9 @@ type (text, number, date, select, ...) and may be required or optional.
 In-scope (v1):
 
 - Per-project field schema (no workspace-wide fields, no per-work-item-type fields)
-- 7 field types: `text` / `number` / `date` / `select` / `multi_select` / `member` / `boolean`
+- 6 field types (Asana parity, no boolean): `text` / `number` / `date` / `single_select` / `multi_select` / `people`
 - Rendering in list-view column, peek detail panel, kanban card (label only)
-- Filter + sort by select / number / date
+- Filter + sort by single_select / number / date
 - Field reordering (admin UI)
 - Soft delete (archive)
 
@@ -39,6 +39,18 @@ Out of scope (v1, push to v2 if asked):
 
 Three new Django models in `apps/api/plane/db/models/`. **Naming intentionally avoids `IssueProperty`** — the original `IssueProperty` was renamed to `IssueUserProperty` in migration 0071 and is now project-user view preferences (collapsed columns etc.), not a schema.
 
+> **Soft-delete & uniqueness (decided 2026-05-15, step 1).** Every model
+> below inherits `SoftDeleteModel` (a nullable `deleted_at`) via
+> `ProjectBaseModel`. A plain `unique_together = [["project","name"]]` would
+> make a deleted field's name un-reusable forever (the row physically stays;
+> `.delete()` only sets `deleted_at`) → `IntegrityError` on recreate. So each
+> natural key uses the Plane house-style **dual pattern**: `unique_together`
+> with `deleted_at` appended **plus** a partial
+> `UniqueConstraint(condition=Q(deleted_at__isnull=True))`. This matches
+> Module/State/ProjectIssueType upstream and Asana (a deleted field's name is
+> not reserved). `is_active` (archive) is deliberately _not_ in the key — an
+> archived-but-not-deleted field still reserves its name.
+
 ### `WorkItemField`
 
 ```python
@@ -49,10 +61,9 @@ class WorkItemField(ProjectBaseModel):
         TEXT = "text", "Text"
         NUMBER = "number", "Number"
         DATE = "date", "Date"
-        SELECT = "select", "Select"
+        SINGLE_SELECT = "single_select", "Single select"
         MULTI_SELECT = "multi_select", "Multi-select"
-        MEMBER = "member", "Member"
-        BOOLEAN = "boolean", "Boolean"
+        PEOPLE = "people", "People"
 
     name = models.CharField(max_length=255)
     field_type = models.CharField(max_length=32, choices=FieldType.choices)
@@ -64,7 +75,14 @@ class WorkItemField(ProjectBaseModel):
     config = models.JSONField(default=dict, blank=True)
 
     class Meta:
-        unique_together = [["project", "name"]]
+        unique_together = [["project", "name", "deleted_at"]]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "name"],
+                condition=Q(deleted_at__isnull=True),
+                name="work_item_field_unique_project_name_when_deleted_at_null",
+            )
+        ]
         ordering = ["sort_order"]
         indexes = [
             models.Index(fields=["project", "is_active", "sort_order"]),
@@ -73,7 +91,7 @@ class WorkItemField(ProjectBaseModel):
 
 ### `WorkItemFieldOption`
 
-Only used by `select` / `multi_select` field types.
+Only used by `single_select` / `multi_select` field types.
 
 ```python
 class WorkItemFieldOption(ProjectBaseModel):
@@ -84,7 +102,14 @@ class WorkItemFieldOption(ProjectBaseModel):
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        unique_together = [["field", "name"]]
+        unique_together = [["field", "name", "deleted_at"]]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["field", "name"],
+                condition=Q(deleted_at__isnull=True),
+                name="work_item_field_option_unique_field_name_when_deleted_at_null",
+            )
+        ]
         ordering = ["sort_order"]
 ```
 
@@ -97,16 +122,22 @@ class WorkItemFieldValue(ProjectBaseModel):
     issue = models.ForeignKey("db.Issue", related_name="field_values", on_delete=models.CASCADE)
     field = models.ForeignKey(WorkItemField, related_name="values", on_delete=models.CASCADE)
     # Polymorphic value storage. Exactly one of these is non-null per row,
-    # determined by field.field_type. text covers SELECT (option id) too;
-    # value_multi covers MULTI_SELECT + member (list of ids).
+    # determined by field.field_type. value_text covers single_select
+    # (option id) too; value_multi covers multi_select + people (list of ids).
     value_text = models.TextField(null=True, blank=True)
     value_number = models.DecimalField(max_digits=24, decimal_places=8, null=True, blank=True)
     value_date = models.DateField(null=True, blank=True)
-    value_boolean = models.BooleanField(null=True)
     value_multi = ArrayField(models.CharField(max_length=255), null=True, blank=True)
 
     class Meta:
-        unique_together = [["issue", "field"]]
+        unique_together = [["issue", "field", "deleted_at"]]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["issue", "field"],
+                condition=Q(deleted_at__isnull=True),
+                name="work_item_field_value_unique_issue_field_when_deleted_at_null",
+            )
+        ]
         indexes = [
             models.Index(fields=["field", "value_text"]),
             models.Index(fields=["field", "value_number"]),
@@ -123,15 +154,14 @@ simpler and idiomatic Django.
 
 ## 3. Field type → storage mapping
 
-| field_type     | reads / writes to                                |
-| -------------- | ------------------------------------------------ |
-| `text`         | `value_text`                                     |
-| `number`       | `value_number`                                   |
-| `date`         | `value_date`                                     |
-| `boolean`      | `value_boolean`                                  |
-| `select`       | `value_text` (= option UUID as string)           |
-| `multi_select` | `value_multi` (= list of option UUIDs)           |
-| `member`       | `value_multi` (= list of workspace member UUIDs) |
+| field_type      | reads / writes to                                |
+| --------------- | ------------------------------------------------ |
+| `text`          | `value_text`                                     |
+| `number`        | `value_number`                                   |
+| `date`          | `value_date`                                     |
+| `single_select` | `value_text` (= option UUID as string)           |
+| `multi_select`  | `value_multi` (= list of option UUIDs)           |
+| `people`        | `value_multi` (= list of workspace member UUIDs) |
 
 Serializer enforces the mapping. Other type columns are NULL on the same row.
 
@@ -305,7 +335,7 @@ After PR2 lands its 24-option sort menu, custom-fields branch adds dynamic
 sort entries:
 
 ```
-ORDER BY value_text   (for select / text)
+ORDER BY value_text   (for single_select / text)
 ORDER BY value_number (for number)
 ORDER BY value_date   (for date)
 ```
@@ -319,12 +349,17 @@ into the right `value_*` column on `WorkItemFieldValue`.
 
 Each numbered step = ~one commit.
 
-1. **Models + migration** (backend only, no API)
-2. **Serializers + viewsets for schema CRUD** (no values yet)
-3. **Admin UI**: project settings page to manage fields + options
-4. **Value CRUD endpoints + serializer**
-5. **Bulk fetch** (`?expand=field_values`)
-6. **MobX store** (work-item-field store + value cache)
+1. **Models + migration** (backend only, no API) — done
+2. **Serializers + viewsets for schema CRUD** (no values yet) — done
+3. **MobX data layer** (types + service + schema store + RootStore wiring +
+   `useWorkItemField` hook). Resequenced ahead of the UI (2026-05-15): the
+   settings UI, list bridge, peek and filter all depend on it, so the
+   schema-side store moved here from old step 6. Value-cache stays in step 6.
+4. **Admin UI**: project settings page to manage fields + options — done
+   (nav entry, route, list/inline-form/option-editor/item, en+zh i18n)
+5. **Value CRUD endpoints + serializer** — done (field_type→column mapping,
+   per-type validation, issue-scoped upsert/clear/list)
+6. **Bulk fetch** (`?expand=field_values`) + store value cache
 7. **List view bridge** (`registerListColumnProvider` + cell renderers per type)
 8. **Peek panel** (custom field section in issue detail right-rail)
 9. **Filter** (frontend filter chip + backend predicate)
@@ -366,3 +401,9 @@ Real merge to mainline: rebase `feature/custom-fields` onto
 - Date-only vs datetime support? v1 says date-only; might need datetime for v2.
 - Permission model: project-admin-only schema edit, or anyone-on-project? Current draft says admin-only.
 - Inheritance from project templates? v2.
+- ~~Field-type vocabulary vs Asana wire names~~ **RESOLVED 2026-05-15:** v1
+  targets Asana parity with exactly 6 types — `text` / `number` / `date` /
+  `single_select` / `multi_select` / `people`. No `boolean` (Asana models
+  yes/no as a 2-option single-select). Names are human-readable internal
+  values; UI labels follow Asana ("Single select" / "People"). Locked in
+  step 1 (model + migration + §1/§2/§3 updated).
