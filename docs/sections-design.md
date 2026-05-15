@@ -303,14 +303,43 @@ section_name,section_archived,section_update_failed}` (en + zh-CN added).
   persistence (§10 — follow Views' existing group_by behaviour); bulk
   reorder endpoint (§10 — single PATCH per move shipped).
 
-Verification status: backend migration/`makemigrations --check` and full
-`tsc` were NOT run here (no local Django/venv; Plane dev is Docker).
-Per-file `oxlint --deny-warnings` is clean for all new code; pre-existing
-upstream lint/a11y/enum debt in forced-touch files is handled with scoped
-`oxlint-disable` headers (user-approved). Run Django `makemigrations
-db --check` + `migrate`, `tsc`, and manual browser QA of group-by=section
-(grouping, quick-add, issue drag between sections, section CRUD, section
-reorder drag) in the Docker dev env before merge.
+Verification status (run 2026-05-15 — local `uv` venv for API, built
+`@plane/*` packages for web):
+
+- **Backend — VERIFIED.** `python manage.py check` (test settings):
+  "System check identified no issues". `makemigrations db --check
+--dry-run`: proposes **nothing** for `ProjectSection` / `Issue.section`
+  → `0124` exactly matches the models. Migration loader confirms `0124`
+  in graph with `dependencies = [('db','0122_automationrule…')]` (§4).
+- **Frontend — VERIFIED.** Full `pnpm check:types` (after building
+  `@plane/*`): **zero** section-related type errors. The tsc cascade
+  surfaced exhaustive maps the step-5 self-review missed (tsc wasn't
+  runnable then); all fixed in commit `fix(sections): complete
+group-by=section type plumbing` (EIssueGroupByToServerOptions,
+  EIssueGroupBYServerToProperty, EServerGroupByToFilterOptions,
+  TIssueParams, issue.store addIssueToStore). 11 remaining tsc errors
+  are PRE-EXISTING lark-branch debt (lark-invite-modal,
+  lark-quick-create, members page) in files these commits never touched
+  — out of scope.
+- **Lint — clean.** Per-file `oxlint --deny-warnings` clean for all new
+  code; pre-existing upstream lint/a11y/enum/promise/no-shadow debt in
+  forced-touch files handled with scoped `oxlint-disable` headers
+  (user-approved).
+- **Separate PRE-EXISTING finding (NOT sections, out of scope):**
+  `makemigrations --check` also proposes `0125` renaming two indexes on
+  `automationrule`/`automationrulerun` — the Day-8 `0122` automation
+  migration hand-named its indexes with hashes Django 4.2 no longer
+  computes (`automation__project_3b5e9a_idx` →
+  `automation__project_3a7e3b_idx`, etc.). This makes branch-wide
+  `makemigrations --check` non-clean independent of Sections (Sections
+  avoided this exact trap via the explicit `psec_proj_arch_sort_idx`
+  name). The automation/lark branch owner should fix `0122`'s index
+  names or add `0125`; not fixed here (other feature's migration).
+- **Still requires manual browser QA before merge** (not headless-
+  verifiable): group-by=section grouping, per-section quick-add, issue
+  drag between sections, section rename/archive/add, section reorder
+  drag. Also run `migrate` against a real Postgres in the Docker dev
+  env.
 
 Related: `docs/asana-list-phase2-design.md` §4 (S1/S2/S3),
 [[custom-fields-branch]] (parallel branch), [[automation-engine-loop-guard]]
