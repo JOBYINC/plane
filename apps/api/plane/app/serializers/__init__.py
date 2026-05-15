@@ -44,6 +44,7 @@ from .project import (
     ProjectMemberPreferenceSerializer,
 )
 from .state import StateSerializer, StateLiteSerializer
+from .automation import AutomationRuleSerializer, AutomationRuleRunSerializer
 from .view import IssueViewSerializer, ViewIssueListSerializer
 from .cycle import (
     CycleSerializer,

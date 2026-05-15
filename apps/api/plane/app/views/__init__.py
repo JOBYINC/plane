@@ -89,6 +89,7 @@ from .workspace.quick_link import QuickLinkViewSet
 from .workspace.sticky import WorkspaceStickyViewSet
 
 from .state.base import StateViewSet, IntakeStateEndpoint
+from .automation import AutomationRuleViewSet, AutomationRuleRunListView
 from .view.base import (
     WorkspaceViewViewSet,
     WorkspaceViewIssuesViewSet,
