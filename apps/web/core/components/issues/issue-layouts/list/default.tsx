@@ -15,6 +15,7 @@ import type {
   GroupByColumnTypes,
   TGroupedIssues,
   TIssue,
+  IIssueDisplayFilterOptions,
   IIssueDisplayProperties,
   TIssueMap,
   TIssueGroupByOptions,
@@ -47,6 +48,8 @@ export interface IList {
   updateIssue: ((projectId: string | null, issueId: string, data: Partial<TIssue>) => Promise<void>) | undefined;
   quickActions: TRenderQuickActions;
   displayProperties: IIssueDisplayProperties | undefined;
+  displayFilters?: IIssueDisplayFilterOptions | undefined;
+  handleDisplayFilterUpdate?: (data: Partial<IIssueDisplayFilterOptions>) => void;
   enableIssueQuickAdd: boolean;
   showEmptyGroup?: boolean;
   canEditProperties: (projectId: string | undefined) => boolean;
@@ -70,6 +73,8 @@ export const List = observer(function List(props: IList) {
     updateIssue,
     quickActions,
     displayProperties,
+    displayFilters,
+    handleDisplayFilterUpdate,
     enableIssueQuickAdd,
     showEmptyGroup,
     canEditProperties,
@@ -154,7 +159,12 @@ export const List = observer(function List(props: IList) {
                 style={{ ["--list-cols" as string]: gridTemplateColumns }}
               >
                 <div className={gridVisibilityClass}>
-                  <ListHeaderRow displayProperties={displayProperties} context={{ isEpic }} />
+                  <ListHeaderRow
+                    displayProperties={displayProperties}
+                    context={{ isEpic }}
+                    displayFilters={displayFilters}
+                    handleDisplayFilterUpdate={handleDisplayFilterUpdate}
+                  />
                 </div>
                 {groups.map((group: IGroupByColumn) => (
                   <ListGroup

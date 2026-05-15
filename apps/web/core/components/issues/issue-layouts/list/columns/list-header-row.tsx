@@ -4,25 +4,26 @@
  * See the LICENSE file for details.
  */
 
-import { SPREADSHEET_PROPERTY_DETAILS } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
-import type { IIssueDisplayProperties } from "@plane/types";
+import type { IIssueDisplayFilterOptions, IIssueDisplayProperties } from "@plane/types";
 import { Row } from "@plane/ui";
 import { cn } from "@plane/utils";
-import { SpreadSheetPropertyIcon } from "../../utils";
-import type { TListColumnContext, TListColumnKey } from "./list-columns";
+import type { TListColumnContext } from "./list-columns";
 import { getListGridTemplate, getVisibleListColumns } from "./list-columns";
+import { ListSortHeaderCell } from "./list-sort-header-cell";
 
 interface Props {
   displayProperties: IIssueDisplayProperties | undefined;
   context: TListColumnContext;
+  displayFilters?: IIssueDisplayFilterOptions | undefined;
+  handleDisplayFilterUpdate?: (data: Partial<IIssueDisplayFilterOptions>) => void;
 }
 
 export const LIST_HEADER_HEIGHT_CLASS = "h-9";
 export const LIST_HEADER_GROUP_STICKY_OFFSET_CLASS = "top-9";
 
 export function ListHeaderRow(props: Props) {
-  const { displayProperties, context } = props;
+  const { displayProperties, context, displayFilters, handleDisplayFilterUpdate } = props;
   const { t } = useTranslation();
   if (!displayProperties) return null;
   const columns = getVisibleListColumns(displayProperties, context);
@@ -36,29 +37,19 @@ export function ListHeaderRow(props: Props) {
       )}
     >
       <div className="grid w-full items-center gap-2" style={{ gridTemplateColumns: gridTemplate }}>
-        <HeaderCell label={t("common.work_item")} />
+        <div className="flex min-w-0 items-center gap-1.5 truncate">
+          <span className="truncate">{t("common.work_item")}</span>
+        </div>
         {columns.map((column) => (
-          <HeaderCell
+          <ListSortHeaderCell
             key={column}
-            label={t(getColumnLabelKey(column))}
-            icon={SPREADSHEET_PROPERTY_DETAILS[column]?.icon}
+            column={column}
+            displayFilters={displayFilters}
+            handleDisplayFilterUpdate={handleDisplayFilterUpdate}
           />
         ))}
         <div aria-hidden />
       </div>
     </Row>
   );
-}
-
-function HeaderCell({ label, icon }: { label: string; icon?: string }) {
-  return (
-    <div className="flex min-w-0 items-center gap-1.5 truncate">
-      {icon && <SpreadSheetPropertyIcon iconKey={icon} className="h-3.5 w-3.5 shrink-0 text-placeholder" />}
-      <span className="truncate">{label}</span>
-    </div>
-  );
-}
-
-function getColumnLabelKey(column: TListColumnKey): string {
-  return SPREADSHEET_PROPERTY_DETAILS[column]?.i18n_title ?? column;
 }

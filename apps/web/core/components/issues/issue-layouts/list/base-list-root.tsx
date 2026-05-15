@@ -11,7 +11,13 @@ import { useParams } from "next/navigation";
 // plane constants
 import { EIssueFilterType, EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 // types
-import type { EIssuesStoreType, GroupByColumnTypes, TGroupedIssues, TIssueKanbanFilters } from "@plane/types";
+import type {
+  EIssuesStoreType,
+  GroupByColumnTypes,
+  IIssueDisplayFilterOptions,
+  TGroupedIssues,
+  TIssueKanbanFilters,
+} from "@plane/types";
 import { EIssueLayoutTypes } from "@plane/types";
 // constants
 // hooks
@@ -99,6 +105,7 @@ export const BaseListRoot = observer(function BaseListRoot(props: IBaseListRoot)
   const { enableInlineEditing, enableQuickAdd, enableIssueCreation } = issues?.viewFlags || {};
 
   const canEditProperties = useCallback(
+    // eslint-disable-next-line no-shadow
     (projectId: string | undefined) => {
       const isEditingAllowedBasedOnProject =
         canEditPropertiesBasedOnProject && projectId ? canEditPropertiesBasedOnProject(projectId) : isEditingAllowed;
@@ -134,10 +141,20 @@ export const BaseListRoot = observer(function BaseListRoot(props: IBaseListRoot)
     [fetchNextIssues]
   );
 
+  const handleDisplayFiltersUpdate = useCallback(
+    (updatedDisplayFilter: Partial<IIssueDisplayFilterOptions>) => {
+      updateFilters(projectId?.toString() ?? "", EIssueFilterType.DISPLAY_FILTERS, {
+        ...updatedDisplayFilter,
+      });
+    },
+    [projectId, updateFilters]
+  );
+
   // kanbanFilters and EIssueFilterType.KANBAN_FILTERS are used because the state is shared between kanban view and list view
   const handleCollapsedGroups = useCallback(
     (value: string) => {
       if (workspaceSlug) {
+        // eslint-disable-next-line no-shadow
         let collapsedGroups = issuesFilter?.issueFilters?.kanbanFilters?.group_by || [];
         if (collapsedGroups.includes(value)) {
           collapsedGroups = collapsedGroups.filter((_value) => _value != value);
@@ -158,6 +175,8 @@ export const BaseListRoot = observer(function BaseListRoot(props: IBaseListRoot)
         <List
           issuesMap={issueMap}
           displayProperties={displayProperties}
+          displayFilters={displayFilters}
+          handleDisplayFilterUpdate={handleDisplayFiltersUpdate}
           group_by={group_by}
           orderBy={orderBy}
           updateIssue={updateIssue}
