@@ -11,7 +11,7 @@ import { Row } from "@plane/ui";
 import { cn } from "@plane/utils";
 import { SpreadSheetPropertyIcon } from "../../utils";
 import type { TListColumnContext, TListColumnKey } from "./list-columns";
-import { getListGridTemplate, getVisibleListColumns } from "./list-columns";
+import { getCustomListColumns, getListGridTemplateWithCustom, getVisibleListColumns } from "./list-columns";
 
 interface Props {
   displayProperties: IIssueDisplayProperties | undefined;
@@ -26,7 +26,10 @@ export function ListHeaderRow(props: Props) {
   const { t } = useTranslation();
   if (!displayProperties) return null;
   const columns = getVisibleListColumns(displayProperties, context);
-  const gridTemplate = getListGridTemplate(columns);
+  // Runtime custom-field columns (design §7) appended after built-ins, in the
+  // same order getListGridTemplateWithCustom lays out their tracks.
+  const customColumns = getCustomListColumns();
+  const gridTemplate = getListGridTemplateWithCustom(columns);
 
   return (
     <Row
@@ -43,6 +46,9 @@ export function ListHeaderRow(props: Props) {
             label={t(getColumnLabelKey(column))}
             icon={SPREADSHEET_PROPERTY_DETAILS[column]?.icon}
           />
+        ))}
+        {customColumns.map((c) => (
+          <HeaderCell key={c.key} label={c.label} />
         ))}
         <div aria-hidden />
       </div>

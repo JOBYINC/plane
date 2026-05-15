@@ -305,29 +305,51 @@ Isolated, lint-clean components (zero conflict, in
 - `custom-field-columns-bridge.tsx` — `CustomFieldColumnsBridge` hydrates
   fields+values and `registerListColumnProvider`s; renders null.
 
-### Gated wiring edits (3 small edits — REQUIRE a build to verify; do
+### Gated wiring edits — DONE & TYPE-VERIFIED 2026-05-15
 
-### with PR2/PR3 coordination, NOT blind)
+Built `@plane/*` packages (`turbo run build --filter=./packages/*`) then
+`pnpm --filter web check:types`: **0 errors in any wired file** (the only
+11 remaining are pre-existing Lark-integration drift, unrelated). The
+edits landed; contract is **corrected from the original 3-edit sketch**:
 
-The registry + components above are inert until these land. They are
-small but in PR1/PR2/PR3 hot files, so they are intentionally **not**
-done blind:
+**Correction 1 — there are THREE consumer sites, not two**, and they
+must stay column-aligned (header, row cells, and the CSS grid template
+all derive the same built-in + custom column order):
 
-1. **`list/default.tsx`** — mount `<CustomFieldColumnsBridge ws pid />`;
-   append `getCustomListColumns().map(c => c.key)` to the rendered
-   `visibleColumns`; swap `getListGridTemplate` →
-   `getListGridTemplateWithCustom`.
-2. **`list/columns/issue-cells.tsx`** — where `CELL_BY_COLUMN[column]`
-   is resolved, if `isCustomColumnKey(column)` render
-   `<WorkItemFieldCell field={byId(customColumnKeyToFieldId(column))}
-issueId issueId projectId isReadOnly />` instead.
-3. **`list/columns/list-header-row.tsx`** — for a custom key, label =
-   `getCustomColumnLabel(column)` instead of the
-   `SPREADSHEET_PROPERTY_DETAILS` lookup.
+1. **`list/default.tsx`** — mounts `<CustomFieldColumnsBridge ws pid />`
+   (only when the router carries `projectId`); swaps
+   `getListGridTemplate` → `getListGridTemplateWithCustom(visibleColumns)`
+   for the `--list-cols` CSS var that `block.tsx`'s `Row` inherits.
+2. **`list/block.tsx`** (NOT `issue-cells.tsx`) — the actual cell-render
+   loop is `visibleColumns.map(... CELL_BY_COLUMN[column] ...)` here;
+   `issue-cells.tsx` only _defines_ the cells + the map. After the
+   built-in map, a second `customColumns.map` renders `<WorkItemFieldCell
+field={getFieldById(customColumnKeyToFieldId(c.key))} ... />`. The
+   slot `<div>` always renders so the grid stays aligned while the
+   schema is still loading.
+3. **`list/columns/list-header-row.tsx`** — appends a `customColumns.map`
+   of `<HeaderCell label={c.label} />` after the built-ins; grid template
+   → `getListGridTemplateWithCustom(columns)`. Label is read straight off
+   the column object (`c.label`), simpler than a `getCustomColumnLabel`
+   lookup — equivalent result.
 
-Rationale: a wrong edit here silently breaks the entire issue list
-(unrenderable grid) and there is no build/runtime here to catch it.
-`pnpm --filter web typecheck` + a dev render must gate these three.
+**Correction 2 — reactivity primitive added** (`list-columns.ts`, still
+purely additive): a MobX `observable.box` version counter, bumped on
+provider (un)register and read inside `getCustomListColumns()`. Without
+it the bridge registering its provider _post-mount_ would be invisible
+to React and columns would never appear until an unrelated re-render.
+`observer` consumers (`List`, `IssueBlock`) now re-render correctly;
+`ListHeaderRow` (plain fn) re-renders via its observer parent `List`.
+
+**Correction 3 — project-scope gate.** The bridge mounts only when the
+route has `projectId` (project/cycle/module views). Workspace/profile
+views never register a provider → `getCustomListColumns() === []` →
+**zero behaviour change** for those layouts (Asana-parity: custom fields
+are project-scoped).
+
+Residual gap: typecheck-clean ≠ pixel-verified. A running dev server is
+still needed to eyeball grid alignment + the peek section; flagged, not
+silently claimed done.
 
 **PR2 (sort) does NOT need to touch this** — sort options operate on
 `TIssueOrderByOptions` (in `packages/types`) and are a separate concern. PR2
@@ -413,11 +435,14 @@ Each numbered step = ~one commit.
    per-type validation, issue-scoped upsert/clear/list)
 6. **Bulk fetch** (dedicated `issue-field-values/` endpoint, not
    `?expand`) + store value cache — done (py_compile + lint clean)
-7. **List view bridge** — done (isolated): registry primitive
-   (append-only), `WorkItemFieldCell`, column hook, bridge. 3 hot-file
-   wiring edits documented + GATED on a build (not blind). See §7.
-8. **Peek panel** — done (isolated): `WorkItemFieldSection`. Single
-   peek-sidebar mount = gated wiring.
+7. **List view bridge** — done + **WIRED & type-verified 2026-05-15**:
+   registry primitive (append-only, now MobX-reactive), `WorkItemFieldCell`,
+   column hook, bridge, and the 3 consumer-site edits
+   (default.tsx / block.tsx / list-header-row.tsx). 0 typecheck errors in
+   wired files. Pixel verification still pending a dev server. See §7.
+8. **Peek panel** — done + **WIRED 2026-05-15**: `WorkItemFieldSection`
+   mounted in `peek-overview/properties.tsx` after the additional
+   sidebar properties (`isReadOnly={disabled}`). Type-clean.
 9. **Filter** — backend `build_custom_field_filter` done (isolated,
    py_compile). Issue-list wiring + frontend chip = gated.
 10. **Sort** — server parser `parse_custom_field_order_by` done

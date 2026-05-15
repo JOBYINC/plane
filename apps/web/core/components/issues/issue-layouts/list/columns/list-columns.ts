@@ -4,6 +4,7 @@
  * See the LICENSE file for details.
  */
 
+import { observable, runInAction } from "mobx";
 import type { IIssueDisplayProperties } from "@plane/types";
 
 export type TListColumnKey =
@@ -123,15 +124,31 @@ export type TCustomListColumn = {
 
 const customColumnProviders: Array<() => TCustomListColumn[]> = [];
 
+// MobX-observable so `observer` consumers (default.tsx List, block.tsx
+// IssueBlock) re-render when the bridge registers its provider post-mount.
+// Without this, the registry mutation is invisible to React and custom
+// columns would never appear until an unrelated re-render. Bumped on
+// (un)register; read by getCustomListColumns to establish the dependency.
+const customColumnsVersion = observable.box(0);
+
+function bumpCustomColumnsVersion(): void {
+  runInAction(() => customColumnsVersion.set(customColumnsVersion.get() + 1));
+}
+
 export function registerListColumnProvider(provider: () => TCustomListColumn[]): () => void {
   customColumnProviders.push(provider);
+  bumpCustomColumnsVersion();
   return () => {
     const idx = customColumnProviders.indexOf(provider);
-    if (idx >= 0) customColumnProviders.splice(idx, 1);
+    if (idx >= 0) {
+      customColumnProviders.splice(idx, 1);
+      bumpCustomColumnsVersion();
+    }
   };
 }
 
 export function getCustomListColumns(): TCustomListColumn[] {
+  customColumnsVersion.get(); // reactive dep: re-run when providers (un)register
   return customColumnProviders.flatMap((provider) => provider());
 }
 
