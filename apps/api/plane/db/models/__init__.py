@@ -5,6 +5,11 @@
 from .analytic import AnalyticView
 from .api import APIActivityLog, APIToken
 from .asset import FileAsset
+from .automation import (
+    AutomationRule,
+    AutomationRuleRun,
+    AutomationTriggerType,
+)
 from .base import BaseModel
 from .cycle import Cycle, CycleIssue, CycleUserProperties
 from .deploy_board import DeployBoard

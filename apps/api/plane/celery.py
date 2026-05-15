@@ -91,6 +91,13 @@ app.conf.beat_schedule = {
         "task": "plane.bgtasks.lark_due_reminder_task.remind_due_dates_task",
         "schedule": crontab(minute=10),  # Top of every hour + 10, offset from sync to spread load
     },
+    # Hourly evaluator for scheduled Automation Engine rules (due_soon +
+    # future cron). Per-rule dedup is in Redis with a 5-minute TTL so the
+    # hourly cadence is safe.
+    "automation-scheduled-rules": {
+        "task": "plane.bgtasks.automation_scheduled_task.evaluate_scheduled_automations_task",
+        "schedule": crontab(minute=20),  # offset from sync (:00) and lark-due (:10)
+    },
 }
 
 

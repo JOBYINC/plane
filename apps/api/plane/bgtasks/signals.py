@@ -22,6 +22,15 @@ from plane.bgtasks import lark_notify_task  # noqa: F401
 # Same eager-import trick for the periodic due-date reminder task; otherwise
 # Celery beat finds no handler when its schedule fires remind_due_dates_task.
 from plane.bgtasks import lark_due_reminder_task  # noqa: F401
+
+# Automation Engine: register evaluate_and_execute_rule_task with Celery so
+# dispatch_automation_for_activities (called from issue_activities_task)
+# can .delay() it. Lazy import inside the dispatch would be too late.
+from plane.bgtasks import automation_engine_task  # noqa: F401
+
+# Hourly scheduled-rule evaluator (due_soon). Celery beat needs the task
+# registered at worker startup, same pattern as lark_due_reminder_task.
+from plane.bgtasks import automation_scheduled_task  # noqa: F401
 from plane.db.models import Project
 
 logger = logging.getLogger("plane.bgtasks.signals")

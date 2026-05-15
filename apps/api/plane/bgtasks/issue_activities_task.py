@@ -1593,6 +1593,18 @@ def issue_activity(
         except Exception as exc:
             log_exception(exc)
 
+        # Fan out Automation Engine rule evaluations against the same
+        # activity rows. Engine actions write IssueActivity rows directly
+        # (NOT via this task) so re-dispatch is impossible.
+        try:
+            from plane.bgtasks.automation_engine_task import (
+                dispatch_automation_for_activities,
+            )
+
+            dispatch_automation_for_activities(issue_activities_created)
+        except Exception as exc:
+            log_exception(exc)
+
         if notification:
             notifications.delay(
                 type=type,
