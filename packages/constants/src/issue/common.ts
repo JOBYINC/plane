@@ -43,6 +43,9 @@ export enum EIssueGroupByToServerOptions {
   "created_by" = "created_by",
   // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
   "team_project" = "project_id",
+  // Free-form Section — server-side grouping/pagination field. Maps to
+  // section_id only; independent of State (docs/sections-design.md §2).
+  "section" = "section_id",
 }
 
 export enum EIssueGroupBYServerToProperty {
@@ -56,6 +59,7 @@ export enum EIssueGroupBYServerToProperty {
   "target_date" = "target_date",
   "project_id" = "project_id",
   "created_by" = "created_by",
+  "section_id" = "section_id",
 }
 
 export enum EIssueCommentAccessSpecifier {

@@ -4,6 +4,12 @@
  * See the LICENSE file for details.
  */
 
+/* oxlint-disable no-shadow --
+   Pre-existing upstream Plane debt (e.g. shadowed `activity` ~L356);
+   whole-file lint-staged gate would otherwise block the Sections
+   server-param mapping. Not introduced here.
+   See docs/sections-design.md (typecheck pass). */
+
 import type {
   IIssueFilterOptions,
   ILayoutDisplayFiltersOptions,
@@ -29,6 +35,9 @@ export enum EServerGroupByToFilterOptions {
   "target_date" = "target_date",
   "project_id" = "project",
   "created_by" = "created_by",
+  // Free-form Section — server field → filter key (docs/sections-design.md
+  // §2: section_id only, never State).
+  "section_id" = "section",
 }
 
 export enum EIssueFilterType {

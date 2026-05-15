@@ -72,6 +72,7 @@ export type TIssueParams =
   | "labels"
   | "cycle"
   | "module"
+  | "section"
   | "start_date"
   | "target_date"
   | "project"
