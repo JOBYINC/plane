@@ -25,6 +25,7 @@ import type {
 // components
 import { MultipleSelectGroup } from "@/components/core/multiple-select";
 // hooks
+import { useAppTheme } from "@/hooks/store/use-app-theme";
 import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
 // plane web components
 import { IssueBulkOperationsRoot } from "@/plane-web/components/issues/bulk-operations";
@@ -33,6 +34,8 @@ import { useBulkOperationStatus } from "@/plane-web/hooks/use-bulk-operation-sta
 // utils
 import type { GroupDropLocation } from "../utils";
 import { getGroupByColumns, isWorkspaceLevel, isSubGrouped } from "../utils";
+import { getListGridTemplate, getVisibleListColumns } from "./columns/list-columns";
+import { ListHeaderRow } from "./columns/list-header-row";
 import { ListGroup } from "./list-group";
 import type { TRenderQuickActions } from "./list-view-types";
 
@@ -82,10 +85,16 @@ export const List = observer(function List(props: IList) {
   } = props;
 
   const storeType = useIssueStoreType();
+  const { sidebarCollapsed: isSidebarCollapsed } = useAppTheme();
   // plane web hooks
   const isBulkOperationsEnabled = useBulkOperationStatus();
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Asana-style aligned column layout — header + every row share this CSS template
+  const visibleColumns = getVisibleListColumns(displayProperties, { isEpic });
+  const gridTemplateColumns = getListGridTemplate(visibleColumns);
+  const gridVisibilityClass = isSidebarCollapsed ? "hidden md:flex" : "hidden lg:flex";
 
   const groups = getGroupByColumns({
     groupBy: group_by as GroupByColumnTypes,
@@ -111,6 +120,7 @@ export const List = observer(function List(props: IList) {
 
   const getGroupIndex = (groupId: string | undefined) => groups.findIndex(({ id }) => id === groupId);
 
+  // eslint-disable-next-line no-unneeded-ternary
   const is_list = group_by === null ? true : false;
 
   // create groupIds array and entities object for bulk ops
@@ -141,7 +151,11 @@ export const List = observer(function List(props: IList) {
               <div
                 ref={containerRef}
                 className="vertical-scrollbar relative scrollbar-lg size-full overflow-auto bg-surface-1"
+                style={{ ["--list-cols" as string]: gridTemplateColumns }}
               >
+                <div className={gridVisibilityClass}>
+                  <ListHeaderRow displayProperties={displayProperties} context={{ isEpic }} />
+                </div>
                 {groups.map((group: IGroupByColumn) => (
                   <ListGroup
                     key={group.id}

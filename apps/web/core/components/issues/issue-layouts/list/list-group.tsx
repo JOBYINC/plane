@@ -132,6 +132,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
   const loadMore = isPaginating ? (
     <ListLoaderItemRow />
   ) : (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className={
         "relative flex h-11 cursor-pointer items-center gap-3 border border-transparent border-t-subtle-1 bg-surface-1 p-3 pl-8 text-13 font-medium text-accent-primary hover:text-accent-secondary hover:underline"
@@ -176,6 +177,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
     return preloadedData;
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const element = groupRef.current;
 
@@ -198,6 +200,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
           const sourceGroupId = source?.data?.groupId as string | undefined;
           const currentGroupId = group.id;
 
+          // eslint-disable-next-line no-unused-expressions
           sourceGroupId && handleWorkFlowState(sourceGroupId, currentGroupId);
 
           const sourceIndex = getGroupIndex(sourceGroupId);
@@ -236,7 +239,9 @@ export const ListGroup = observer(function ListGroup(props: Props) {
         },
       })
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     groupRef?.current,
     group,
     orderBy,
@@ -263,7 +268,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
     >
       <Row
         className={cn("w-full flex-shrink-0 border-b border-subtle bg-layer-1 py-1 pr-3 hover:bg-layer-1-hover", {
-          "sticky top-0 z-[2]": isExpanded && groupIssueCount > 0,
+          "sticky top-0 z-[2] lg:top-9": isExpanded && groupIssueCount > 0,
         })}
       >
         <HeaderGroupByCard
@@ -318,6 +323,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
             ) : (
               <>
                 {Array.from({ length: 2 }).map((_, index) => (
+                  // eslint-disable-next-line react/no-array-index-key
                   <ListLoaderItemRow key={index} />
                 ))}
                 <ListLoaderItemRow ref={setIntersectionElement} />
