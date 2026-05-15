@@ -403,17 +403,21 @@ Backend serializer translates these into ORM `.filter(field_values__...)`.
 disambiguation, `__contains`→`__icontains`, multi-predicate AND, no-op
 on absent field_id) is verified, not just `py_compile`-clean.
 
-**Still not wired into the issue-list queryset** —
-`qs = qs.filter(build_custom_field_filter(request.query_params))` is a
-separate edit, but the original gating fear ("wrong predicate silently
-drops/dupes issues, no runtime") is now substantially retired: the
-predicate is a _single combined Q_ (unit-proven → one JOIN), and the
-`(issue, field, deleted_at)` partial unique index (confirmed in §4's
-Postgres run) bounds that JOIN to ≤1 `field_values` row/issue → no
-duplicate Issue rows, no `.distinct()` needed. Residual = a live
-end-to-end run against production-shaped data (staging-appropriate).
+**WIRED + LIVE-DB VERIFIED 2026-05-15** (commit `c1e1be02ae`). One
+additive `.filter(build_custom_field_filter(query_params))` after the
+existing legacy-filter `.filter()` in **both** issue-list entry points
+(`IssueListEndpoint.get` + `IssueViewSet.list`, `plane/app/views/issue/
+base.py`). Inert `Q()` when no `field_values__field_id` param → zero
+change for every existing request; both querysets already `.distinct()`.
+The gating fear ("wrong predicate silently drops/dupes issues") is
+**retired, not just reasoned**: `test_filter_integration.py` (4 tests,
+real Postgres, factories + `django_db`) asserts the live `field_values`
+reverse-FK join returns the right issues, is field-scoped, inert when
+absent, and yields **no duplicate Issue rows even without `.distinct()`**
+(single combined Q + the `(issue,field,deleted_at)` partial unique
+index). Residual = production-shaped scale only (staging).
 Frontend filter chip in `issue-filter.helper.ts` = a separate gated UI
-edit (shared filter zone).
+edit (shared filter zone) — still open.
 
 ---
 
@@ -469,9 +473,10 @@ Each numbered step = ~one commit.
 8. **Peek panel** — done + **WIRED 2026-05-15**: `WorkItemFieldSection`
    mounted in `peek-overview/properties.tsx` after the additional
    sidebar properties (`isReadOnly={disabled}`). Type-clean.
-9. **Filter** — backend `build_custom_field_filter` done + **20 unit
-   tests pass 2026-05-15** (`001c75a3b1`). Issue-list wiring ≈ retired
-   risk (see §8); frontend chip still gated (shared filter zone).
+9. **Filter** — backend `build_custom_field_filter` done + 20 unit tests
+   (`001c75a3b1`) + **issue-list WIRED & live-DB integration-verified**
+   (`c1e1be02ae`, 4 tests on real PG, no-dupe proven). Only the frontend
+   filter chip remains (shared filter zone, gated).
 10. **Sort** — server parser `parse_custom_field_order_by` done +
     **unit-verified** (same commit). UI/menu BLOCKED by external PR2 dep.
 
