@@ -5,7 +5,7 @@
  */
 
 import { API_BASE_URL } from "@plane/constants";
-import type { TWorkItemField, TWorkItemFieldOption } from "@plane/types";
+import type { TWorkItemField, TWorkItemFieldOption, TWorkItemFieldValue, TWorkItemFieldValueRow } from "@plane/types";
 import { APIService } from "@/services/api.service";
 
 export class WorkItemFieldService extends APIService {
@@ -90,6 +90,58 @@ export class WorkItemFieldService extends APIService {
 
   async deleteOption(workspaceSlug: string, projectId: string, fieldId: string, optionId: string): Promise<void> {
     return this.delete(`/api/workspaces/${workspaceSlug}/projects/${projectId}/fields/${fieldId}/options/${optionId}/`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async getProjectFieldValues(
+    workspaceSlug: string,
+    projectId: string,
+    issueIds?: string[]
+  ): Promise<Record<string, Record<string, TWorkItemFieldValue>>> {
+    const query = issueIds && issueIds.length > 0 ? `?issue_ids=${issueIds.join(",")}` : "";
+    return this.get(`/api/workspaces/${workspaceSlug}/projects/${projectId}/issue-field-values/${query}`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async getIssueFieldValues(
+    workspaceSlug: string,
+    projectId: string,
+    issueId: string
+  ): Promise<TWorkItemFieldValueRow[]> {
+    return this.get(`/api/workspaces/${workspaceSlug}/projects/${projectId}/issues/${issueId}/field-values/`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async upsertValue(
+    workspaceSlug: string,
+    projectId: string,
+    issueId: string,
+    fieldId: string,
+    value: TWorkItemFieldValue
+  ): Promise<TWorkItemFieldValueRow> {
+    return this.put(
+      `/api/workspaces/${workspaceSlug}/projects/${projectId}/issues/${issueId}/field-values/${fieldId}/`,
+      { value }
+    )
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async clearValue(workspaceSlug: string, projectId: string, issueId: string, fieldId: string): Promise<void> {
+    return this.delete(
+      `/api/workspaces/${workspaceSlug}/projects/${projectId}/issues/${issueId}/field-values/${fieldId}/`
+    )
       .then((response) => response?.data)
       .catch((error) => {
         throw error?.response?.data;

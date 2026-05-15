@@ -37,3 +37,18 @@ export interface TWorkItemField {
 
 // Field types that own a set of selectable options.
 export const WORK_ITEM_FIELD_OPTION_TYPES: TWorkItemFieldType[] = ["single_select", "multi_select"];
+
+// Normalized per-issue value (server returns one of these per field_type,
+// see design §3): text/single_select -> string, number -> number,
+// date -> ISO string, multi_select/people -> string[]. null = unset.
+export type TWorkItemFieldValue = string | number | string[] | null;
+
+// One issue's value row as returned by the value endpoints.
+export interface TWorkItemFieldValueRow {
+  id: string;
+  field: string;
+  issue: string;
+  value: TWorkItemFieldValue;
+  created_at: string;
+  updated_at: string;
+}

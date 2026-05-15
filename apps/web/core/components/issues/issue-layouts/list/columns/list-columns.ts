@@ -107,3 +107,62 @@ export function getListGridTemplate(columns: TListColumnKey[]): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+// ---------------------------------------------------------------------------
+// Runtime-registered custom columns (custom-fields branch — see
+// docs/custom-fields-design.md §7). PURELY ADDITIVE: nothing above changed,
+// so PR2/PR3 do not conflict here. Consumers (default.tsx, issue-cells.tsx,
+// list-header-row.tsx) opt in via the helpers below.
+// ---------------------------------------------------------------------------
+
+export type TCustomListColumn = {
+  key: string; // e.g. "custom_field__<uuid>"
+  width: number;
+  label: string;
+};
+
+const customColumnProviders: Array<() => TCustomListColumn[]> = [];
+
+export function registerListColumnProvider(provider: () => TCustomListColumn[]): () => void {
+  customColumnProviders.push(provider);
+  return () => {
+    const idx = customColumnProviders.indexOf(provider);
+    if (idx >= 0) customColumnProviders.splice(idx, 1);
+  };
+}
+
+export function getCustomListColumns(): TCustomListColumn[] {
+  return customColumnProviders.flatMap((provider) => provider());
+}
+
+export function getCustomColumnWidth(key: string): number | undefined {
+  return getCustomListColumns().find((c) => c.key === key)?.width;
+}
+
+export function getCustomColumnLabel(key: string): string | undefined {
+  return getCustomListColumns().find((c) => c.key === key)?.label;
+}
+
+export const CUSTOM_COLUMN_KEY_PREFIX = "custom_field__";
+
+export function isCustomColumnKey(key: string): boolean {
+  return key.startsWith(CUSTOM_COLUMN_KEY_PREFIX);
+}
+
+export function customColumnKeyToFieldId(key: string): string {
+  return key.slice(CUSTOM_COLUMN_KEY_PREFIX.length);
+}
+
+// Grid template that also lays out registered custom columns. default.tsx
+// swaps getListGridTemplate -> this once it also appends
+// getCustomListColumns() keys to the rendered column list (the gated wiring
+// edits documented in design §7).
+export function getListGridTemplateWithCustom(builtIn: TListColumnKey[]): string {
+  const builtInTracks = builtIn.map((c) => `${LIST_COLUMN_WIDTHS[c]}px`).join(" ");
+  const customTracks = getCustomListColumns()
+    .map((c) => `${c.width}px`)
+    .join(" ");
+  return `minmax(${TITLE_COLUMN_MIN_WIDTH_PX}px, 1fr) ${builtInTracks} ${customTracks} ${ACTIONS_COLUMN_WIDTH_PX}px`
+    .replace(/\s+/g, " ")
+    .trim();
+}

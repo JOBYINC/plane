@@ -4,10 +4,10 @@
  * See the LICENSE file for details.
  */
 
-import { set, sortBy } from "lodash-es";
+import { set, sortBy, unset } from "lodash-es";
 import { action, computed, makeObservable, observable, runInAction } from "mobx";
 import { computedFn } from "mobx-utils";
-import type { TWorkItemField, TWorkItemFieldOption } from "@plane/types";
+import type { TWorkItemField, TWorkItemFieldOption, TWorkItemFieldValue } from "@plane/types";
 import { WorkItemFieldService } from "@/services/work-item-field.service";
 import type { CoreRootStore } from "./root.store";
 
@@ -15,13 +15,20 @@ export interface IWorkItemFieldStore {
   // observables
   fieldMap: Record<string, TWorkItemField>;
   fetchedMap: Record<string, boolean>;
+  valuesByIssue: Record<string, Record<string, TWorkItemFieldValue>>;
   // computed
   projectFields: TWorkItemField[] | undefined;
   // computed actions
   getProjectFields: (projectId: string | undefined | null) => TWorkItemField[] | undefined;
   getFieldById: (fieldId: string) => TWorkItemField | null;
+  getValueForIssue: (issueId: string, fieldId: string) => TWorkItemFieldValue | undefined;
   // fetch
   fetchProjectFields: (workspaceSlug: string, projectId: string) => Promise<TWorkItemField[]>;
+  fetchProjectFieldValues: (
+    workspaceSlug: string,
+    projectId: string,
+    issueIds?: string[]
+  ) => Promise<Record<string, Record<string, TWorkItemFieldValue>>>;
   // field crud
   createField: (workspaceSlug: string, projectId: string, data: Partial<TWorkItemField>) => Promise<TWorkItemField>;
   updateField: (
@@ -46,12 +53,22 @@ export interface IWorkItemFieldStore {
     data: Partial<TWorkItemFieldOption>
   ) => Promise<TWorkItemFieldOption>;
   deleteOption: (workspaceSlug: string, projectId: string, fieldId: string, optionId: string) => Promise<void>;
+  // value crud
+  upsertValue: (
+    workspaceSlug: string,
+    projectId: string,
+    issueId: string,
+    fieldId: string,
+    value: TWorkItemFieldValue
+  ) => Promise<void>;
+  clearValue: (workspaceSlug: string, projectId: string, issueId: string, fieldId: string) => Promise<void>;
 }
 
 export class WorkItemFieldStore implements IWorkItemFieldStore {
   // observables
   fieldMap: Record<string, TWorkItemField> = {};
   fetchedMap: Record<string, boolean> = {};
+  valuesByIssue: Record<string, Record<string, TWorkItemFieldValue>> = {};
   // root store
   rootStore: CoreRootStore;
   // services
@@ -61,14 +78,18 @@ export class WorkItemFieldStore implements IWorkItemFieldStore {
     makeObservable(this, {
       fieldMap: observable,
       fetchedMap: observable,
+      valuesByIssue: observable,
       projectFields: computed,
       fetchProjectFields: action,
+      fetchProjectFieldValues: action,
       createField: action,
       updateField: action,
       deleteField: action,
       createOption: action,
       updateOption: action,
       deleteOption: action,
+      upsertValue: action,
+      clearValue: action,
     });
     this.rootStore = _rootStore;
     this.workItemFieldService = new WorkItemFieldService();
@@ -91,11 +112,29 @@ export class WorkItemFieldStore implements IWorkItemFieldStore {
 
   getFieldById = computedFn((fieldId: string): TWorkItemField | null => this.fieldMap?.[fieldId] || null);
 
+  getValueForIssue = computedFn(
+    (issueId: string, fieldId: string): TWorkItemFieldValue | undefined => this.valuesByIssue?.[issueId]?.[fieldId]
+  );
+
   fetchProjectFields = async (workspaceSlug: string, projectId: string): Promise<TWorkItemField[]> => {
     const response = await this.workItemFieldService.getProjectFields(workspaceSlug, projectId);
     runInAction(() => {
       response.forEach((field) => set(this.fieldMap, [field.id], field));
       set(this.fetchedMap, projectId, true);
+    });
+    return response;
+  };
+
+  fetchProjectFieldValues = async (
+    workspaceSlug: string,
+    projectId: string,
+    issueIds?: string[]
+  ): Promise<Record<string, Record<string, TWorkItemFieldValue>>> => {
+    const response = await this.workItemFieldService.getProjectFieldValues(workspaceSlug, projectId, issueIds);
+    runInAction(() => {
+      Object.entries(response).forEach(([issueId, values]) => {
+        set(this.valuesByIssue, [issueId], values);
+      });
     });
     return response;
   };
@@ -183,5 +222,34 @@ export class WorkItemFieldStore implements IWorkItemFieldStore {
         set(this.fieldMap, [fieldId], { ...field, options });
       }
     });
+  };
+
+  upsertValue = async (
+    workspaceSlug: string,
+    projectId: string,
+    issueId: string,
+    fieldId: string,
+    value: TWorkItemFieldValue
+  ): Promise<void> => {
+    const previous = this.valuesByIssue?.[issueId]?.[fieldId];
+    try {
+      runInAction(() => set(this.valuesByIssue, [issueId, fieldId], value));
+      const response = await this.workItemFieldService.upsertValue(workspaceSlug, projectId, issueId, fieldId, value);
+      runInAction(() => set(this.valuesByIssue, [issueId, fieldId], response.value));
+    } catch (error) {
+      runInAction(() => set(this.valuesByIssue, [issueId, fieldId], previous ?? null));
+      throw error;
+    }
+  };
+
+  clearValue = async (workspaceSlug: string, projectId: string, issueId: string, fieldId: string): Promise<void> => {
+    const previous = this.valuesByIssue?.[issueId]?.[fieldId];
+    try {
+      runInAction(() => unset(this.valuesByIssue, [issueId, fieldId]));
+      await this.workItemFieldService.clearValue(workspaceSlug, projectId, issueId, fieldId);
+    } catch (error) {
+      runInAction(() => set(this.valuesByIssue, [issueId, fieldId], previous ?? null));
+      throw error;
+    }
   };
 }
