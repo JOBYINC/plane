@@ -23,6 +23,7 @@ export type TIssueGroupByOptions =
   | "module"
   | "target_date"
   | "team_project"
+  | "section"
   | null;
 
 export type TIssueOrderByOptions =

@@ -49,6 +49,9 @@ export type TBaseIssue = {
   sort_order: number;
 
   state_id: string | null;
+  // Free-form organizational Section — independent axis to state_id
+  // (docs/sections-design.md §3/§6.1). null = "(No section)" bucket.
+  section_id: string | null;
   priority: TIssuePriorities | null;
   label_ids: string[];
   assignee_ids: string[];
