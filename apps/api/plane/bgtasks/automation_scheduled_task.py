@@ -28,7 +28,7 @@ MAX_ISSUES_PER_RULE_PER_RUN = 1000
 
 
 @shared_task
-def evaluate_scheduled_automations_task():
+def evaluate_scheduled_automations_task(rule_id=None, bypass_dedup=False):
     """Scan active scheduled rules and fire each against matching issues.
 
     For trigger_type == "due_soon":
@@ -39,20 +39,30 @@ def evaluate_scheduled_automations_task():
 
     For trigger_type == "scheduled" (cron):
       Deferred to v2. v1 simply does not evaluate cron-based rules.
+
+    Args:
+      rule_id: optional UUID string. When set, only that one rule is
+        evaluated. Used by the viewset to kick a rule immediately after
+        the user saves it so they don't have to wait up to 60 minutes
+        for the next hourly beat tick.
+      bypass_dedup: when True, the per-(rule, issue) Redis dedup is
+        ignored. Used together with rule_id on save so a re-saved rule
+        re-evaluates issues that may already be inside the dedup window
+        from a recent beat-driven run.
     """
     from plane.db.models import AutomationRule, Issue, StateGroup
     from plane.bgtasks.automation_engine_task import execute_rule_on_issue
 
     today = date.today()
 
-    rules = list(
-        AutomationRule.objects.select_related("project", "workspace")
-        .filter(
-            trigger_type="due_soon",
-            is_active=True,
-            deleted_at__isnull=True,
-        )
+    qs = AutomationRule.objects.select_related("project", "workspace").filter(
+        trigger_type="due_soon",
+        is_active=True,
+        deleted_at__isnull=True,
     )
+    if rule_id:
+        qs = qs.filter(id=rule_id)
+    rules = list(qs)
     if not rules:
         return {"rules": 0}
 
@@ -90,7 +100,9 @@ def evaluate_scheduled_automations_task():
                             "trigger_type": "due_soon",
                             "scheduled_run_date": today.isoformat(),
                             "days_before": days_before,
+                            "manual_kick": bool(rule_id),
                         },
+                        bypass_dedup=bypass_dedup,
                     )
                     fired += 1
                 except Exception as exc:

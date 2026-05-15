@@ -424,18 +424,22 @@ def _dedup_key(rule_id, issue_id):
     return f"automation:rule:{rule_id}:issue:{issue_id}"
 
 
-def execute_rule_on_issue(rule, issue, ctx=None):
+def execute_rule_on_issue(rule, issue, ctx=None, bypass_dedup=False):
     """Inner implementation, callable both from the Celery task wrapper
     below and from the scheduled-task module (Phase 3).
 
     Returns the chosen AutomationRuleRun.RunStatus value.
+
+    `bypass_dedup=True` is used by the viewset's "kick after save" path
+    so a freshly-saved rule re-evaluates issues even if they're still
+    inside the 5-minute dedup window from a recent beat-driven run.
     """
     from plane.db.models import AutomationRuleRun
 
     ctx = ctx or {}
 
     dedup_key = _dedup_key(str(rule.id), str(issue.id))
-    if cache.get(dedup_key):
+    if not bypass_dedup and cache.get(dedup_key):
         AutomationRuleRun.objects.create(
             rule=rule,
             issue=issue,

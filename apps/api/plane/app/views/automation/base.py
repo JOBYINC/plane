@@ -59,6 +59,7 @@ class AutomationRuleViewSet(BaseViewSet):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         serializer.save(project_id=project_id)
+        self._kick_scheduled_if_applicable(serializer.instance)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @allow_permission([ROLE.ADMIN])
@@ -70,7 +71,35 @@ class AutomationRuleViewSet(BaseViewSet):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         serializer.save()
+        self._kick_scheduled_if_applicable(serializer.instance)
         return Response(serializer.data)
+
+    def _kick_scheduled_if_applicable(self, rule):
+        """Fire scheduled-rule evaluation right after save.
+
+        Scheduled triggers (due_soon, future cron) normally only run via
+        the hourly Celery beat job. Without this kick a user who saves
+        a new rule waits up to 60 minutes to see anything happen, which
+        reads as "the rule is broken." Bypass dedup so a re-saved rule
+        re-fires even on issues that are still inside the dedup window
+        from a recent beat-driven evaluation.
+        """
+        if not rule.is_active:
+            return
+        if rule.trigger_type not in ("due_soon", "scheduled"):
+            return
+        try:
+            from plane.bgtasks.automation_scheduled_task import (
+                evaluate_scheduled_automations_task,
+            )
+
+            evaluate_scheduled_automations_task.delay(
+                rule_id=str(rule.id), bypass_dedup=True
+            )
+        except Exception:
+            # Never fail the API response just because the kick couldn't queue.
+            # The hourly beat will pick it up anyway.
+            pass
 
     @allow_permission([ROLE.ADMIN])
     def destroy(self, request, slug, project_id, pk):
