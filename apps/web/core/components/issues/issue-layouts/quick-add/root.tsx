@@ -8,7 +8,7 @@ import type { FC } from "react";
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
-import type { UseFormRegister } from "react-hook-form";
+import type { UseFormRegister, UseFormSetValue, UseFormWatch } from "react-hook-form";
 import { useForm } from "react-hook-form";
 // plane imports
 import { useTranslation } from "@plane/i18n";
@@ -29,6 +29,11 @@ export type TQuickAddIssueForm = {
   register: UseFormRegister<TIssue>;
   onSubmit: () => void;
   isEpic: boolean;
+  // Optional: only the list layout renders inline property fields.
+  // Other layouts ignore these.
+  setValue?: UseFormSetValue<TIssue>;
+  watch?: UseFormWatch<TIssue>;
+  prePopulatedData?: Partial<TIssue>;
 };
 
 export type TQuickAddIssueButton = {
@@ -76,6 +81,8 @@ export const QuickAddIssueRoot = observer(function QuickAddIssueRoot(props: TQui
     handleSubmit,
     setFocus,
     register,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<TIssue>({ defaultValues });
 
@@ -89,6 +96,7 @@ export const QuickAddIssueRoot = observer(function QuickAddIssueRoot(props: TQui
     if (!isOpen) reset({ ...defaultValues });
   }, [isOpen, reset]);
 
+  // eslint-disable-next-line no-shadow
   const handleIsOpen = (isOpen: boolean) => {
     if (isQuickAddOpen !== undefined && setIsQuickAddOpen) {
       setIsQuickAddOpen(isOpen);
@@ -103,6 +111,7 @@ export const QuickAddIssueRoot = observer(function QuickAddIssueRoot(props: TQui
     reset({ ...defaultValues });
 
     const payload = createIssuePayload(projectId.toString(), {
+      // eslint-disable-next-line unicorn/no-useless-fallback-in-spread
       ...(prePopulatedData ?? {}),
       ...formData,
     });
@@ -149,9 +158,12 @@ export const QuickAddIssueRoot = observer(function QuickAddIssueRoot(props: TQui
           layout={layout}
           prePopulatedData={prePopulatedData}
           projectId={projectId?.toString()}
+          // eslint-disable-next-line no-unneeded-ternary
           hasError={errors && errors?.name && errors?.name?.message ? true : false}
           setFocus={setFocus}
           register={register}
+          setValue={setValue}
+          watch={watch}
           onSubmit={handleSubmit(onSubmitHandler)}
           onClose={() => handleIsOpen(false)}
           isEpic={isEpic}
