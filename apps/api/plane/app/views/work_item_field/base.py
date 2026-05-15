@@ -13,9 +13,12 @@ from plane.app.serializers import (
     WorkItemFieldSerializer,
     WorkItemFieldValueSerializer,
 )
-from plane.app.serializers.work_item_field import assign_field_value
+from plane.app.serializers.work_item_field import (
+    assign_field_value,
+    serialize_field_value,
+)
 from plane.db.models import WorkItemField, WorkItemFieldOption, WorkItemFieldValue
-from .. import BaseViewSet
+from .. import BaseAPIView, BaseViewSet
 
 
 class WorkItemFieldViewSet(BaseViewSet):
@@ -266,3 +269,46 @@ class WorkItemFieldValueViewSet(BaseViewSet):
         if value_row:
             value_row.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class WorkItemFieldValueBulkEndpoint(BaseAPIView):
+    """Bulk hydrate custom field values for a project's issues.
+
+    Design §5/§6: avoids N+1 in list view. Deliberately a *dedicated*
+    endpoint rather than hooking the core issue-list serializer's
+    ``expand`` machinery -- that hot path is shared with the list-view
+    PRs (PR2/PR3) and high-risk to mutate. Same goal: one request
+    hydrates the value cache.
+
+    URL: .../projects/<uuid:project_id>/issue-field-values/
+    Optional ``?issue_ids=<uuid,uuid>`` to scope to visible issues;
+    otherwise returns every value in the project (rows are sparse).
+    Returns ``{ "<issue_id>": { "<field_id>": <value> } }``.
+    """
+
+    @allow_permission([ROLE.ADMIN, ROLE.MEMBER])
+    def get(self, request, slug, project_id):
+        queryset = (
+            WorkItemFieldValue.objects.filter(
+                workspace__slug=slug,
+                project_id=project_id,
+                project__project_projectmember__member=request.user,
+                project__project_projectmember__is_active=True,
+                project__archived_at__isnull=True,
+            )
+            .select_related("field")
+            .distinct()
+        )
+
+        issue_ids_param = request.query_params.get("issue_ids")
+        if issue_ids_param:
+            ids = [i for i in issue_ids_param.split(",") if i]
+            queryset = queryset.filter(issue_id__in=ids)
+
+        result = {}
+        for row in queryset:
+            issue_key = str(row.issue_id)
+            result.setdefault(issue_key, {})[str(row.field_id)] = (
+                serialize_field_value(row.field, row)
+            )
+        return Response(result, status=status.HTTP_200_OK)

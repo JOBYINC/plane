@@ -204,8 +204,21 @@ schemas; admin/member can write values. No field-level grants in v1.
 
 ### Bulk fetch for list view
 
-`GET issues/?expand=field_values` returns each issue with
-`field_values: {[field_id]: serialized_value}` to avoid N+1.
+**Decided 2026-05-15 (step 6):** dedicated endpoint instead of
+`issues/?expand=field_values`. Hooking the core issue-list serializer's
+`expand` machinery means mutating a performance-critical hot path shared
+with the list-view PRs (PR2/PR3) — high-risk, exactly the shared zone the
+contract says to coordinate carefully on. A standalone endpoint achieves
+the same N+1 avoidance with zero blast radius on the issue list:
+
+```
+GET /api/v1/workspaces/<slug>/projects/<project_id>/issue-field-values/
+    [?issue_ids=<uuid,uuid>]   # optional, scope to visible issues
+-> { "<issue_id>": { "<field_id>": <serialized_value> }, ... }
+```
+
+The MobX value cache loads from this once per project (or per visible
+page via `issue_ids`).
 
 ---
 
@@ -250,48 +263,71 @@ with `LIST_COLUMN_ORDER` listing built-in columns. To support custom fields
 **without modifying that file every time a project adds a field**, the
 custom-fields branch introduces a runtime plugin hook.
 
-### Contract
+### Contract — CORRECTED 2026-05-15 to match PR1 reality
 
-Add to `list-columns.ts`:
+The original draft proposed a `TListColumnDef` carrying its own `Cell`.
+**PR1 did not build that.** PR1's actual architecture is string-key based:
+
+- `list-columns.ts`: `TListColumnKey` union, `LIST_COLUMN_WIDTHS`,
+  `LIST_COLUMN_ORDER`, `getVisibleListColumns(): TListColumnKey[]`,
+  `getListGridTemplate(keys)`.
+- `issue-cells.tsx`: `CELL_BY_COLUMN: Record<TListColumnKey, Component>`
+  (static lookup) + `TIssueCellProps = { issue; updateIssue?; isReadOnly;
+isEpic? }`.
+- `list-header-row.tsx`: maps keys → label via
+  `SPREADSHEET_PROPERTY_DETAILS`.
+
+So the contract is rewritten to fit that. **Implemented (this branch):**
+
+`list-columns.ts` — PURELY ADDITIVE (no existing export changed → zero
+PR2/PR3 conflict in this file):
 
 ```ts
-// Runtime-registered columns are appended after built-ins, in registration order.
-const customColumnProviders: Array<() => TListColumnDef[]> = [];
-
-export function registerListColumnProvider(provider: () => TListColumnDef[]): () => void {
-  customColumnProviders.push(provider);
-  return () => {
-    const idx = customColumnProviders.indexOf(provider);
-    if (idx >= 0) customColumnProviders.splice(idx, 1);
-  };
-}
-
-export type TListColumnDef = {
-  key: string;
-  width: number;
-  i18nLabel?: string;
-  // For runtime columns, the cell is its own component (no CELL_BY_COLUMN lookup).
-  Cell: React.ComponentType<TIssueCellProps>;
-  // For sort support (PR2 + custom-fields both consume this)
-  ascendingOrderKey?: TIssueOrderByOptions;
-  descendingOrderKey?: TIssueOrderByOptions;
-};
+export type TCustomListColumn = { key: string; width: number; label: string };
+export function registerListColumnProvider(p: () => TCustomListColumn[]): () => void;
+export function getCustomListColumns(): TCustomListColumn[];
+export function getCustomColumnWidth(key: string): number | undefined;
+export function getCustomColumnLabel(key: string): string | undefined;
+export const CUSTOM_COLUMN_KEY_PREFIX = "custom_field__";
+export function isCustomColumnKey(key: string): boolean;
+export function customColumnKeyToFieldId(key: string): string;
+export function getListGridTemplateWithCustom(builtIn: TListColumnKey[]): string;
 ```
 
-Custom-fields branch will:
+Isolated, lint-clean components (zero conflict, in
+`core/components/work-item-fields/`):
 
-1. Subscribe at the top of `default.tsx` to `useWorkItemFields(projectId)`
-2. Build a `TListColumnDef[]` from the active fields, one per field
-3. Use `registerListColumnProvider` in a `useEffect` to register and return the unregister fn
+- `work-item-field-cell.tsx` — `WorkItemFieldCell` Asana per-type renderer
+  (text/number/date/single_select inline-editable; multi_select/people
+  chips), store-backed.
+- `use-custom-field-columns.ts` — `buildCustomColumns(fields)` /
+  `useCustomFieldColumns(projectId)` → `TCustomListColumn[]`.
+- `custom-field-columns-bridge.tsx` — `CustomFieldColumnsBridge` hydrates
+  fields+values and `registerListColumnProvider`s; renders null.
 
-The bridge file lives at
-`apps/web/core/components/issues/issue-layouts/list/columns/custom-field-columns.tsx`.
+### Gated wiring edits (3 small edits — REQUIRE a build to verify; do
 
-`list-columns.ts` modifications (custom-fields branch does these, NOT PR2):
+### with PR2/PR3 coordination, NOT blind)
 
-- Add the `customColumnProviders` array + register fn
-- Rewrite `getVisibleListColumns()` to merge built-in + provider results
-- Add `TListColumnDef` type (alongside existing `TListColumnKey` union)
+The registry + components above are inert until these land. They are
+small but in PR1/PR2/PR3 hot files, so they are intentionally **not**
+done blind:
+
+1. **`list/default.tsx`** — mount `<CustomFieldColumnsBridge ws pid />`;
+   append `getCustomListColumns().map(c => c.key)` to the rendered
+   `visibleColumns`; swap `getListGridTemplate` →
+   `getListGridTemplateWithCustom`.
+2. **`list/columns/issue-cells.tsx`** — where `CELL_BY_COLUMN[column]`
+   is resolved, if `isCustomColumnKey(column)` render
+   `<WorkItemFieldCell field={byId(customColumnKeyToFieldId(column))}
+issueId issueId projectId isReadOnly />` instead.
+3. **`list/columns/list-header-row.tsx`** — for a custom key, label =
+   `getCustomColumnLabel(column)` instead of the
+   `SPREADSHEET_PROPERTY_DETAILS` lookup.
+
+Rationale: a wrong edit here silently breaks the entire issue list
+(unrenderable grid) and there is no build/runtime here to catch it.
+`pnpm --filter web typecheck` + a dev render must gate these three.
 
 **PR2 (sort) does NOT need to touch this** — sort options operate on
 `TIssueOrderByOptions` (in `packages/types`) and are a separate concern. PR2
@@ -325,7 +361,15 @@ field_values__field_id=<uuid>&field_values__value_text=<value>
 (or `value_number__gte=`, `value_date__lte=`, etc.)
 
 Backend serializer translates these into ORM `.filter(field_values__...)`.
-Detail comes in the custom-fields branch.
+
+**Implemented (2026-05-15, isolated):**
+`plane/app/views/work_item_field/filters.py :: build_custom_field_filter
+(query_params) -> Q`. Unit-testable, `py_compile`-clean. **Not wired
+into the issue-list queryset** — that one-line edit is gated (a wrong
+predicate silently drops/dupes issues; no runtime here). Wire as:
+`qs = qs.filter(build_custom_field_filter(request.query_params))`.
+Frontend filter chip in `issue-filter.helper.ts` = a separate gated UI
+edit (shared filter zone).
 
 ---
 
@@ -343,6 +387,14 @@ ORDER BY value_date   (for date)
 A query param like `?order_by=custom_field__<field_id>` is parsed server-side
 into the right `value_*` column on `WorkItemFieldValue`.
 
+**Implemented (2026-05-15, isolated):**
+`plane/app/views/work_item_field/filters.py :: parse_custom_field_order_by
+(order_by_param)`, `py_compile`-clean, handles `-` desc prefix and maps
+field*type → `value**`. **Server parser is ready now**; the UI sort-menu
+side stays **BLOCKED** until PR2's 24-option menu lands in
+`feature/lark-oauth-provider` (external dep). Issue-list wiring
+(`qs.order_by(*parse_custom_field_order_by(...))`) is gated like §8.
+
 ---
 
 ## 10. Suggested sequencing (custom-fields branch)
@@ -359,11 +411,17 @@ Each numbered step = ~one commit.
    (nav entry, route, list/inline-form/option-editor/item, en+zh i18n)
 5. **Value CRUD endpoints + serializer** — done (field_type→column mapping,
    per-type validation, issue-scoped upsert/clear/list)
-6. **Bulk fetch** (`?expand=field_values`) + store value cache
-7. **List view bridge** (`registerListColumnProvider` + cell renderers per type)
-8. **Peek panel** (custom field section in issue detail right-rail)
-9. **Filter** (frontend filter chip + backend predicate)
-10. **Sort** (depends on PR2 landing in `feature/lark-oauth-provider`)
+6. **Bulk fetch** (dedicated `issue-field-values/` endpoint, not
+   `?expand`) + store value cache — done (py_compile + lint clean)
+7. **List view bridge** — done (isolated): registry primitive
+   (append-only), `WorkItemFieldCell`, column hook, bridge. 3 hot-file
+   wiring edits documented + GATED on a build (not blind). See §7.
+8. **Peek panel** — done (isolated): `WorkItemFieldSection`. Single
+   peek-sidebar mount = gated wiring.
+9. **Filter** — backend `build_custom_field_filter` done (isolated,
+   py_compile). Issue-list wiring + frontend chip = gated.
+10. **Sort** — server parser `parse_custom_field_order_by` done
+    (isolated, py_compile). UI/menu BLOCKED by external PR2 dep.
 
 Steps 1-6 are pure backend / store layer with zero overlap with PR2/PR3.
 Step 7 onward touches files also in PR2/PR3 zone — coordinate via rebase.

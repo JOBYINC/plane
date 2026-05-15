@@ -6,4 +6,5 @@ from .base import (
     WorkItemFieldViewSet,
     WorkItemFieldOptionViewSet,
     WorkItemFieldValueViewSet,
+    WorkItemFieldValueBulkEndpoint,
 )

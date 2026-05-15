@@ -94,6 +94,7 @@ from .work_item_field import (
     WorkItemFieldViewSet,
     WorkItemFieldOptionViewSet,
     WorkItemFieldValueViewSet,
+    WorkItemFieldValueBulkEndpoint,
 )
 from .view.base import (
     WorkspaceViewViewSet,

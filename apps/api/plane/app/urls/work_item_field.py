@@ -8,6 +8,7 @@ from plane.app.views import (
     WorkItemFieldViewSet,
     WorkItemFieldOptionViewSet,
     WorkItemFieldValueViewSet,
+    WorkItemFieldValueBulkEndpoint,
 )
 
 
@@ -52,5 +53,10 @@ urlpatterns = [
         "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/field-values/<uuid:field_id>/",
         WorkItemFieldValueViewSet.as_view({"put": "upsert", "delete": "clear"}),
         name="project-work-item-field-value",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issue-field-values/",
+        WorkItemFieldValueBulkEndpoint.as_view(),
+        name="project-work-item-field-values-bulk",
     ),
 ]
