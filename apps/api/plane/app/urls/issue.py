@@ -18,6 +18,7 @@ from plane.app.views import (
     IssueReactionViewSet,
     IssueRelationViewSet,
     IssueSubscriberViewSet,
+    IssueSectionEndpoint,
     ProjectUserDisplayPropertyEndpoint,
     IssueViewSet,
     LabelViewSet,
@@ -188,6 +189,13 @@ urlpatterns = [
         name="project-issue-subscribers",
     ),
     ## End Issue Subscribers
+    # Issue Section (free-form organizational axis — independent of State)
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/section/",
+        IssueSectionEndpoint.as_view(),
+        name="project-issue-section",
+    ),
+    ## End Issue Section
     # Issue Reactions
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/reactions/",
