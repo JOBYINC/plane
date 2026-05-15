@@ -90,6 +90,11 @@ from .workspace.sticky import WorkspaceStickyViewSet
 
 from .state.base import StateViewSet, IntakeStateEndpoint
 from .automation import AutomationRuleViewSet, AutomationRuleRunListView
+from .work_item_field import (
+    WorkItemFieldViewSet,
+    WorkItemFieldOptionViewSet,
+    WorkItemFieldValueViewSet,
+)
 from .view.base import (
     WorkspaceViewViewSet,
     WorkspaceViewIssuesViewSet,
