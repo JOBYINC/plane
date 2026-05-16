@@ -5,7 +5,8 @@
 """Hourly Celery beat task: DM assignees about approaching/past due-dates.
 
 Three reminder stages, each capped at one DM per assignee per stage per day
-(deduped via Redis cache key) so the hourly cadence doesn't spam:
+(deduped via a durable LarkDueReminderLog row — atomic across beat workers
+and surviving cache loss/restart) so the hourly cadence doesn't spam:
   - soon    (24h-48h before target_date) -> orange card "⏰ 任务明天到期"
   - today   (target_date == today, UTC)  -> red card    "🔥 任务今日到期"
   - overdue (target_date in the past,
@@ -27,17 +28,13 @@ from datetime import date, timedelta
 from celery import shared_task
 
 # Django
-from django.core.cache import cache
+from django.utils import timezone
 
 logger = logging.getLogger("plane.bgtasks.lark_due_reminder_task")
 
 # Don't keep nagging forever -- if a task is 8+ days overdue, the team has
 # already decided to ignore it; further DMs are pure noise.
 OVERDUE_WINDOW_DAYS = 7
-
-# Dedup TTL: 25h so an event scheduled near midnight UTC doesn't double-fire
-# when the hourly job crosses into the next calendar day.
-DEDUP_TTL_SECONDS = 25 * 3600
 
 
 def _notifications_enabled():
@@ -48,10 +45,6 @@ def _notifications_enabled():
     )
 
 
-def _dedup_key(issue_id, assignee_id, stage, today):
-    return f"lark_due_reminder:{issue_id}:{assignee_id}:{stage}:{today.isoformat()}"
-
-
 @shared_task
 def remind_due_dates_task():
     """Scan upcoming/overdue issues and DM their assignees once per stage/day."""
@@ -59,7 +52,7 @@ def remind_due_dates_task():
         return {"skipped": "LARK_NOTIFICATIONS_ENABLED not set"}
 
     # Late import keeps Celery's task discovery cheap at boot.
-    from plane.db.models import Issue
+    from plane.db.models import Issue, LarkDueReminderLog
     from plane.utils.lark_notify import (
         card_issue_due_reminder,
         get_union_id,
@@ -98,8 +91,23 @@ def remind_due_dates_task():
             continue  # outside the windows we care about (shouldn't hit -- query bounds us)
 
         for assignee in issue.assignees.all():
-            key = _dedup_key(issue.id, assignee.id, stage, today)
-            if cache.get(key):
+            # Atomic durable claim. The unique (issue, receiver, stage,
+            # reminder_date) constraint makes this idempotent across the
+            # hourly cadence AND across concurrent beat workers, regardless
+            # of whether the cache is healthy. The claim is released on any
+            # failure below so a later run retries -- i.e. the
+            # once-per-stage/day slot is only consumed on a confirmed
+            # successful send (same intent the old Redis check had, now
+            # durable). Release uses a hard delete (soft=False): a failed
+            # claim has no audit value, and a soft delete would both leave
+            # a ghost row and queue a pointless cascade task per failure.
+            _log, created = LarkDueReminderLog.objects.get_or_create(
+                issue=issue,
+                receiver=assignee,
+                stage=stage,
+                reminder_date=today,
+            )
+            if not created:
                 skipped_dup += 1
                 continue
 
@@ -110,6 +118,7 @@ def remind_due_dates_task():
                 card = card_issue_due_reminder(issue, stage, delta, lang=user_lang(assignee))
             except Exception:
                 logger.exception("Failed to build due-reminder card for issue=%s", issue.id)
+                _log.delete(soft=False)
                 errored += 1
                 continue
 
@@ -117,10 +126,12 @@ def remind_due_dates_task():
                 union_id = get_union_id(assignee)
             except Exception:
                 logger.exception("get_union_id failed for assignee=%s", assignee.id)
+                _log.delete(soft=False)
                 errored += 1
                 continue
 
             if not union_id:
+                _log.delete(soft=False)
                 no_union += 1
                 continue
 
@@ -130,13 +141,16 @@ def remind_due_dates_task():
                 logger.exception(
                     "send_interactive_card failed: issue=%s assignee=%s", issue.id, assignee.id
                 )
+                _log.delete(soft=False)
                 errored += 1
                 continue
 
             if ok:
-                cache.set(key, "1", DEDUP_TTL_SECONDS)
+                _log.sent_at = timezone.now()
+                _log.save(update_fields=["sent_at"])
                 sent += 1
             else:
+                _log.delete(soft=False)
                 errored += 1
 
     stats = {
