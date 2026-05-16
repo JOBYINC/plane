@@ -381,6 +381,42 @@ Rule: **rebase PR2 onto `feature/custom-fields` (or vice-versa) before merging
 either to mainline.** Whoever merges second resolves the (probably trivial)
 conflicts.
 
+### Full-inline in-context management — ADDED 2026-05-15 (UI/UX window)
+
+Contract refinement (user decision, this is the sanctioned design-doc
+amendment): field schema management is **fully in-context** — add / edit /
+archive / option-edit happen from the peek panel and the list column-header
+via a shared modal; **no navigation to the settings page is required** (the
+settings page still exists and is unchanged). Asana parity.
+
+- `work-item-field-editor-modal.tsx` — `WorkItemFieldEditorModal` wraps
+  `ModalCore` + the existing `CreateUpdateFieldInline` (new `embedded` prop
+  drops the settings-card chrome; new `onCreated` callback keeps the modal
+  open and switches to edit mode after a select-type field is created so
+  options can be added in-context).
+- Peek (`work-item-field-section.tsx`): renders even when empty, gated on
+  project-ADMIN; "+ Add custom field" + per-field `CustomMenu` (Edit /
+  Archive). `isReadOnly` (peek `disabled`) still gates value editing;
+  schema management is the separate ADMIN gate.
+- List header: the PR2-shared `list-header-row.tsx` diff is kept **minimal
+  and additive** — it only swaps the custom-column label `<div>` for
+  `<CustomColumnHeaderCell>` and the trailing empty actions `<div>` for
+  `<AddCustomFieldHeaderButton>`. All menu/modal/permission logic lives in
+  the new, isolated `custom-column-header.tsx` (NOT a PR2 file), so a PR2
+  rebase re-resolves trivially. The grid template is untouched (the add
+  button reuses the existing 56px actions track) → row alignment unaffected,
+  no change to default.tsx/block.tsx.
+- `field-type-icon.tsx` — shared per-type glyph (settings list + peek).
+- `multi_select`/`people` cells are now inline-editable (people reuses
+  Plane's `MemberDropdown` multi; multi_select is a `CustomMenu` toggle).
+
+Verification status (honest): `pnpm --filter web check:types` = the 11
+pre-existing Lark errors only, **zero in any changed file**; `oxlint` 0/0.
+**Pixel rendering NOT auto-verified** — the Playwright MCP needs a browser-
+extension bridge absent in the dev box. Reproducible local stack lives in
+`apps/api/cf_local_stack.py` (ephemeral pgserver + seed + Django :8000;
+pair with `pnpm --filter web dev`); eyeball pending.
+
 ---
 
 ## 8. Filter integration
@@ -514,7 +550,11 @@ Real merge to mainline: rebase `feature/custom-fields` onto
 
 - Should `description` show as tooltip on column header in list view? (Asana does.)
 - Date-only vs datetime support? v1 says date-only; might need datetime for v2.
-- Permission model: project-admin-only schema edit, or anyone-on-project? Current draft says admin-only.
+- ~~Permission model: project-admin-only schema edit, or anyone-on-project?~~
+  **RESOLVED 2026-05-15:** project-ADMIN-only for all schema management
+  (create / edit / archive / options), enforced in the UI via
+  `allowPermissions([ADMIN], PROJECT)` on every in-context entry point
+  (peek + column-header) and on the settings page.
 - Inheritance from project templates? v2.
 - ~~Field-type vocabulary vs Asana wire names~~ **RESOLVED 2026-05-15:** v1
   targets Asana parity with exactly 6 types — `text` / `number` / `date` /

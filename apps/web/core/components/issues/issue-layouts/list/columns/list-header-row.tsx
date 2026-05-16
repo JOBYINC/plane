@@ -8,6 +8,7 @@ import { useTranslation } from "@plane/i18n";
 import type { IIssueDisplayFilterOptions, IIssueDisplayProperties } from "@plane/types";
 import { Row } from "@plane/ui";
 import { cn } from "@plane/utils";
+import { AddCustomFieldHeaderButton, CustomColumnHeaderCell } from "@/components/work-item-fields";
 import type { TListColumnContext } from "./list-columns";
 import { getCustomListColumns, getListGridTemplateWithCustom, getVisibleListColumns } from "./list-columns";
 import { ListSortHeaderCell } from "./list-sort-header-cell";
@@ -59,11 +60,9 @@ export function ListHeaderRow(props: Props) {
           />
         ))}
         {customColumns.map((c) => (
-          <div key={c.key} className="flex min-w-0 items-center gap-1.5 truncate">
-            <span className="truncate">{c.label}</span>
-          </div>
+          <CustomColumnHeaderCell key={c.key} columnKey={c.key} label={c.label} />
         ))}
-        <div aria-hidden />
+        <AddCustomFieldHeaderButton />
       </div>
     </Row>
   );

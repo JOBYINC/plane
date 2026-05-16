@@ -7,10 +7,12 @@
 import React, { useState } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
-import type { TWorkItemField, TWorkItemFieldValue } from "@plane/types";
-import { CustomSelect } from "@plane/ui";
+import { Check } from "lucide-react";
+import type { TWorkItemField, TWorkItemFieldOption, TWorkItemFieldValue } from "@plane/types";
+import { CustomMenu, CustomSelect } from "@plane/ui";
 import { renderFormattedPayloadDate } from "@plane/utils";
 import { DateDropdown } from "@/components/dropdowns/date";
+import { MemberDropdown } from "@/components/dropdowns/member/dropdown";
 import { useWorkItemField } from "@/hooks/store/use-work-item-field";
 
 interface WorkItemFieldCellProps {
@@ -33,8 +35,8 @@ interface WorkItemFieldCellProps {
  * single_select uses Plane's native CustomSelect (colored chip + popover
  * like StateDropdown), date uses the native DateDropdown calendar;
  * text/number are inline inputs (parity with Plane's native text/number
- * property inputs). multi_select/people render colored chips (full
- * multi-pickers live in the peek panel — KISS for v1).
+ * property inputs). people reuses Plane's native MemberDropdown (multi),
+ * multi_select is a colored-chip toggle popover — both edit inline.
  */
 export const WorkItemFieldCell = observer(function WorkItemFieldCell(props: WorkItemFieldCellProps) {
   const { field, issueId, projectId, isReadOnly } = props;
@@ -53,7 +55,7 @@ export const WorkItemFieldCell = observer(function WorkItemFieldCell(props: Work
     }
   };
 
-  const activeOptions = field.options.filter((o) => o.is_active);
+  const activeOptions = (field.options ?? []).filter((o) => o.is_active);
   const optionById = (id: string) => activeOptions.find((o) => o.id === id);
 
   let inner: React.ReactNode;
@@ -130,40 +132,84 @@ export const WorkItemFieldCell = observer(function WorkItemFieldCell(props: Work
         ))}
       </CustomSelect>
     );
-  } else {
-    // multi_select / people — display chips (full picker = peek panel, v1)
+  } else if (field.field_type === "people") {
     const ids = Array.isArray(value) ? value : [];
     inner = (
-      <div className="flex min-w-0 flex-wrap items-center gap-1">
-        {ids.length === 0 && <span className="text-13 text-placeholder">—</span>}
-        {field.field_type === "multi_select"
-          ? ids.map((id) => {
-              const opt = optionById(id);
-              return (
+      <MemberDropdown
+        projectId={projectId}
+        value={ids}
+        onChange={(next: string[]) => commit(next.length > 0 ? next : null)}
+        multiple
+        disabled={isReadOnly}
+        buttonVariant={ids.length > 0 ? "transparent-with-text" : "border-with-text"}
+        buttonClassName="text-13"
+        placeholder={field.name}
+        optionsClassName="z-20"
+        showTooltip={false}
+        tooltipContent=""
+      />
+    );
+  } else {
+    // multi_select — colored-chip toggle popover; stays open across toggles
+    // (parity with single_select's CustomSelect, but multi-value).
+    const ids = Array.isArray(value) ? value : [];
+    const selected = ids.map((id) => optionById(id)).filter((o): o is TWorkItemFieldOption => Boolean(o));
+    inner = (
+      <CustomMenu
+        closeOnSelect={false}
+        disabled={isReadOnly}
+        placement="bottom-start"
+        optionsClassName="z-20 min-w-[12rem]"
+        customButton={
+          <div className="flex min-h-[1.75rem] w-full flex-wrap items-center gap-1 rounded border border-strong px-1.5 py-0.5">
+            {selected.length === 0 ? (
+              <span className="text-13 text-placeholder">{field.name}</span>
+            ) : (
+              selected.map((opt) => (
                 <span
-                  key={id}
+                  key={opt.id}
                   className="truncate rounded px-1.5 py-0.5 text-11"
-                  style={{ backgroundColor: `${opt?.color ?? "#6B7280"}20`, color: opt?.color ?? "#6B7280" }}
+                  style={{ backgroundColor: `${opt.color}20`, color: opt.color }}
                 >
-                  {opt?.name ?? id}
+                  {opt.name}
                 </span>
-              );
-            })
-          : ids.map((id) => (
-              <span key={id} className="truncate rounded bg-surface-2 px-1.5 py-0.5 text-11 text-secondary">
-                {id}
+              ))
+            )}
+          </div>
+        }
+      >
+        {activeOptions.length === 0 && <span className="px-2 py-1 text-13 text-placeholder">—</span>}
+        {activeOptions.map((opt) => {
+          const isSelected = ids.includes(opt.id);
+          return (
+            <CustomMenu.MenuItem
+              key={opt.id}
+              onClick={() => {
+                const next = isSelected ? ids.filter((x) => x !== opt.id) : [...ids, opt.id];
+                commit(next.length > 0 ? next : null);
+              }}
+            >
+              <span className="flex items-center gap-2">
+                <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: opt.color }} />
+                <span className="flex-1 truncate">{opt.name}</span>
+                {isSelected && <Check className="size-3.5 flex-shrink-0" />}
               </span>
-            ))}
-      </div>
+            </CustomMenu.MenuItem>
+          );
+        })}
+      </CustomMenu>
     );
   }
 
-  // stopPropagation only (NO preventDefault — inputs must still focus).
-  // Keeps a click/focus inside the cell from bubbling to the row's
-  // peek-overview ControlLink, so editing happens inline.
+  // Stop click/focus from BUBBLING UP to the list row's peek-overview
+  // ControlLink so editing stays inline. Must be bubble-phase: a
+  // capture-phase onFocusCapture stops the focus event before it reaches
+  // the Headless-UI CustomSelect/CustomMenu inside, so those dropdowns
+  // never open (plain inputs tolerate it; focus-managed popovers don't).
+  // No preventDefault — inputs/controls must still focus.
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
-    <div className="w-full min-w-0" onClick={(e) => e.stopPropagation()} onFocusCapture={(e) => e.stopPropagation()}>
+    <div className="w-full min-w-0" onClick={(e) => e.stopPropagation()} onFocus={(e) => e.stopPropagation()}>
       {inner}
     </div>
   );
