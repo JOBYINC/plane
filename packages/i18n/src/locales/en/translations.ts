@@ -1770,6 +1770,7 @@ export default {
       delete_confirm_message:
         "This permanently removes the field and all its values from every work item. This cannot be undone.",
       edit_field: "Edit field",
+      edit_options: "Edit options",
       toast: {
         create_error: "Could not create the field",
         update_error: "Could not update the field",

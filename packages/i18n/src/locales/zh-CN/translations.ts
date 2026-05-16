@@ -1880,6 +1880,7 @@ export default {
       delete_confirm_title: "删除字段?",
       delete_confirm_message: "这会永久移除该字段及其在所有工作项上的全部值,不可撤销。",
       edit_field: "编辑字段",
+      edit_options: "编辑选项",
       toast: {
         create_error: "创建字段失败",
         update_error: "更新字段失败",

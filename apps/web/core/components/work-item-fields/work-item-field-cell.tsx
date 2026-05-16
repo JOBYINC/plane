@@ -7,13 +7,17 @@
 import React, { useState } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
-import { Check } from "lucide-react";
+import { Check, Pencil } from "lucide-react";
+import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
+import { useTranslation } from "@plane/i18n";
 import type { TWorkItemField, TWorkItemFieldOption, TWorkItemFieldValue } from "@plane/types";
 import { CustomMenu } from "@plane/ui";
 import { renderFormattedPayloadDate } from "@plane/utils";
 import { DateDropdown } from "@/components/dropdowns/date";
 import { MemberDropdown } from "@/components/dropdowns/member/dropdown";
 import { useWorkItemField } from "@/hooks/store/use-work-item-field";
+import { useUserPermissions } from "@/hooks/store/user";
+import { WorkItemFieldEditorModal } from "./work-item-field-editor-modal";
 
 interface WorkItemFieldCellProps {
   field: TWorkItemField;
@@ -47,6 +51,10 @@ export const WorkItemFieldCell = observer(function WorkItemFieldCell(props: Work
   const ws = workspaceSlug?.toString() ?? "";
   const value = getValueForIssue(issueId, field.id);
   const [draft, setDraft] = useState<string>(value == null ? "" : String(value));
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const { t } = useTranslation();
+  const { allowPermissions } = useUserPermissions();
+  const canManageFields = allowPermissions([EUserPermissions.ADMIN], EUserPermissionsLevel.PROJECT);
 
   const commit = async (next: TWorkItemFieldValue) => {
     if (isReadOnly) return;
@@ -138,6 +146,14 @@ export const WorkItemFieldCell = observer(function WorkItemFieldCell(props: Work
             </CustomMenu.MenuItem>
           );
         })}
+        {canManageFields && (
+          <CustomMenu.MenuItem onClick={() => setIsEditorOpen(true)}>
+            <span className="flex items-center gap-2">
+              <Pencil className="size-3.5 flex-shrink-0" />
+              <span className="flex-1">{t("project_settings.custom_fields.edit_options")}</span>
+            </span>
+          </CustomMenu.MenuItem>
+        )}
       </CustomMenu>
     );
   } else if (field.field_type === "people") {
@@ -210,6 +226,14 @@ export const WorkItemFieldCell = observer(function WorkItemFieldCell(props: Work
             </CustomMenu.MenuItem>
           );
         })}
+        {canManageFields && (
+          <CustomMenu.MenuItem onClick={() => setIsEditorOpen(true)}>
+            <span className="flex items-center gap-2">
+              <Pencil className="size-3.5 flex-shrink-0" />
+              <span className="flex-1">{t("project_settings.custom_fields.edit_options")}</span>
+            </span>
+          </CustomMenu.MenuItem>
+        )}
       </CustomMenu>
     );
   }
@@ -230,6 +254,7 @@ export const WorkItemFieldCell = observer(function WorkItemFieldCell(props: Work
       onFocus={(e) => e.stopPropagation()}
     >
       {inner}
+      <WorkItemFieldEditorModal isOpen={isEditorOpen} onClose={() => setIsEditorOpen(false)} fieldToUpdate={field} />
     </div>
   );
 });
