@@ -42,7 +42,10 @@ export function ListHeaderRow(props: Props) {
   return (
     <Row
       className={cn(
-        "sticky top-0 z-[3] w-full flex-shrink-0 items-center border-b border-subtle bg-layer-1 text-caption-sm-medium text-secondary",
+        // min-w-full w-max: span the full --list-cols content width so the
+        // header still covers custom-field columns when scrolled right
+        // (mirrors the rows wrapper in blocks-list.tsx).
+        "sticky top-0 z-[3] w-max min-w-full flex-shrink-0 items-center border-b border-subtle bg-layer-1 text-caption-sm-medium text-secondary",
         visibilityClassName ?? "flex",
         LIST_HEADER_HEIGHT_CLASS
       )}
