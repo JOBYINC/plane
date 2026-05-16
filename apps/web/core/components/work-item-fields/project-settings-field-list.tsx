@@ -38,6 +38,9 @@ export const ProjectSettingsFieldList = observer(function ProjectSettingsFieldLi
 
   const isEditable = allowPermissions([EUserPermissions.ADMIN], EUserPermissionsLevel.PROJECT);
   const fields = getProjectFields(pid);
+  // Soft-deleted fields (is_active=false) are hidden — there is no restore
+  // entry, so deletion is effectively permanent from the UI.
+  const visibleFields = fields?.filter((f) => f.is_active);
 
   useEffect(() => {
     if (!ws || !pid) return;
@@ -79,13 +82,13 @@ export const ProjectSettingsFieldList = observer(function ProjectSettingsFieldLi
           <Loader.Item height="56px" />
           <Loader.Item height="56px" />
         </Loader>
-      ) : !fields || fields.length === 0 ? (
+      ) : !visibleFields || visibleFields.length === 0 ? (
         !showCreateForm && (
           <p className="py-8 text-center text-14 text-tertiary">{t("project_settings.custom_fields.empty")}</p>
         )
       ) : (
         <div className="flex flex-col gap-2">
-          {fields.map((field) => (
+          {visibleFields.map((field) => (
             <FieldListItem key={field.id} field={field} isEditable={isEditable} />
           ))}
         </div>

@@ -1765,6 +1765,10 @@ export default {
       empty: "No custom fields yet",
       archived: "Archived",
       archive_field: "Archive field",
+      delete_field: "Delete field",
+      delete_confirm_title: "Delete field?",
+      delete_confirm_message:
+        "This permanently removes the field and all its values from every work item. This cannot be undone.",
       edit_field: "Edit field",
       toast: {
         create_error: "Could not create the field",

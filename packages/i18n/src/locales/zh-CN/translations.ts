@@ -1876,6 +1876,9 @@ export default {
       empty: "暂无自定义字段",
       archived: "已归档",
       archive_field: "归档字段",
+      delete_field: "删除字段",
+      delete_confirm_title: "删除字段?",
+      delete_confirm_message: "这会永久移除该字段及其在所有工作项上的全部值,不可撤销。",
       edit_field: "编辑字段",
       toast: {
         create_error: "创建字段失败",
