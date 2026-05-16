@@ -8,8 +8,9 @@ import { useState } from "react";
 import { observer } from "mobx-react";
 // plane imports
 import { useTranslation } from "@plane/i18n";
+import { Button } from "@plane/propel/button";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
-import { AlertModalCore } from "@plane/ui";
+import { EModalPosition, EModalWidth, ModalCore } from "@plane/ui";
 
 interface IDeleteFieldModal {
   isOpen: boolean;
@@ -20,9 +21,16 @@ interface IDeleteFieldModal {
 /**
  * Confirmation dialog for deleting a custom field. The backend soft-archives
  * (is_active=false) but the field + all its values become permanently
- * inaccessible from the UI (no restore entry), so this is treated as a
- * destructive, irreversible action. Shared by every delete trigger
- * (settings list, list column header, peek section).
+ * inaccessible from the UI (no restore entry), so this is a destructive,
+ * irreversible action. Shared by every delete trigger (settings list, list
+ * column header, peek section).
+ *
+ * Built on ModalCore (not AlertModalCore) so the content — including the
+ * buttons — can be wrapped in `data-prevent-outside-click`: this modal is
+ * portaled to <body>, outside the issue peek's ref, and without that opt-out
+ * a click here trips use-peek-overview-outside-click and closes the
+ * underlying peek (which then unmounts this modal). Mirrors the proven
+ * WorkItemFieldEditorModal pattern.
  */
 export const DeleteFieldModal = observer(function DeleteFieldModal(props: IDeleteFieldModal) {
   const { isOpen, handleClose, handleSubmit } = props;
@@ -46,13 +54,19 @@ export const DeleteFieldModal = observer(function DeleteFieldModal(props: IDelet
   };
 
   return (
-    <AlertModalCore
-      handleClose={handleClose}
-      handleSubmit={formSubmit}
-      isSubmitting={loader}
-      isOpen={isOpen}
-      title={t("project_settings.custom_fields.delete_confirm_title")}
-      content={t("project_settings.custom_fields.delete_confirm_message")}
-    />
+    <ModalCore isOpen={isOpen} handleClose={handleClose} position={EModalPosition.CENTER} width={EModalWidth.XXL}>
+      <div data-prevent-outside-click className="p-5">
+        <h3 className="text-16 font-medium text-primary">{t("project_settings.custom_fields.delete_confirm_title")}</h3>
+        <p className="mt-2 text-13 text-secondary">{t("project_settings.custom_fields.delete_confirm_message")}</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="secondary" size="sm" onClick={handleClose} disabled={loader}>
+            {t("cancel")}
+          </Button>
+          <Button variant="error-fill" size="sm" onClick={formSubmit} loading={loader} disabled={loader}>
+            {t("project_settings.custom_fields.delete_field")}
+          </Button>
+        </div>
+      </div>
+    </ModalCore>
   );
 });

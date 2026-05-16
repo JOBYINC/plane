@@ -6,12 +6,11 @@
 
 import React, { useEffect, useState } from "react";
 import { observer } from "mobx-react";
-import { Pencil, Archive, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus } from "lucide-react";
 // plane imports
 import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
 import { Button } from "@plane/propel/button";
-import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { TWorkItemField } from "@plane/types";
 import { CustomMenu } from "@plane/ui";
 // hooks
@@ -20,6 +19,7 @@ import { useUserPermissions } from "@/hooks/store/user";
 // local
 import { FieldTypeIcon } from "./field-type-icon";
 import { WorkItemFieldCell } from "./work-item-field-cell";
+import { DeleteFieldModal } from "./delete-field-modal";
 import { WorkItemFieldEditorModal } from "./work-item-field-editor-modal";
 
 interface WorkItemFieldSectionProps {
@@ -47,6 +47,7 @@ export const WorkItemFieldSection = observer(function WorkItemFieldSection(props
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [fieldToEdit, setFieldToEdit] = useState<TWorkItemField | undefined>(undefined);
+  const [fieldToDelete, setFieldToDelete] = useState<TWorkItemField | undefined>(undefined);
 
   useEffect(() => {
     if (!workspaceSlug || !projectId) return;
@@ -72,18 +73,6 @@ export const WorkItemFieldSection = observer(function WorkItemFieldSection(props
   const openEdit = (field: TWorkItemField) => {
     setFieldToEdit(field);
     setIsEditorOpen(true);
-  };
-
-  const onArchive = async (field: TWorkItemField) => {
-    try {
-      await deleteField(workspaceSlug, projectId, field.id);
-    } catch {
-      setToast({
-        type: TOAST_TYPE.ERROR,
-        title: "Error!",
-        message: t("project_settings.custom_fields.toast.update_error"),
-      });
-    }
   };
 
   return (
@@ -115,10 +104,10 @@ export const WorkItemFieldSection = observer(function WorkItemFieldSection(props
                       {t("project_settings.custom_fields.edit_field")}
                     </span>
                   </CustomMenu.MenuItem>
-                  <CustomMenu.MenuItem onClick={() => onArchive(field)}>
+                  <CustomMenu.MenuItem onClick={() => setFieldToDelete(field)}>
                     <span className="flex items-center gap-2">
-                      <Archive className="size-3.5" />
-                      {t("project_settings.custom_fields.archive_field")}
+                      <Trash2 className="size-3.5" />
+                      {t("project_settings.custom_fields.delete_field")}
                     </span>
                   </CustomMenu.MenuItem>
                 </CustomMenu>
@@ -146,6 +135,13 @@ export const WorkItemFieldSection = observer(function WorkItemFieldSection(props
         isOpen={isEditorOpen}
         onClose={() => setIsEditorOpen(false)}
         fieldToUpdate={fieldToEdit}
+      />
+      <DeleteFieldModal
+        isOpen={!!fieldToDelete}
+        handleClose={() => setFieldToDelete(undefined)}
+        handleSubmit={async () => {
+          if (fieldToDelete) await deleteField(workspaceSlug, projectId, fieldToDelete.id);
+        }}
       />
     </div>
   );
