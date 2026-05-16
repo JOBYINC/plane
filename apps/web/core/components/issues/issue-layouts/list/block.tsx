@@ -22,11 +22,13 @@ import { cn, generateWorkItemLink } from "@plane/utils";
 // components
 import { MultipleSelectEntityAction } from "@/components/core/multiple-select";
 import { IssueProperties } from "@/components/issues/issue-layouts/properties";
+import { WorkItemFieldCell } from "@/components/work-item-fields";
 // helpers
 // hooks
 import { useAppTheme } from "@/hooks/store/use-app-theme";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useProject } from "@/hooks/store/use-project";
+import { useWorkItemField } from "@/hooks/store/use-work-item-field";
 import type { TSelectionHelper } from "@/hooks/use-multiple-select";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // plane web components
@@ -35,6 +37,8 @@ import { IssueStats } from "@/plane-web/components/issues/issue-layouts/issue-st
 // types
 import { WithDisplayPropertiesHOC } from "../properties/with-display-properties-HOC";
 import { calculateIdentifierWidth } from "../utils";
+import { CELL_BY_COLUMN } from "./columns/issue-cells";
+import { customColumnKeyToFieldId, getCustomListColumns, getVisibleListColumns } from "./columns/list-columns";
 import type { TRenderQuickActions } from "./list-view-types";
 
 interface IssueBlockProps {
@@ -110,6 +114,11 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
   const subIssuesCount = issue?.sub_issues_count ?? 0;
   const canEditIssueProperties = canEditProperties(issue?.project_id ?? undefined);
   const isDraggingAllowed = canDrag && canEditIssueProperties;
+  const visibleColumns = getVisibleListColumns(displayProperties, { isEpic });
+  // Runtime custom-field columns (design §7), rendered after built-ins so
+  // cells line up with the sticky header + the --list-cols grid template.
+  const customColumns = getCustomListColumns();
+  const { getFieldById } = useWorkItemField();
 
   const { isMobile } = usePlatformOS();
 
@@ -184,15 +193,19 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
       <Row
         ref={issueRef}
         className={cn(
-          "group/list-block relative flex min-h-11 flex-col gap-3 bg-layer-transparent py-3 text-13 transition-colors hover:bg-layer-transparent-hover",
+          "group/list-block relative min-h-11 bg-layer-transparent py-3 text-13 transition-colors hover:bg-layer-transparent-hover",
+          // Mobile: stacked flex column (title row + properties pill row).
+          // Desktop: CSS Grid aligned with the sticky column header above.
+          "flex flex-col gap-3",
+          isSidebarCollapsed
+            ? "md:grid md:grid-cols-[var(--list-cols)] md:items-center md:gap-2"
+            : "lg:grid lg:grid-cols-[var(--list-cols)] lg:items-center lg:gap-2",
           {
             "border-accent-strong": getIsIssuePeeked(issue.id) && peekIssue?.nestingLevel === nestingLevel,
             "border-strong-1": isIssueActive,
             "last:border-b-transparent": !getIsIssuePeeked(issue.id) && !isIssueActive,
             "bg-accent-primary/5 hover:bg-accent-primary/10": isIssueSelected,
             "bg-layer-1": isCurrentBlockDragging,
-            "md:flex-row md:items-center": isSidebarCollapsed,
-            "lg:flex-row lg:items-center": !isSidebarCollapsed,
           }
         )}
         onDragStart={() => {
@@ -308,39 +321,66 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
             </div>
           )}
         </div>
-        <div className="flex flex-shrink-0 items-center gap-2">
+        {/* Mobile/pill mode: existing flex-wrap pill row */}
+        <div className={cn("flex flex-shrink-0 items-center gap-2", isSidebarCollapsed ? "md:hidden" : "lg:hidden")}>
           {!issue?.tempId ? (
-            <>
-              <IssueProperties
-                className={`relative flex flex-wrap ${isSidebarCollapsed ? "md:flex-shrink-0 md:flex-grow" : "lg:flex-shrink-0 lg:flex-grow"} items-center gap-2 whitespace-nowrap`}
-                issue={issue}
-                isReadOnly={!canEditIssueProperties}
-                updateIssue={updateIssue}
-                displayProperties={displayProperties}
-                activeLayout="List"
-                isEpic={isEpic}
-              />
-              <div
-                className={cn("hidden", {
-                  "md:flex": isSidebarCollapsed,
-                  "lg:flex": !isSidebarCollapsed,
-                })}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-              >
-                {quickActions({
-                  issue,
-                  parentRef: issueRef,
-                })}
-              </div>
-            </>
+            <IssueProperties
+              className="relative flex flex-wrap items-center gap-2 whitespace-nowrap"
+              issue={issue}
+              isReadOnly={!canEditIssueProperties}
+              updateIssue={updateIssue}
+              displayProperties={displayProperties}
+              activeLayout="List"
+              isEpic={isEpic}
+            />
           ) : (
             <div className="h-4 w-4">
               <Spinner className="h-4 w-4" />
             </div>
           )}
+        </div>
+
+        {/* Desktop/grid mode: per-column cells aligned with sticky header.
+            display:contents flattens this wrapper so its children become grid items
+            of the outer Row, sharing the same --list-cols template. */}
+        <div className={cn("hidden", isSidebarCollapsed ? "md:contents" : "lg:contents")}>
+          {visibleColumns.map((column) => {
+            const Cell = CELL_BY_COLUMN[column];
+            return (
+              <div key={column} className="flex min-w-0 items-center">
+                {!issue?.tempId ? (
+                  <Cell issue={issue} updateIssue={updateIssue} isReadOnly={!canEditIssueProperties} isEpic={isEpic} />
+                ) : null}
+              </div>
+            );
+          })}
+          {customColumns.map((c) => {
+            // Always render the slot div so the grid stays aligned even
+            // before the field schema resolves (field may be null briefly).
+            const field = getFieldById(customColumnKeyToFieldId(c.key));
+            return (
+              <div key={c.key} className="flex min-w-0 items-center">
+                {!issue?.tempId && field && issue?.project_id ? (
+                  <WorkItemFieldCell
+                    field={field}
+                    issueId={issue.id}
+                    projectId={issue.project_id}
+                    isReadOnly={!canEditIssueProperties}
+                  />
+                ) : null}
+              </div>
+            );
+          })}
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+          <div
+            className="flex items-center justify-end"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
+            {!issue?.tempId ? quickActions({ issue, parentRef: issueRef }) : <Spinner className="h-4 w-4" />}
+          </div>
         </div>
       </Row>
     </ControlLink>

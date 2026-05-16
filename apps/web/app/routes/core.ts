@@ -43,6 +43,10 @@ export const coreRoutes: RouteConfigEntry[] = [
     route("workspace-invitations", "./(all)/workspace-invitations/page.tsx"),
   ]),
 
+  // Lark quick-create shortcut handler (opens via applink.feishu.cn for "+"
+  // menu and message shortcuts; signature minted by /auth/lark/jssdk-signature/).
+  layout("./(all)/lark-quick-create/layout.tsx", [route("lark-quick-create", "./(all)/lark-quick-create/page.tsx")]),
+
   // ========================================================================
   // ALL APP ROUTES
   // ========================================================================
@@ -337,6 +341,11 @@ export const coreRoutes: RouteConfigEntry[] = [
             route(
               ":workspaceSlug/settings/projects/:projectId/estimates",
               "./(all)/[workspaceSlug]/(settings)/settings/projects/[projectId]/estimates/page.tsx"
+            ),
+            // Project Custom Fields
+            route(
+              ":workspaceSlug/settings/projects/:projectId/fields",
+              "./(all)/[workspaceSlug]/(settings)/settings/projects/[projectId]/fields/page.tsx"
             ),
             // Project Automations
             layout("./(all)/[workspaceSlug]/(settings)/settings/projects/[projectId]/automations/layout.tsx", [

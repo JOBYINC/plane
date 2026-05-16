@@ -65,6 +65,11 @@ from .workspace.invite import (
     WorkspaceJoinEndpoint,
     UserWorkspaceInvitationsViewSet,
 )
+from .workspace.lark_invite import (
+    LarkContactsListEndpoint,
+    LarkSyncTriggerEndpoint,
+    LarkWorkspaceInviteEndpoint,
+)
 from .workspace.label import WorkspaceLabelsEndpoint
 from .workspace.state import WorkspaceStatesEndpoint
 from .workspace.user import (
@@ -84,6 +89,13 @@ from .workspace.quick_link import QuickLinkViewSet
 from .workspace.sticky import WorkspaceStickyViewSet
 
 from .state.base import StateViewSet, IntakeStateEndpoint
+from .automation import AutomationRuleViewSet, AutomationRuleRunListView
+from .work_item_field import (
+    WorkItemFieldViewSet,
+    WorkItemFieldOptionViewSet,
+    WorkItemFieldValueViewSet,
+    WorkItemFieldValueBulkEndpoint,
+)
 from .view.base import (
     WorkspaceViewViewSet,
     WorkspaceViewIssuesViewSet,

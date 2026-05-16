@@ -4,7 +4,7 @@ WORKDIR /app
 
 ENV TURBO_TELEMETRY_DISABLED=1
 ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
+ENV PATH="$PNPM_HOME:$PNPM_HOME/bin:$PATH"
 ENV CI=1
 
 RUN corepack enable pnpm
@@ -58,6 +58,11 @@ ENV VITE_WEBSITE_URL=$VITE_WEBSITE_URL
 
 ARG VITE_SUPPORT_EMAIL="support@plane.so"
 ENV VITE_SUPPORT_EMAIL=$VITE_SUPPORT_EMAIL
+
+# Optional build-time language pin for self-hosted deploys. Empty string falls
+# through to navigator.language detection at runtime.
+ARG VITE_DEFAULT_LANGUAGE=""
+ENV VITE_DEFAULT_LANGUAGE=$VITE_DEFAULT_LANGUAGE
 
 COPY .gitignore .gitignore
 COPY --from=builder /app/out/json/ .

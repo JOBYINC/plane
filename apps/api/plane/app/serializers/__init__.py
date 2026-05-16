@@ -44,6 +44,12 @@ from .project import (
     ProjectMemberPreferenceSerializer,
 )
 from .state import StateSerializer, StateLiteSerializer
+from .automation import AutomationRuleSerializer, AutomationRuleRunSerializer
+from .work_item_field import (
+    WorkItemFieldSerializer,
+    WorkItemFieldOptionSerializer,
+    WorkItemFieldValueSerializer,
+)
 from .view import IssueViewSerializer, ViewIssueListSerializer
 from .cycle import (
     CycleSerializer,

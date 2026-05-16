@@ -289,6 +289,17 @@ class ProjectViewSet(BaseViewSet):
                 ]
             )
 
+            # Pre-install the standard automation rule set (Inbox→Todo on
+            # due_soon, Notify on urgent, Due 3d warning, Due tomorrow
+            # escalation). Best-effort; helper swallows its own errors.
+            from plane.utils.automation_templates import (
+                create_default_automation_rules_for_project,
+            )
+
+            create_default_automation_rules_for_project(
+                serializer.instance, created_by=request.user
+            )
+
             project = self.get_queryset().filter(pk=serializer.data["id"]).first()
 
             # Create the model activity

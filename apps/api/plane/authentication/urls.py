@@ -4,6 +4,8 @@
 
 from django.urls import path
 
+from plane.app.views.lark import LarkBotEventEndpoint, LarkJsSdkSignatureEndpoint
+
 from .views import (
     CSRFTokenEndpoint,
     ForgotPasswordEndpoint,
@@ -44,6 +46,10 @@ from .views import (
     GiteaOauthInitiateEndpoint,
     GiteaCallbackSpaceEndpoint,
     GiteaOauthInitiateSpaceEndpoint,
+    LarkCallbackEndpoint,
+    LarkOauthInitiateEndpoint,
+    LarkCallbackSpaceEndpoint,
+    LarkOauthInitiateSpaceEndpoint,
 )
 
 urlpatterns = [
@@ -149,5 +155,33 @@ urlpatterns = [
         "spaces/gitea/callback/",
         GiteaCallbackSpaceEndpoint.as_view(),
         name="space-gitea-callback",
+    ),
+    ## Lark Oauth
+    path("lark/", LarkOauthInitiateEndpoint.as_view(), name="lark-initiate"),
+    path("lark/callback/", LarkCallbackEndpoint.as_view(), name="lark-callback"),
+    path(
+        "spaces/lark/",
+        LarkOauthInitiateSpaceEndpoint.as_view(),
+        name="space-lark-initiate",
+    ),
+    path(
+        "spaces/lark/callback/",
+        LarkCallbackSpaceEndpoint.as_view(),
+        name="space-lark-callback",
+    ),
+    # Lark Bot event webhook (URL preview today; card-action callbacks later).
+    # Sits under /auth/ rather than top-level because Plane's nginx proxy
+    # only forwards a fixed set of path prefixes to the API container.
+    path(
+        "lark/bot/event/",
+        LarkBotEventEndpoint.as_view(),
+        name="lark-bot-event",
+    ),
+    # H5 JSSDK signature for Lark-embedded pages (quick-create shortcuts etc).
+    # Authenticated; mints a signed h5sdk.config payload for the caller's URL.
+    path(
+        "lark/jssdk-signature/",
+        LarkJsSdkSignatureEndpoint.as_view(),
+        name="lark-jssdk-signature",
     ),
 ]

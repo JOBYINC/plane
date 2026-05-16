@@ -1,0 +1,91 @@
+name: Build Lark Feature Images (GHCR)
+
+# Builds the four Plane services we patched for Lark OAuth and pushes them to
+# ghcr.io under the JOBYINC org. proxy/live are unmodified and we keep using
+# makeplane/plane-proxy:stable + makeplane/plane-live:stable upstream.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/lark-oauth-provider
+      - feature/custom-fields
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_OWNER: jobyinc
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            context: ./apps/api
+            dockerfile: apps/api/Dockerfile.api
+            image: plane-backend
+          - name: frontend
+            context: .
+            dockerfile: apps/web/Dockerfile.web
+            image: plane-frontend
+          - name: admin
+            context: .
+            dockerfile: apps/admin/Dockerfile.admin
+            image: plane-admin
+          - name: space
+            context: .
+            dockerfile: apps/space/Dockerfile.space
+            image: plane-space
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Map branch -> image tag.
+      #   feature/lark-oauth-provider -> lark-stable (auto-deploys to staging)
+      #   feature/custom-fields       -> lark-custom-fields (manual pull only)
+      - name: Resolve image tag from branch
+        id: tag
+        run: |
+          case "${GITHUB_REF_NAME}" in
+            feature/lark-oauth-provider) echo "image_tag=lark-stable" >> "$GITHUB_OUTPUT" ;;
+            feature/custom-fields)       echo "image_tag=lark-custom-fields" >> "$GITHUB_OUTPUT" ;;
+            *)                           echo "image_tag=lark-${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.image }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image }}:${{ steps.tag.outputs.image_tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image }}:${{ github.sha }}
+          # Default the UI to Simplified Chinese for vijim's tenant. Backend
+          # Dockerfile ignores unknown ARGs; users can still change language
+          # manually (preference persists in localStorage).
+          build-args: |
+            VITE_DEFAULT_LANGUAGE=zh-CN
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          platforms: linux/amd64

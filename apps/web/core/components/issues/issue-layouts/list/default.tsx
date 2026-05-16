@@ -8,6 +8,7 @@ import { useEffect, useRef } from "react";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element";
 import { observer } from "mobx-react";
+import { useParams } from "next/navigation";
 // plane constants
 import { ALL_ISSUES } from "@plane/constants";
 // types
@@ -15,6 +16,7 @@ import type {
   GroupByColumnTypes,
   TGroupedIssues,
   TIssue,
+  IIssueDisplayFilterOptions,
   IIssueDisplayProperties,
   TIssueMap,
   TIssueGroupByOptions,
@@ -24,7 +26,9 @@ import type {
 } from "@plane/types";
 // components
 import { MultipleSelectGroup } from "@/components/core/multiple-select";
+import { CustomFieldColumnsBridge } from "@/components/work-item-fields";
 // hooks
+import { useAppTheme } from "@/hooks/store/use-app-theme";
 import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
 // plane web components
 import { IssueBulkOperationsRoot } from "@/plane-web/components/issues/bulk-operations";
@@ -33,6 +37,8 @@ import { useBulkOperationStatus } from "@/plane-web/hooks/use-bulk-operation-sta
 // utils
 import type { GroupDropLocation } from "../utils";
 import { getGroupByColumns, isWorkspaceLevel, isSubGrouped } from "../utils";
+import { getListGridTemplateWithCustom, getVisibleListColumns } from "./columns/list-columns";
+import { ListHeaderRow } from "./columns/list-header-row";
 import { ListGroup } from "./list-group";
 import type { TRenderQuickActions } from "./list-view-types";
 
@@ -44,6 +50,8 @@ export interface IList {
   updateIssue: ((projectId: string | null, issueId: string, data: Partial<TIssue>) => Promise<void>) | undefined;
   quickActions: TRenderQuickActions;
   displayProperties: IIssueDisplayProperties | undefined;
+  displayFilters?: IIssueDisplayFilterOptions | undefined;
+  handleDisplayFilterUpdate?: (data: Partial<IIssueDisplayFilterOptions>) => void;
   enableIssueQuickAdd: boolean;
   showEmptyGroup?: boolean;
   canEditProperties: (projectId: string | undefined) => boolean;
@@ -67,6 +75,8 @@ export const List = observer(function List(props: IList) {
     updateIssue,
     quickActions,
     displayProperties,
+    displayFilters,
+    handleDisplayFilterUpdate,
     enableIssueQuickAdd,
     showEmptyGroup,
     canEditProperties,
@@ -82,10 +92,24 @@ export const List = observer(function List(props: IList) {
   } = props;
 
   const storeType = useIssueStoreType();
+  // Custom fields are project-scoped: only hydrate/register columns on
+  // project-level list views (project/cycle/module routes carry projectId).
+  // Workspace/profile views have no projectId → bridge unmounted → the
+  // registry stays empty → getCustomListColumns() === [] → zero behaviour
+  // change for those views (design §7).
+  const { workspaceSlug: routerWorkspaceSlug, projectId: routerProjectId } = useParams();
+  const workspaceSlug = routerWorkspaceSlug?.toString();
+  const projectId = routerProjectId?.toString();
+  const { sidebarCollapsed: isSidebarCollapsed } = useAppTheme();
   // plane web hooks
   const isBulkOperationsEnabled = useBulkOperationStatus();
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Asana-style aligned column layout — header + every row share this CSS template
+  const visibleColumns = getVisibleListColumns(displayProperties, { isEpic });
+  const gridTemplateColumns = getListGridTemplateWithCustom(visibleColumns);
+  const gridVisibilityClass = isSidebarCollapsed ? "hidden md:flex" : "hidden lg:flex";
 
   const groups = getGroupByColumns({
     groupBy: group_by as GroupByColumnTypes,
@@ -111,6 +135,7 @@ export const List = observer(function List(props: IList) {
 
   const getGroupIndex = (groupId: string | undefined) => groups.findIndex(({ id }) => id === groupId);
 
+  // eslint-disable-next-line no-unneeded-ternary
   const is_list = group_by === null ? true : false;
 
   // create groupIds array and entities object for bulk ops
@@ -130,6 +155,7 @@ export const List = observer(function List(props: IList) {
   }
   return (
     <div className="relative flex size-full flex-col">
+      {workspaceSlug && projectId && <CustomFieldColumnsBridge workspaceSlug={workspaceSlug} projectId={projectId} />}
       {groups && (
         <MultipleSelectGroup
           containerRef={containerRef}
@@ -141,7 +167,15 @@ export const List = observer(function List(props: IList) {
               <div
                 ref={containerRef}
                 className="vertical-scrollbar relative scrollbar-lg size-full overflow-auto bg-surface-1"
+                style={{ ["--list-cols" as string]: gridTemplateColumns }}
               >
+                <ListHeaderRow
+                  displayProperties={displayProperties}
+                  context={{ isEpic }}
+                  displayFilters={displayFilters}
+                  handleDisplayFilterUpdate={handleDisplayFilterUpdate}
+                  visibilityClassName={gridVisibilityClass}
+                />
                 {groups.map((group: IGroupByColumn) => (
                   <ListGroup
                     key={group.id}

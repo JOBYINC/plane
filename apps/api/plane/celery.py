@@ -77,6 +77,27 @@ app.conf.beat_schedule = {
         "task": "plane.bgtasks.exporter_expired_task.delete_old_s3_link",
         "schedule": crontab(hour=3, minute=45),  # UTC 03:45
     },
+    # Hourly mirror of the Lark/Feishu directory into LARK_DEFAULT_WORKSPACE_SLUG.
+    # The task itself short-circuits unless LARK_AUTO_SYNC_ENABLED is truthy,
+    # so this entry is a no-op for deploys that haven't opted in.
+    "sync-every-hour-lark-directory": {
+        "task": "plane.bgtasks.lark_sync_task.sync_lark_directory_task",
+        "schedule": crontab(minute=0),  # Top of every hour, UTC
+    },
+    # Hourly DM to assignees of issues approaching / past target_date.
+    # Self-dedupes via Redis (one DM per assignee/stage/day), so the hourly
+    # cadence is safe. No-op unless LARK_NOTIFICATIONS_ENABLED is truthy.
+    "lark-due-date-reminders": {
+        "task": "plane.bgtasks.lark_due_reminder_task.remind_due_dates_task",
+        "schedule": crontab(minute=10),  # Top of every hour + 10, offset from sync to spread load
+    },
+    # Hourly evaluator for scheduled Automation Engine rules (due_soon +
+    # future cron). Per-rule dedup is in Redis with a 5-minute TTL so the
+    # hourly cadence is safe.
+    "automation-scheduled-rules": {
+        "task": "plane.bgtasks.automation_scheduled_task.evaluate_scheduled_automations_task",
+        "schedule": crontab(minute=20),  # offset from sync (:00) and lark-due (:10)
+    },
 }
 
 

@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import Script from "next/script";
 import { Links, Meta, Outlet, Scripts } from "react-router";
 import type { LinksFunction } from "react-router";
@@ -33,7 +33,7 @@ import interVariableWoff2 from "@fontsource-variable/inter/files/inter-latin-wgh
 import "@fontsource/material-symbols-rounded";
 import "@fontsource/ibm-plex-mono";
 
-const APP_TITLE = "Plane | Simple, extensible, open-source project management tool.";
+const APP_TITLE = "Tick · 任务管理";
 
 export const links: LinksFunction = () => [
   { rel: "icon", type: "image/png", sizes: "32x32", href: favicon32 },
@@ -64,7 +64,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#fff" />
         {/* Meta info for PWA */}
-        <meta name="application-name" content="Plane" />
+        <meta name="application-name" content="Tick" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content={SITE_NAME} />
@@ -106,7 +106,7 @@ export const meta: Route.MetaFunction = () => [
   { property: "og:image", content: ogImage },
   { property: "og:image:width", content: "1200" },
   { property: "og:image:height", content: "630" },
-  { property: "og:image:alt", content: "Plane - Modern project management" },
+  { property: "og:image:alt", content: "Tick - 任务管理" },
   {
     name: "keywords",
     content:
@@ -117,12 +117,43 @@ export const meta: Route.MetaFunction = () => [
   { name: "twitter:image", content: ogImage },
   { name: "twitter:image:width", content: "1200" },
   { name: "twitter:image:height", content: "630" },
-  { name: "twitter:image:alt", content: "Plane - Modern project management" },
+  { name: "twitter:image:alt", content: "Tick - 任务管理" },
 ];
+
+// Lark's left-nav app label mirrors document.title. React Router's meta()
+// system rewrites document.title on every navigation, racing per-component
+// fixes. We pin the title with a MutationObserver so the label stays "Tick"
+// regardless of which route is rendering. UA check covers Lark desktop
+// client (a webview, not a same-origin iframe); window.top check covers
+// browser-embedded iframe usage.
+function isLarkClient(): boolean {
+  if (typeof window === "undefined") return false;
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
+  if (/(Lark|Feishu)\//i.test(ua)) return true;
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
+function LarkTitleGuard() {
+  useEffect(() => {
+    if (!isLarkClient()) return;
+    if (document.title !== APP_TITLE) document.title = APP_TITLE;
+    const obs = new MutationObserver(() => {
+      if (document.title !== APP_TITLE) document.title = APP_TITLE;
+    });
+    obs.observe(document.head, { childList: true, subtree: true, characterData: true });
+    return () => obs.disconnect();
+  }, []);
+  return null;
+}
 
 export default function Root() {
   return (
     <AppProvider>
+      <LarkTitleGuard />
       <div className={cn("relative flex h-screen w-full flex-col overflow-hidden bg-canvas", "desktop-app-container")}>
         <main className="relative h-full w-full overflow-hidden">
           <Outlet />

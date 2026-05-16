@@ -20,11 +20,19 @@ class StateGroup(models.TextChoices):
     TRIAGE = "triage", "Triage"
 
 
-# Default states
+# Default states for new projects.
+#
+# Tailored for a generic task-management workflow rather than upstream
+# Plane's engineering-team default. The state_group values (backlog /
+# unstarted / started / completed / triage) are kept so all of Plane's
+# group-aware logic (filters, due-date reminders, completion detection,
+# automation rules) keeps working; only the user-visible names change.
 DEFAULT_STATES = [
+    # Inbox: where everything lands first. Same group as upstream Plane's
+    # "Backlog" so filters like "exclude backlog by default" still work.
     {
-        "name": "Backlog",
-        "color": "#60646C",
+        "name": "Inbox",
+        "color": "#6B7280",
         "sequence": 15000,
         "group": StateGroup.BACKLOG.value,
         "default": True,
@@ -41,18 +49,26 @@ DEFAULT_STATES = [
         "sequence": 35000,
         "group": StateGroup.STARTED.value,
     },
+    # Waiting is grouped with "started": work in flight that's blocked on
+    # someone else still counts as active for filters and should trigger
+    # due-date reminders. If a user wants "not actively progressing"
+    # semantics they can move it to UNSTARTED themselves.
+    {
+        "name": "Waiting",
+        "color": "#A855F7",
+        "sequence": 45000,
+        "group": StateGroup.STARTED.value,
+    },
     {
         "name": "Done",
         "color": "#46A758",
-        "sequence": 45000,
+        "sequence": 55000,
         "group": StateGroup.COMPLETED.value,
     },
-    {
-        "name": "Cancelled",
-        "color": "#9AA4BC",
-        "sequence": 55000,
-        "group": StateGroup.CANCELLED.value,
-    },
+    # Triage stays because Plane's Intake feature needs at least one
+    # state in the triage group. Users don't see it in the normal flow.
+    # (Cancelled removed by design — users delete the issue or move it
+    # to Done with a "won't do" label.)
     {
         "name": "Triage",
         "color": "#4E5355",

@@ -242,7 +242,7 @@ export default {
   full_changelog: "Full changelog",
   support: "Support",
   forum: "Forum",
-  powered_by_plane_pages: "Powered by Plane Pages",
+  powered_by_plane_pages: "Powered by Tick Pages",
   please_select_at_least_one_invitation: "Please select at least one invitation.",
   please_select_at_least_one_invitation_description: "Please select at least one invitation to join the workspace.",
   we_see_that_someone_has_invited_you_to_join_a_workspace: "We see that someone has invited you to join a workspace",
@@ -407,7 +407,7 @@ export default {
       not_right_now: "Not right now",
       create_project: {
         title: "Create a project",
-        description: "Most things start with a project in Plane.",
+        description: "Most things start with a project in Tick.",
         cta: "Get started",
       },
       invite_team: {
@@ -421,7 +421,7 @@ export default {
         cta: "Configure this workspace",
       },
       personalize_account: {
-        title: "Make Plane yours.",
+        title: "Make Tick yours.",
         description: "Choose your picture, colors, and more.",
         cta: "Personalize now",
       },
@@ -455,7 +455,7 @@ export default {
       },
     },
     new_at_plane: {
-      title: "New at Plane",
+      title: "New at Tick",
     },
     quick_tutorial: {
       title: "Quick tutorial",
@@ -499,6 +499,7 @@ export default {
     modules: "Modules",
     labels: "Labels",
     label: "Label",
+    fields: "Fields",
     admins: "Admins",
     users: "Users",
     guests: "Guests",
@@ -1111,7 +1112,7 @@ export default {
   },
   workspace_creation: {
     heading: "Create your workspace",
-    subheading: "To start using Plane, you need to create or join a workspace.",
+    subheading: "To start using Tick, you need to create or join a workspace.",
     form: {
       name: {
         label: "Name your workspace",
@@ -1166,11 +1167,11 @@ export default {
       general: {
         title: "Overview of your projects, activity, and metrics",
         description:
-          "Welcome to Plane, we are excited to have you here. Create your first project and track your work items, and this page will transform into a space that helps you progress. Admins will also see items which help their team progress.",
+          "Welcome to Tick, we are excited to have you here. Create your first project and track your work items, and this page will transform into a space that helps you progress. Admins will also see items which help their team progress.",
         primary_button: {
           text: "Build your first project",
           comic: {
-            title: "Everything starts with a project in Plane",
+            title: "Everything starts with a project in Tick",
             description: "A project could be a product's roadmap, a marketing campaign, or launching a new car.",
           },
         },
@@ -1270,10 +1271,10 @@ export default {
       issue_delete: "Failed to delete work item",
     },
     state: {
-      backlog: "Backlog",
-      unstarted: "Unstarted",
-      started: "Started",
-      completed: "Completed",
+      backlog: "Inbox",
+      unstarted: "Todo",
+      started: "In Progress",
+      completed: "Done",
       cancelled: "Cancelled",
     },
     sort: {
@@ -1297,7 +1298,7 @@ export default {
         primary_button: {
           text: "Start your first project",
           comic: {
-            title: "Everything starts with a project in Plane",
+            title: "Everything starts with a project in Tick",
             description: "A project could be a product's roadmap, a marketing campaign, or launching a new car.",
           },
         },
@@ -1308,7 +1309,7 @@ export default {
         primary_button: {
           text: "Start your first project",
           comic: {
-            title: "Everything starts with a project in Plane",
+            title: "Everything starts with a project in Tick",
             description: "A project could be a product's roadmap, a marketing campaign, or launching a new car.",
           },
         },
@@ -1426,7 +1427,7 @@ export default {
     page_label: "{workspace} - General settings",
     key_created: "Key created",
     copy_key:
-      "Copy and save this secret key in Plane Pages. You can't see this key after you hit Close. A CSV file containing the key has been downloaded.",
+      "Copy and save this secret key in Tick Pages. You can't see this key after you hit Close. A CSV file containing the key has been downloaded.",
     token_copied: "Token copied to clipboard.",
     settings: {
       general: {
@@ -1585,7 +1586,7 @@ export default {
         delete: {
           title: "Delete personal access token",
           description:
-            "Any application using this token will no longer have the access to Plane data. This action cannot be undone.",
+            "Any application using this token will no longer have the access to Tick data. This action cannot be undone.",
           success: {
             title: "Success!",
             message: "The token has been successfully deleted",
@@ -1601,7 +1602,7 @@ export default {
       api_tokens: {
         title: "No personal access tokens created",
         description:
-          "Plane APIs can be used to integrate your data in Plane with any external system. Create a token to get started.",
+          "Tick APIs can be used to integrate your data in Tick with any external system. Create a token to get started.",
       },
       webhooks: {
         title: "No webhooks added",
@@ -1665,7 +1666,7 @@ export default {
       activity: {
         title: "No activities yet",
         description:
-          "Get started by creating a new work item! Add details and properties to it. Explore more in Plane to see your activity.",
+          "Get started by creating a new work item! Add details and properties to it. Explore more in Tick to see your activity.",
       },
       assigned: {
         title: "No work items are assigned to you",
@@ -1733,6 +1734,56 @@ export default {
       label_max_char: "Label name should not exceed 255 characters",
       toast: {
         error: "Error while updating the label",
+      },
+    },
+    custom_fields: {
+      heading: "Custom fields",
+      description: "Create custom fields to capture extra structured data on work items.",
+      new_field: "New field",
+      add_field: "Add custom field",
+      add_field_title: "Add field",
+      field_title_label: "Field title",
+      field_title_placeholder: "Priority, Stage, Status…",
+      field_type_label: "Field type",
+      add_description: "Add description",
+      add_an_option: "Add an option",
+      option_default: "Option",
+      create_field: "Create field",
+      save_changes: "Save changes",
+      name_label: "Field name",
+      name_placeholder: "e.g. Priority, Department",
+      name_required: "Field name is required",
+      name_max_char: "Field name should not exceed 255 characters",
+      type_label: "Type",
+      required_label: "Required",
+      description_label: "Description",
+      description_placeholder: "Optional helper text",
+      options_label: "Options",
+      add_option: "Add option",
+      option_placeholder: "Option name",
+      option_name_required: "Option name is required",
+      empty: "No custom fields yet",
+      archived: "Archived",
+      archive_field: "Archive field",
+      delete_field: "Delete field",
+      delete_confirm_title: "Delete field?",
+      delete_confirm_message:
+        "This permanently removes the field and all its values from every work item. This cannot be undone.",
+      edit_field: "Edit field",
+      edit_options: "Edit options",
+      toast: {
+        create_error: "Could not create the field",
+        update_error: "Could not update the field",
+        name_exists: "A field with this name already exists",
+        option_error: "Could not save the option",
+      },
+      types: {
+        text: "Text",
+        number: "Number",
+        date: "Date",
+        single_select: "Single select",
+        multi_select: "Multi-select",
+        people: "People",
       },
     },
     estimates: {
@@ -1827,12 +1878,12 @@ export default {
         "Configure automated actions to streamline your project management workflow and reduce manual tasks.",
       "auto-archive": {
         title: "Auto-archive closed work items",
-        description: "Plane will auto archive work items that have been completed or canceled.",
+        description: "Tick will auto archive work items that have been completed or canceled.",
         duration: "Auto-archive work items that are closed for",
       },
       "auto-close": {
         title: "Auto-close work items",
-        description: "Plane will automatically close work items that haven't been completed or canceled.",
+        description: "Tick will automatically close work items that haven't been completed or canceled.",
         duration: "Auto-close work items that are inactive for",
         auto_close_status: "Auto-close status",
       },
@@ -2025,9 +2076,9 @@ export default {
         primary_button: {
           text: "Create your first work item",
           comic: {
-            title: "Work items are building blocks in Plane.",
+            title: "Work items are building blocks in Tick.",
             description:
-              "Redesign the Plane UI, Rebrand the company, or Launch the new fuel injection system are examples of work items that likely have sub-work items.",
+              "Redesign the Tick UI, Rebrand the company, or Launch the new fuel injection system are examples of work items that likely have sub-work items.",
           },
         },
       },
@@ -2131,9 +2182,9 @@ export default {
     empty_state: {
       general: {
         title:
-          "Write a note, a doc, or a full knowledge base. Get Galileo, Plane's AI assistant, to help you get started",
+          "Write a note, a doc, or a full knowledge base. Get Galileo, Tick's AI assistant, to help you get started",
         description:
-          "Pages are thoughts potting space in Plane. Take down meeting notes, format them easily, embed work items, lay them out using a library of components, and keep them all in your project's context. To make short work of any doc, invoke Galileo, Plane's AI, with a shortcut or the click of a button.",
+          "Pages are thoughts potting space in Tick. Take down meeting notes, format them easily, embed work items, lay them out using a library of components, and keep them all in your project's context. To make short work of any doc, invoke Galileo, Tick's AI, with a shortcut or the click of a button.",
         primary_button: {
           text: "Create your first page",
         },
@@ -2508,7 +2559,7 @@ export default {
   },
   self_hosted_maintenance_message: {
     plane_didnt_start_up_this_could_be_because_one_or_more_plane_services_failed_to_start:
-      "Plane didn't start up. This could be because one or more Plane services failed to start.",
+      "Tick didn't start up. This could be because one or more Tick services failed to start.",
     choose_view_logs_from_setup_sh_and_docker_logs_to_be_sure:
       "Choose View Logs from setup.sh and Docker logs to be sure.",
   },
@@ -2693,7 +2744,7 @@ export default {
     },
     help_actions: {
       open_keyboard_shortcuts: "Open keyboard shortcuts",
-      open_plane_documentation: "Open Plane documentation",
+      open_plane_documentation: "Open Tick documentation",
       join_forum: "Join our Forum",
       report_bug: "Report a bug",
     },
@@ -2748,4 +2799,146 @@ export default {
   enter_number_of_projects: "Enter number of projects",
   pin: "Pin",
   unpin: "Unpin",
+
+  automation: {
+    heading: "Custom automation rules",
+    description: "If X happens and Y is true, do Z. Runs on the same server that hosts your project.",
+    new_rule: "New rule",
+    empty_state: "No rules yet. Create one to auto-move issues, assign owners, or send Lark DMs.",
+    col_name: "Name",
+    col_trigger: "Trigger",
+    col_actions: "Actions",
+    col_fire_count: "Fired",
+    col_status: "Status",
+    active: "Active",
+    inactive: "Inactive",
+    confirm_delete: 'Delete rule "{name}"? This cannot be undone.',
+    deleted: "Rule deleted",
+    delete_failed: "Failed to delete rule",
+    toggle_failed: "Failed to toggle rule",
+    back_to_list: "Back to rules",
+    is_active: "Active",
+    saving: "Saving...",
+    save: "Save",
+    create: "Create rule",
+    saved: "Rule saved",
+    save_failed: "Failed to save rule",
+    error_name_required: "Name is required",
+    error_no_actions: "Add at least one action",
+    field_name: "Rule name",
+    field_name_placeholder: 'e.g. "Move to This Week on due date approaching"',
+    field_description: "Description (optional)",
+    field_description_placeholder: "What does this rule do and why?",
+    section_when: "When",
+    section_and_if: "And if",
+    section_then: "Then",
+    conditions_hint: "all must match",
+    no_conditions: "No filters — rule fires every time the trigger matches.",
+    no_actions: "Add at least one action.",
+    add_condition: "Add filter",
+    add_action: "Add action",
+    due_soon_days_before: "When target_date is within",
+    days: "days",
+    choose_state: "Choose state",
+    choose_user: "Choose user",
+    or_group: "or group",
+    or_days_from_now: "or days from now",
+    notify_to: "Send to",
+    notify_assignees: "Assignees",
+    notify_creator: "Creator",
+    value_placeholder: "value",
+    trigger: {
+      state_changed: "State changes",
+      assignee_added: "Assignee added",
+      assignee_removed: "Assignee removed",
+      priority_changed: "Priority changes",
+      target_date_changed: "Due date changes",
+      labels_changed: "Labels change",
+      comment_added: "Comment added",
+      due_soon: "Due date approaching",
+      scheduled: "Scheduled (cron) — v2",
+    },
+    action: {
+      set_state: "Move to state",
+      set_priority: "Set priority",
+      add_assignee: "Add assignee",
+      remove_assignee: "Remove assignee",
+      add_label: "Add label",
+      set_target_date: "Set due date",
+      notify_lark: "Send Lark DM",
+      webhook: "Webhook",
+      to: "to",
+    },
+    field: {
+      priority: "Priority",
+      state: "State",
+      state_group: "State group",
+      assignee_ids: "Assignees",
+      label_ids: "Labels",
+      target_date: "Due date",
+      start_date: "Start date",
+      sequence_id: "Issue number",
+    },
+    op: {
+      eq: "is",
+      ne: "is not",
+      in: "is any of",
+      not_in: "is none of",
+      gt: "is after",
+      lt: "is before",
+      contains: "contains",
+      is_null: "is empty",
+      is_not_null: "is not empty",
+    },
+    priority: {
+      urgent: "Urgent",
+      high: "High",
+      medium: "Medium",
+      low: "Low",
+      none: "None",
+    },
+    state_group: {
+      backlog: "Inbox",
+      unstarted: "Todo",
+      started: "In Progress",
+      completed: "Done",
+      cancelled: "Cancelled",
+    },
+  },
+  lark_quick_create: {
+    new_task_title: "New Tick task",
+    field_project: "Project",
+    field_title: "Title",
+    field_description: "Description",
+    field_due_date: "Due date",
+    field_priority: "Priority",
+    field_assignee: "Assignee",
+    placeholder_title: "Task title",
+    placeholder_description: "Task details (optional)",
+    placeholder_search_member: "Type to search...",
+    due_today: "Today",
+    due_tomorrow: "Tomorrow",
+    due_day_after: "Day after",
+    due_one_week: "Next week",
+    clear: "Clear",
+    priority_none: "None",
+    priority_low: "Low",
+    priority_medium: "Medium",
+    priority_high: "High",
+    priority_urgent: "Urgent",
+    no_projects: "No projects available",
+    loading_members: "Loading members...",
+    no_match: "No match",
+    create_task: "Create task",
+    creating: "Creating...",
+    cancel: "Cancel",
+    error_no_project: "Workspace or project not selected",
+    error_no_title: "Title cannot be empty",
+    success_created: "Tick task created",
+    error_create_failed: "Failed to create",
+    sdk_init_failed: "Lark SDK initialization failed",
+    debug_panel: "🔧 Debug (dev only)",
+    warning_assignee_not_member:
+      "This assignee is not a member of the selected project; they won't be able to see the task. Switch to a shared project (e.g. Team Inbox) or add them to this one first.",
+  },
 } as const;
