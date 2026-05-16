@@ -58,10 +58,7 @@ export type TInstanceGiteaAuthenticationConfigurationKeys =
   | "GITEA_CLIENT_SECRET"
   | "ENABLE_GITEA_SYNC";
 
-export type TInstanceLarkAuthenticationConfigurationKeys =
-  | "LARK_CLIENT_ID"
-  | "LARK_CLIENT_SECRET"
-  | "LARK_BASE_DOMAIN";
+export type TInstanceLarkAuthenticationConfigurationKeys = "LARK_CLIENT_ID" | "LARK_CLIENT_SECRET" | "LARK_BASE_DOMAIN";
 
 export type TInstanceAuthenticationConfigurationKeys =
   | TInstanceGoogleAuthenticationConfigurationKeys

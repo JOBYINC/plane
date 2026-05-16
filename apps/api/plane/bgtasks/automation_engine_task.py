@@ -250,7 +250,7 @@ def _get_issue_field(issue, field):
     if field == "assignee_ids":
         return [str(a) for a in issue.assignees.values_list("id", flat=True)]
     if field == "label_ids":
-        return [str(l) for l in issue.labels.values_list("id", flat=True)]
+        return [str(label_id) for label_id in issue.labels.values_list("id", flat=True)]
     if field == "target_date":
         return issue.target_date.isoformat() if issue.target_date else None
     if field == "start_date":
