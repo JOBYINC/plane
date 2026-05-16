@@ -83,9 +83,9 @@ export const WorkItemFieldSection = observer(function WorkItemFieldSection(props
         <div className="flex flex-col gap-2">
           {fields.map((field) => (
             <div key={field.id} className="group flex items-start gap-2">
-              <div className="flex w-2/5 flex-shrink-0 items-center gap-1.5 pt-1">
-                <FieldTypeIcon type={field.field_type} className="size-3 flex-shrink-0 text-tertiary" />
-                <span className="truncate text-13 text-tertiary">{field.name}</span>
+              <div className="flex h-7.5 w-30 shrink-0 items-center gap-1.5 text-body-xs-regular text-tertiary">
+                <FieldTypeIcon type={field.field_type} className="size-4 shrink-0 text-tertiary" />
+                <span className="truncate">{field.name}</span>
                 {field.is_required && <span className="text-12 text-danger-primary">*</span>}
               </div>
               <div className="min-w-0 flex-1">
