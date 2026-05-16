@@ -171,7 +171,7 @@ export const WorkItemFieldCell = observer(function WorkItemFieldCell(props: Work
         customButton={
           <div className="flex min-h-[1.75rem] w-full flex-wrap items-center gap-1 rounded border border-strong px-1.5 py-0.5">
             {selected.length === 0 ? (
-              <span className="text-13 text-placeholder">{field.name}</span>
+              <span className="text-13 text-placeholder">—</span>
             ) : (
               selected.map((opt) => (
                 <span
@@ -186,6 +186,12 @@ export const WorkItemFieldCell = observer(function WorkItemFieldCell(props: Work
           </div>
         }
       >
+        <CustomMenu.MenuItem onClick={() => commit(null)}>
+          <span className="flex items-center gap-2">
+            <span className="flex-1 text-placeholder">—</span>
+            {selected.length === 0 && <Check className="size-3.5 flex-shrink-0" />}
+          </span>
+        </CustomMenu.MenuItem>
         {activeOptions.length === 0 && <span className="px-2 py-1 text-13 text-placeholder">—</span>}
         {activeOptions.map((opt) => {
           const isSelected = ids.includes(opt.id);
