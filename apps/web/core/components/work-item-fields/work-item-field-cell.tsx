@@ -95,7 +95,6 @@ export const WorkItemFieldCell = observer(function WorkItemFieldCell(props: Work
         disabled={isReadOnly}
         buttonVariant={typeof value === "string" && value ? "border-with-text" : "border-without-text"}
         buttonClassName="text-13"
-        optionsClassName="z-20"
       />
     );
   } else if (field.field_type === "single_select") {
