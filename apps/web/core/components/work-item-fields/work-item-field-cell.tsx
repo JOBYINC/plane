@@ -9,7 +9,7 @@ import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 import { Check } from "lucide-react";
 import type { TWorkItemField, TWorkItemFieldOption, TWorkItemFieldValue } from "@plane/types";
-import { CustomMenu, CustomSelect } from "@plane/ui";
+import { CustomMenu } from "@plane/ui";
 import { renderFormattedPayloadDate } from "@plane/utils";
 import { DateDropdown } from "@/components/dropdowns/date";
 import { MemberDropdown } from "@/components/dropdowns/member/dropdown";
@@ -32,8 +32,10 @@ interface WorkItemFieldCellProps {
  * editing inline (mirrors the built-in cells' `Wrap`). We intentionally
  * do NOT preventDefault — that would stop inputs from focusing.
  *
- * single_select uses Plane's native CustomSelect (colored chip + popover
- * like StateDropdown), date uses the native DateDropdown calendar;
+ * single_select & multi_select use an inline CustomMenu (colored chip +
+ * popover); body-portaled dropdowns are unreachable inside the issue
+ * peek's focus lock, so cells must render dropdowns inline. date uses
+ * the native DateDropdown calendar;
  * text/number are inline inputs (parity with Plane's native text/number
  * property inputs). people reuses Plane's native MemberDropdown (multi),
  * multi_select is a colored-chip toggle popover — both edit inline.
@@ -99,38 +101,45 @@ export const WorkItemFieldCell = observer(function WorkItemFieldCell(props: Work
   } else if (field.field_type === "single_select") {
     const selected = typeof value === "string" ? optionById(value) : undefined;
     inner = (
-      <CustomSelect
-        value={typeof value === "string" ? value : ""}
+      <CustomMenu
+        closeOnSelect
         disabled={isReadOnly}
-        onChange={(val: string) => commit(val || null)}
-        maxHeight="md"
+        placement="bottom-start"
         optionsClassName="z-20 min-w-[10rem]"
-        buttonClassName="w-full justify-between rounded border border-strong px-1.5 py-0.5 text-13"
-        label={
-          selected ? (
-            <span className="flex items-center gap-1.5 truncate">
-              <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: selected.color }} />
-              <span className="truncate" style={{ color: selected.color }}>
-                {selected.name}
+        customButton={
+          <div className="flex min-h-[1.75rem] w-full items-center justify-between gap-1 rounded border border-strong px-1.5 py-0.5">
+            {selected ? (
+              <span className="flex items-center gap-1.5 truncate">
+                <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: selected.color }} />
+                <span className="truncate" style={{ color: selected.color }}>
+                  {selected.name}
+                </span>
               </span>
-            </span>
-          ) : (
-            <span className="text-placeholder">—</span>
-          )
+            ) : (
+              <span className="text-13 text-placeholder">—</span>
+            )}
+          </div>
         }
       >
-        <CustomSelect.Option value="">
-          <span className="text-placeholder">—</span>
-        </CustomSelect.Option>
-        {activeOptions.map((opt) => (
-          <CustomSelect.Option key={opt.id} value={opt.id}>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: opt.color }} />
-              <span className="truncate">{opt.name}</span>
-            </span>
-          </CustomSelect.Option>
-        ))}
-      </CustomSelect>
+        <CustomMenu.MenuItem onClick={() => commit(null)}>
+          <span className="flex items-center gap-2">
+            <span className="flex-1 text-placeholder">—</span>
+            {!selected && <Check className="size-3.5 flex-shrink-0" />}
+          </span>
+        </CustomMenu.MenuItem>
+        {activeOptions.map((opt) => {
+          const isSelected = selected?.id === opt.id;
+          return (
+            <CustomMenu.MenuItem key={opt.id} onClick={() => commit(opt.id)}>
+              <span className="flex items-center gap-2">
+                <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: opt.color }} />
+                <span className="flex-1 truncate">{opt.name}</span>
+                {isSelected && <Check className="size-3.5 flex-shrink-0" />}
+              </span>
+            </CustomMenu.MenuItem>
+          );
+        })}
+      </CustomMenu>
     );
   } else if (field.field_type === "people") {
     const ids = Array.isArray(value) ? value : [];
@@ -144,14 +153,13 @@ export const WorkItemFieldCell = observer(function WorkItemFieldCell(props: Work
         buttonVariant={ids.length > 0 ? "transparent-with-text" : "border-with-text"}
         buttonClassName="text-13"
         placeholder={field.name}
-        optionsClassName="z-20"
         showTooltip={false}
         tooltipContent=""
       />
     );
   } else {
     // multi_select — colored-chip toggle popover; stays open across toggles
-    // (parity with single_select's CustomSelect, but multi-value).
+    // (single_select uses the same inline CustomMenu, single-value).
     const ids = Array.isArray(value) ? value : [];
     const selected = ids.map((id) => optionById(id)).filter((o): o is TWorkItemFieldOption => Boolean(o));
     inner = (
