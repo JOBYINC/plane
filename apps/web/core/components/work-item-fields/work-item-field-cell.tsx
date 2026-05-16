@@ -209,15 +209,21 @@ export const WorkItemFieldCell = observer(function WorkItemFieldCell(props: Work
     );
   }
 
-  // Stop click/focus from BUBBLING UP to the list row's peek-overview
-  // ControlLink so editing stays inline. Must be bubble-phase: a
-  // capture-phase onFocusCapture stops the focus event before it reaches
-  // the Headless-UI CustomSelect/CustomMenu inside, so those dropdowns
-  // never open (plain inputs tolerate it; focus-managed popovers don't).
-  // No preventDefault — inputs/controls must still focus.
+  // The list row is an <a href> ControlLink (opens the issue peek). Stop
+  // propagation AND preventDefault, otherwise clicking a dropdown option
+  // also triggers the row's link/peek and the selection is lost ("opens
+  // but can't change"). preventDefault on *click* is safe for text/number
+  // inputs — their focus happens on mousedown, not click.
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
-    <div className="w-full min-w-0" onClick={(e) => e.stopPropagation()} onFocus={(e) => e.stopPropagation()}>
+    <div
+      className="w-full min-w-0"
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+      }}
+      onFocus={(e) => e.stopPropagation()}
+    >
       {inner}
     </div>
   );
