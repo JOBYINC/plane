@@ -29,6 +29,8 @@ export type TListColumnContext = {
 
 export const TITLE_COLUMN_MIN_WIDTH_PX = 320;
 export const ACTIONS_COLUMN_WIDTH_PX = 56;
+// F2 column-resize: lower clamp so a column can't be dragged to nothing.
+export const LIST_COLUMN_MIN_WIDTH_PX = 80;
 
 export const LIST_COLUMN_WIDTHS: Record<TListColumnKey, number> = {
   state: 140,
@@ -174,10 +176,16 @@ export function customColumnKeyToFieldId(key: string): string {
 // swaps getListGridTemplate -> this once it also appends
 // getCustomListColumns() keys to the rendered column list (the gated wiring
 // edits documented in design §7).
-export function getListGridTemplateWithCustom(builtIn: TListColumnKey[]): string {
-  const builtInTracks = builtIn.map((c) => `${LIST_COLUMN_WIDTHS[c]}px`).join(" ");
+//
+// F2: an optional persisted `widths` map (display_filters.view_column_prefs)
+// overrides per-column px width, keyed uniformly by built-in TListColumnKey or
+// custom column key. Absent key → the column's default width (unchanged
+// behaviour when no prefs exist). Header + every row share this via the
+// `--list-cols` CSS var, so both realign for free.
+export function getListGridTemplateWithCustom(builtIn: TListColumnKey[], widths?: Record<string, number>): string {
+  const builtInTracks = builtIn.map((c) => `${widths?.[c] ?? LIST_COLUMN_WIDTHS[c]}px`).join(" ");
   const customTracks = getCustomListColumns()
-    .map((c) => `${c.width}px`)
+    .map((c) => `${widths?.[c.key] ?? c.width}px`)
     .join(" ");
   return `minmax(${TITLE_COLUMN_MIN_WIDTH_PX}px, 1fr) ${builtInTracks} ${customTracks} ${ACTIONS_COLUMN_WIDTH_PX}px`
     .replace(/\s+/g, " ")

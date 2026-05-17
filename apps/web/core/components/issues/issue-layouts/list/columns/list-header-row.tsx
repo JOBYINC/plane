@@ -37,7 +37,8 @@ export function ListHeaderRow(props: Props) {
   // fields are not sortable yet (sort UI gated on PR2's menu — design §10),
   // so they render as plain label headers, not ListSortHeaderCell.
   const customColumns = getCustomListColumns();
-  const gridTemplate = getListGridTemplateWithCustom(columns);
+  const columnWidths = displayFilters?.view_column_prefs?.widths;
+  const gridTemplate = getListGridTemplateWithCustom(columns, columnWidths);
 
   return (
     <Row
