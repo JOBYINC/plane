@@ -147,3 +147,50 @@ class EmailNotificationLog(BaseModel):
         verbose_name_plural = "Email Notification Logs"
         db_table = "email_notification_logs"
         ordering = ("-created_at",)
+
+
+class LarkDueReminderLog(BaseModel):
+    """Durable idempotency marker for the hourly Lark due-date reminder.
+
+    `lark_due_reminder_task` previously deduped only via a 25h Redis key.
+    If the deployment's cache is unavailable / non-shared / evicting the
+    key is lost and the hourly beat re-DMs the same assignee for the same
+    issue dozens of times. Persisting the "already reminded
+    (issue, receiver, stage, day)" fact in the DB makes it survive cache
+    loss and be atomic across multiple beat workers via get_or_create on
+    the unique constraint. Mirrors EmailNotificationLog.
+    """
+
+    receiver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="lark_due_reminders",
+    )
+    issue = models.ForeignKey(
+        "db.Issue",
+        on_delete=models.CASCADE,
+        related_name="lark_due_reminder_logs",
+    )
+    # soon | today | overdue
+    stage = models.CharField(max_length=16)
+    reminder_date = models.DateField()
+    sent_at = models.DateTimeField(null=True)
+
+    class Meta:
+        # Mirrors WorkspaceMember: unique_together carries deleted_at so
+        # soft-deleted (released) claims coexist, and a partial constraint
+        # enforces exactly one LIVE row per (issue, receiver, stage, day)
+        # — that is the atomic get_or_create guarantee, while a released
+        # claim can be re-created on the next run (retry-on-failure).
+        unique_together = ["issue", "receiver", "stage", "reminder_date", "deleted_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["issue", "receiver", "stage", "reminder_date"],
+                condition=models.Q(deleted_at__isnull=True),
+                name="uniq_lark_due_reminder_live_issue_receiver_stage_date",
+            )
+        ]
+        verbose_name = "Lark Due Reminder Log"
+        verbose_name_plural = "Lark Due Reminder Logs"
+        db_table = "lark_due_reminder_logs"
+        ordering = ("-created_at",)
