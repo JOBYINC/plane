@@ -166,6 +166,7 @@ export const List = observer(function List(props: IList) {
             <>
               <div
                 ref={containerRef}
+                data-list-grid
                 className="vertical-scrollbar relative scrollbar-lg size-full overflow-auto bg-surface-1"
                 style={{ ["--list-cols" as string]: gridTemplateColumns }}
               >
