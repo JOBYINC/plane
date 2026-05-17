@@ -44,8 +44,12 @@ export function IssueBlocksList(props: Props) {
     isEpic = false,
   } = props;
 
+  // min-w-full w-max: rows must span the full --list-cols content width
+  // (matching the sticky header, which is a direct scroll-container child).
+  // Otherwise wide custom-field columns scroll past where the rows render
+  // and the work items vanish on the right.
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-max min-w-full">
       {issueIds &&
         issueIds.length > 0 &&
         issueIds.map((issueId: string, index: number) => (

@@ -22,11 +22,13 @@ import { cn, generateWorkItemLink } from "@plane/utils";
 // components
 import { MultipleSelectEntityAction } from "@/components/core/multiple-select";
 import { IssueProperties } from "@/components/issues/issue-layouts/properties";
+import { WorkItemFieldCell } from "@/components/work-item-fields";
 // helpers
 // hooks
 import { useAppTheme } from "@/hooks/store/use-app-theme";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useProject } from "@/hooks/store/use-project";
+import { useWorkItemField } from "@/hooks/store/use-work-item-field";
 import type { TSelectionHelper } from "@/hooks/use-multiple-select";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // plane web components
@@ -36,7 +38,7 @@ import { IssueStats } from "@/plane-web/components/issues/issue-layouts/issue-st
 import { WithDisplayPropertiesHOC } from "../properties/with-display-properties-HOC";
 import { calculateIdentifierWidth } from "../utils";
 import { CELL_BY_COLUMN } from "./columns/issue-cells";
-import { getVisibleListColumns } from "./columns/list-columns";
+import { customColumnKeyToFieldId, getCustomListColumns, getVisibleListColumns } from "./columns/list-columns";
 import type { TRenderQuickActions } from "./list-view-types";
 
 interface IssueBlockProps {
@@ -113,6 +115,10 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
   const canEditIssueProperties = canEditProperties(issue?.project_id ?? undefined);
   const isDraggingAllowed = canDrag && canEditIssueProperties;
   const visibleColumns = getVisibleListColumns(displayProperties, { isEpic });
+  // Runtime custom-field columns (design §7), rendered after built-ins so
+  // cells line up with the sticky header + the --list-cols grid template.
+  const customColumns = getCustomListColumns();
+  const { getFieldById } = useWorkItemField();
 
   const { isMobile } = usePlatformOS();
 
@@ -344,6 +350,23 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               <div key={column} className="flex min-w-0 items-center">
                 {!issue?.tempId ? (
                   <Cell issue={issue} updateIssue={updateIssue} isReadOnly={!canEditIssueProperties} isEpic={isEpic} />
+                ) : null}
+              </div>
+            );
+          })}
+          {customColumns.map((c) => {
+            // Always render the slot div so the grid stays aligned even
+            // before the field schema resolves (field may be null briefly).
+            const field = getFieldById(customColumnKeyToFieldId(c.key));
+            return (
+              <div key={c.key} className="flex min-w-0 items-center">
+                {!issue?.tempId && field && issue?.project_id ? (
+                  <WorkItemFieldCell
+                    field={field}
+                    issueId={issue.id}
+                    projectId={issue.project_id}
+                    isReadOnly={!canEditIssueProperties}
+                  />
                 ) : null}
               </div>
             );

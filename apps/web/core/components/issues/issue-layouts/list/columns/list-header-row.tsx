@@ -8,8 +8,9 @@ import { useTranslation } from "@plane/i18n";
 import type { IIssueDisplayFilterOptions, IIssueDisplayProperties } from "@plane/types";
 import { Row } from "@plane/ui";
 import { cn } from "@plane/utils";
+import { AddCustomFieldHeaderButton, CustomColumnHeaderCell } from "@/components/work-item-fields";
 import type { TListColumnContext } from "./list-columns";
-import { getListGridTemplate, getVisibleListColumns } from "./list-columns";
+import { getCustomListColumns, getListGridTemplateWithCustom, getVisibleListColumns } from "./list-columns";
 import { ListSortHeaderCell } from "./list-sort-header-cell";
 
 interface Props {
@@ -31,12 +32,20 @@ export function ListHeaderRow(props: Props) {
   const { t } = useTranslation();
   if (!displayProperties) return null;
   const columns = getVisibleListColumns(displayProperties, context);
-  const gridTemplate = getListGridTemplate(columns);
+  // Runtime custom-field columns (design §7) appended after built-ins, in the
+  // same order getListGridTemplateWithCustom lays out their tracks. Custom
+  // fields are not sortable yet (sort UI gated on PR2's menu — design §10),
+  // so they render as plain label headers, not ListSortHeaderCell.
+  const customColumns = getCustomListColumns();
+  const gridTemplate = getListGridTemplateWithCustom(columns);
 
   return (
     <Row
       className={cn(
-        "sticky top-0 z-[3] w-full flex-shrink-0 items-center border-b border-subtle bg-layer-1 text-caption-sm-medium text-secondary",
+        // min-w-full w-max: span the full --list-cols content width so the
+        // header still covers custom-field columns when scrolled right
+        // (mirrors the rows wrapper in blocks-list.tsx).
+        "sticky top-0 z-[3] w-max min-w-full flex-shrink-0 items-center border-b border-subtle bg-layer-1 text-caption-sm-medium text-secondary",
         visibilityClassName ?? "flex",
         LIST_HEADER_HEIGHT_CLASS
       )}
@@ -53,7 +62,10 @@ export function ListHeaderRow(props: Props) {
             handleDisplayFilterUpdate={handleDisplayFilterUpdate}
           />
         ))}
-        <div aria-hidden />
+        {customColumns.map((c) => (
+          <CustomColumnHeaderCell key={c.key} columnKey={c.key} label={c.label} />
+        ))}
+        <AddCustomFieldHeaderButton />
       </div>
     </Row>
   );

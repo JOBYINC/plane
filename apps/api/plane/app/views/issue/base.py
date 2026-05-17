@@ -40,6 +40,7 @@ from plane.app.serializers import (
     IssueSerializer,
     ProjectUserPropertySerializer,
 )
+from plane.app.views.work_item_field.filters import build_custom_field_filter
 from plane.bgtasks.issue_activities_task import issue_activity
 from plane.bgtasks.issue_description_version_task import issue_description_version_task
 from plane.bgtasks.recent_visited_task import recent_visited_task
@@ -100,6 +101,14 @@ class IssueListEndpoint(BaseAPIView):
         filters = issue_filters(request.query_params, "GET")
         issue_queryset = queryset.filter(**filters)
         issue_queryset = issue_queryset.filter(state__deleted_at__isnull=True)
+        # Custom-field filter (design §8). Returns an inert Q() when no
+        # field_values__field_id param -> zero change for normal requests.
+        # Combined-single-Q + the (issue,field,deleted_at) partial unique
+        # index bound the field_values join to <=1 row/issue; queryset is
+        # already .distinct() below regardless.
+        issue_queryset = issue_queryset.filter(
+            build_custom_field_filter(request.query_params)
+        )
 
         # Add select_related, prefetch_related if fields or expand is not None
         if self.fields or self.expand:
@@ -269,6 +278,9 @@ class IssueViewSet(BaseViewSet):
 
         # Apply legacy filters
         issue_queryset = issue_queryset.filter(**filters, **extra_filters)
+        # Custom-field filter (design §8). Inert Q() when no
+        # field_values__field_id param; queryset is already .distinct().
+        issue_queryset = issue_queryset.filter(build_custom_field_filter(query_params))
 
         # Keeping a copy of the queryset before applying annotations
         filtered_issue_queryset = copy.deepcopy(issue_queryset)

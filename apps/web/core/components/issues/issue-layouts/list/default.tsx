@@ -8,6 +8,7 @@ import { useEffect, useRef } from "react";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element";
 import { observer } from "mobx-react";
+import { useParams } from "next/navigation";
 // plane constants
 import { ALL_ISSUES } from "@plane/constants";
 // types
@@ -25,6 +26,7 @@ import type {
 } from "@plane/types";
 // components
 import { MultipleSelectGroup } from "@/components/core/multiple-select";
+import { CustomFieldColumnsBridge } from "@/components/work-item-fields";
 // hooks
 import { useAppTheme } from "@/hooks/store/use-app-theme";
 import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
@@ -35,7 +37,7 @@ import { useBulkOperationStatus } from "@/plane-web/hooks/use-bulk-operation-sta
 // utils
 import type { GroupDropLocation } from "../utils";
 import { getGroupByColumns, isWorkspaceLevel, isSubGrouped } from "../utils";
-import { getListGridTemplate, getVisibleListColumns } from "./columns/list-columns";
+import { getListGridTemplateWithCustom, getVisibleListColumns } from "./columns/list-columns";
 import { ListHeaderRow } from "./columns/list-header-row";
 import { ListGroup } from "./list-group";
 import type { TRenderQuickActions } from "./list-view-types";
@@ -90,6 +92,14 @@ export const List = observer(function List(props: IList) {
   } = props;
 
   const storeType = useIssueStoreType();
+  // Custom fields are project-scoped: only hydrate/register columns on
+  // project-level list views (project/cycle/module routes carry projectId).
+  // Workspace/profile views have no projectId → bridge unmounted → the
+  // registry stays empty → getCustomListColumns() === [] → zero behaviour
+  // change for those views (design §7).
+  const { workspaceSlug: routerWorkspaceSlug, projectId: routerProjectId } = useParams();
+  const workspaceSlug = routerWorkspaceSlug?.toString();
+  const projectId = routerProjectId?.toString();
   const { sidebarCollapsed: isSidebarCollapsed } = useAppTheme();
   // plane web hooks
   const isBulkOperationsEnabled = useBulkOperationStatus();
@@ -98,7 +108,7 @@ export const List = observer(function List(props: IList) {
 
   // Asana-style aligned column layout — header + every row share this CSS template
   const visibleColumns = getVisibleListColumns(displayProperties, { isEpic });
-  const gridTemplateColumns = getListGridTemplate(visibleColumns);
+  const gridTemplateColumns = getListGridTemplateWithCustom(visibleColumns);
   const gridVisibilityClass = isSidebarCollapsed ? "hidden md:flex" : "hidden lg:flex";
 
   const groups = getGroupByColumns({
@@ -145,6 +155,7 @@ export const List = observer(function List(props: IList) {
   }
   return (
     <div className="relative flex size-full flex-col">
+      {workspaceSlug && projectId && <CustomFieldColumnsBridge workspaceSlug={workspaceSlug} projectId={projectId} />}
       {groups && (
         <MultipleSelectGroup
           containerRef={containerRef}

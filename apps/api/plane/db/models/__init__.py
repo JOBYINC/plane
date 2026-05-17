@@ -100,3 +100,9 @@ from .device import Device, DeviceSession
 from .sticky import Sticky
 
 from .description import Description, DescriptionVersion
+
+from .work_item_field import (
+    WorkItemField,
+    WorkItemFieldOption,
+    WorkItemFieldValue,
+)

@@ -282,12 +282,10 @@ class LarkOAuthProvider(OauthAdapter):
         # and isn't part of the standard contact record. Synthesize a stable
         # identifier from union_id (or open_id) so SSO can still match an
         # existing user account.
-        synthetic_email_used = False
         if not email:
             stable_id = payload.get("union_id") or payload.get("open_id")
             if stable_id:
                 email = f"{stable_id}@lark.local"
-                synthetic_email_used = True
                 self.logger.info(
                     "Lark user has no directory email — synthesizing identifier",
                     extra={"lark_synthetic_email": True},
