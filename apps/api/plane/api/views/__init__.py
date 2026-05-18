@@ -20,6 +20,7 @@ from .work_item_field import (
     WorkItemFieldOptionListAPIEndpoint,
     WorkItemFieldValueListAPIEndpoint,
     WorkItemFieldValueBulkAPIEndpoint,
+    WorkItemFieldValueUpsertAPIEndpoint,
 )
 
 from .issue import (

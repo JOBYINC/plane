@@ -10,6 +10,7 @@ from plane.api.views import (
     WorkItemFieldOptionListAPIEndpoint,
     WorkItemFieldValueListAPIEndpoint,
     WorkItemFieldValueBulkAPIEndpoint,
+    WorkItemFieldValueUpsertAPIEndpoint,
 )
 
 urlpatterns = [
@@ -32,6 +33,11 @@ urlpatterns = [
         "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/field-values/",
         WorkItemFieldValueListAPIEndpoint.as_view(http_method_names=["get"]),
         name="work-item-field-values",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/field-values/<uuid:field_id>/",
+        WorkItemFieldValueUpsertAPIEndpoint.as_view(http_method_names=["put", "delete"]),
+        name="work-item-field-value-upsert",
     ),
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/issue-field-values/",

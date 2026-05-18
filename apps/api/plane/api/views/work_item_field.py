@@ -12,9 +12,17 @@ from plane.api.serializers import (
     WorkItemFieldOptionSerializer,
     WorkItemFieldValueSerializer,
 )
-from plane.api.serializers.work_item_field import serialize_field_value
+from plane.api.serializers.work_item_field import (
+    assign_field_value,
+    serialize_field_value,
+)
 from plane.app.permissions import ProjectEntityPermission
-from plane.db.models import WorkItemField, WorkItemFieldOption, WorkItemFieldValue
+from plane.db.models import (
+    Issue,
+    WorkItemField,
+    WorkItemFieldOption,
+    WorkItemFieldValue,
+)
 from .base import BaseAPIView
 
 # --------------------------------------------------------------------------- #
@@ -185,3 +193,77 @@ class WorkItemFieldValueBulkAPIEndpoint(BaseAPIView):
                 row.field, row
             )
         return Response(result, status=status.HTTP_200_OK)
+
+
+class WorkItemFieldValueUpsertAPIEndpoint(BaseAPIView):
+    """Set (PUT) or clear (DELETE) one custom field's value on a work item.
+
+    This is the external-agent "auto-fill" path. Mirrors the internal
+    upsert/clear logic (typed value coercion via the shared
+    ``assign_field_value`` helper) but, being token-facing, additionally
+    verifies the work item actually belongs to this project/workspace so a
+    token scoped to project A cannot write a value onto project B's issue.
+    """
+
+    permission_classes = [ProjectEntityPermission]
+
+    def _active_field(self, slug, project_id, field_id):
+        return WorkItemField.objects.filter(
+            pk=field_id,
+            project_id=project_id,
+            workspace__slug=slug,
+            is_active=True,
+        ).first()
+
+    def _issue_in_project(self, slug, project_id, issue_id):
+        return Issue.objects.filter(
+            pk=issue_id,
+            project_id=project_id,
+            workspace__slug=slug,
+        ).exists()
+
+    def put(self, request, slug, project_id, issue_id, field_id):
+        if not self._issue_in_project(slug, project_id, issue_id):
+            return Response(
+                {"error": "Work item not found in this project"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        field = self._active_field(slug, project_id, field_id)
+        if not field:
+            return Response(
+                {"error": "Field not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        value_row = (
+            WorkItemFieldValue.objects.filter(
+                issue_id=issue_id, field_id=field_id
+            ).first()
+            or WorkItemFieldValue(issue_id=issue_id, field=field)
+        )
+        try:
+            assign_field_value(value_row, field, request.data.get("value"))
+        except Exception as exc:
+            detail = getattr(exc, "detail", None) or str(exc)
+            return Response({"error": detail}, status=status.HTTP_400_BAD_REQUEST)
+        value_row.project_id = project_id
+        value_row.save()
+        return Response(
+            WorkItemFieldValueSerializer(value_row).data, status=status.HTTP_200_OK
+        )
+
+    def delete(self, request, slug, project_id, issue_id, field_id):
+        value_row = (
+            WorkItemFieldValue.objects.filter(
+                workspace__slug=slug,
+                project_id=project_id,
+                issue_id=issue_id,
+                field_id=field_id,
+            )
+            .filter(
+                project__project_projectmember__member=request.user,
+                project__project_projectmember__is_active=True,
+            )
+            .first()
+        )
+        if value_row:
+            value_row.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
