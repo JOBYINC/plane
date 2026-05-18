@@ -14,6 +14,14 @@ from .state import (
     StateDetailAPIEndpoint,
 )
 
+from .work_item_field import (
+    WorkItemFieldListAPIEndpoint,
+    WorkItemFieldDetailAPIEndpoint,
+    WorkItemFieldOptionListAPIEndpoint,
+    WorkItemFieldValueListAPIEndpoint,
+    WorkItemFieldValueBulkAPIEndpoint,
+)
+
 from .issue import (
     WorkspaceIssueAPIEndpoint,
     IssueListCreateAPIEndpoint,
