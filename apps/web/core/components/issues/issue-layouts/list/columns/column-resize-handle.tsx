@@ -54,11 +54,16 @@ export function ColumnResizeHandle(props: ColumnResizeHandleProps) {
     e.stopPropagation();
     const container = e.currentTarget.closest<HTMLElement>("[data-list-grid]");
     const rect = container?.getBoundingClientRect();
+    // Measure the actual rendered column box so the drag starts from where it
+    // visually is — required for the title column, which flexes (minmax) until
+    // it has a persisted width. For fixed columns this equals currentWidth.
+    const cell = e.currentTarget.parentElement;
+    const startWidth = cell ? Math.round(cell.getBoundingClientRect().width) : currentWidth;
     dragState.current = {
       startX: e.clientX,
-      startWidth: currentWidth,
-      width: currentWidth,
-      minLineX: e.clientX - (currentWidth - minWidth),
+      startWidth,
+      width: startWidth,
+      minLineX: e.clientX - (startWidth - minWidth),
     };
     setIsDragging(true);
     setGuide({

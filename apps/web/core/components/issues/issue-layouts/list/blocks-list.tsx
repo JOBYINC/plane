@@ -21,6 +21,7 @@ interface Props {
   updateIssue: ((projectId: string | null, issueId: string, data: Partial<TIssue>) => Promise<void>) | undefined;
   quickActions: TRenderQuickActions;
   displayProperties: IIssueDisplayProperties | undefined;
+  columnOrder?: string[];
   containerRef: MutableRefObject<HTMLDivElement | null>;
   isDragAllowed: boolean;
   canDropOverIssue: boolean;
@@ -36,6 +37,7 @@ export function IssueBlocksList(props: Props) {
     updateIssue,
     quickActions,
     displayProperties,
+    columnOrder,
     canEditProperties,
     containerRef,
     selectionHelpers,
@@ -61,6 +63,7 @@ export function IssueBlocksList(props: Props) {
             quickActions={quickActions}
             canEditProperties={canEditProperties}
             displayProperties={displayProperties}
+            columnOrder={columnOrder}
             nestingLevel={0}
             spacingLeft={0}
             containerRef={containerRef}

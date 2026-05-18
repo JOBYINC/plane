@@ -9,8 +9,15 @@ import type { IIssueDisplayFilterOptions, IIssueDisplayProperties } from "@plane
 import { Row } from "@plane/ui";
 import { cn } from "@plane/utils";
 import { AddCustomFieldHeaderButton, CustomColumnHeaderCell } from "@/components/work-item-fields";
-import type { TListColumnContext } from "./list-columns";
-import { getCustomListColumns, getListGridTemplateWithCustom, getVisibleListColumns } from "./list-columns";
+import { ColumnResizeHandle } from "./column-resize-handle";
+import {
+  TITLE_COLUMN_KEY,
+  TITLE_COLUMN_MIN_WIDTH_PX,
+  getCustomListColumns,
+  getListGridTemplateWithCustom,
+  getVisibleListColumns,
+  type TListColumnContext,
+} from "./list-columns";
 import { ListSortHeaderCell } from "./list-sort-header-cell";
 
 interface Props {
@@ -31,7 +38,7 @@ export function ListHeaderRow(props: Props) {
   const { displayProperties, context, displayFilters, handleDisplayFilterUpdate, visibilityClassName } = props;
   const { t } = useTranslation();
   if (!displayProperties) return null;
-  const columns = getVisibleListColumns(displayProperties, context);
+  const columns = getVisibleListColumns(displayProperties, context, displayFilters?.view_column_prefs?.order);
   // Runtime custom-field columns (design §7) appended after built-ins, in the
   // same order getListGridTemplateWithCustom lays out their tracks. Custom
   // fields are not sortable yet (sort UI gated on PR2's menu — design §10),
@@ -55,8 +62,22 @@ export function ListHeaderRow(props: Props) {
         className="grid w-full items-center gap-2 [&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-subtle"
         style={{ gridTemplateColumns: gridTemplate }}
       >
-        <div className="flex min-w-0 items-center gap-1.5 truncate">
+        <div className="relative flex min-w-0 items-center gap-1.5 truncate">
           <span className="truncate">{t("common.work_item")}</span>
+          {handleDisplayFilterUpdate && (
+            <ColumnResizeHandle
+              currentWidth={columnWidths?.[TITLE_COLUMN_KEY] ?? TITLE_COLUMN_MIN_WIDTH_PX}
+              minWidth={TITLE_COLUMN_MIN_WIDTH_PX}
+              onCommit={(w) =>
+                handleDisplayFilterUpdate({
+                  view_column_prefs: {
+                    ...displayFilters?.view_column_prefs,
+                    widths: { ...columnWidths, [TITLE_COLUMN_KEY]: w },
+                  },
+                })
+              }
+            />
+          )}
         </div>
         {columns.map((column) => (
           <ListSortHeaderCell

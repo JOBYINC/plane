@@ -31,6 +31,10 @@ export const TITLE_COLUMN_MIN_WIDTH_PX = 320;
 export const ACTIONS_COLUMN_WIDTH_PX = 56;
 // F2 column-resize: lower clamp so a column can't be dragged to nothing.
 export const LIST_COLUMN_MIN_WIDTH_PX = 80;
+// Stable key for the first (Work item / title) column inside view_column_prefs.
+// Not a real TListColumnKey — the title track is special (default flexes via
+// minmax(min,1fr); once the user resizes it, it becomes a fixed px width).
+export const TITLE_COLUMN_KEY = "__title__";
 
 export const LIST_COLUMN_WIDTHS: Record<TListColumnKey, number> = {
   state: 140,
@@ -94,14 +98,24 @@ function isColumnFeatureEnabled(column: TListColumnKey, ctx: TListColumnContext)
 
 export function getVisibleListColumns(
   displayProperties: IIssueDisplayProperties | undefined,
-  ctx: TListColumnContext
+  ctx: TListColumnContext,
+  // F1: persisted column order (display_filters.view_column_prefs.order).
+  // Visible columns named in `order` come first in that sequence; any visible
+  // column not in `order` keeps its default position after them. Absent/empty
+  // order => unchanged behaviour.
+  order?: string[]
 ): TListColumnKey[] {
   if (!displayProperties) return [];
-  return LIST_COLUMN_ORDER.filter((column) => {
+  const visible = LIST_COLUMN_ORDER.filter((column) => {
     if (!isColumnFeatureEnabled(column, ctx)) return false;
-    const dpKey = COLUMN_TO_DISPLAY_KEY[column];
-    return !!displayProperties[dpKey];
+    return !!displayProperties[COLUMN_TO_DISPLAY_KEY[column]];
   });
+  if (!order || order.length === 0) return visible;
+  const visibleSet = new Set<string>(visible);
+  const ordered = order.filter((k): k is TListColumnKey => visibleSet.has(k));
+  const orderedSet = new Set<string>(ordered);
+  const rest = visible.filter((c) => !orderedSet.has(c));
+  return [...ordered, ...rest];
 }
 
 export function getListGridTemplate(columns: TListColumnKey[]): string {
@@ -187,7 +201,11 @@ export function getListGridTemplateWithCustom(builtIn: TListColumnKey[], widths?
   const customTracks = getCustomListColumns()
     .map((c) => `${widths?.[c.key] ?? c.width}px`)
     .join(" ");
-  return `minmax(${TITLE_COLUMN_MIN_WIDTH_PX}px, 1fr) ${builtInTracks} ${customTracks} ${ACTIONS_COLUMN_WIDTH_PX}px`
-    .replace(/\s+/g, " ")
-    .trim();
+  // Title column: flex (minmax) by default so it absorbs slack like Asana's
+  // Task column; once the user resizes it, honor the fixed px width (clamped).
+  const titleWidth = widths?.[TITLE_COLUMN_KEY];
+  const titleTrack = titleWidth
+    ? `${Math.max(titleWidth, TITLE_COLUMN_MIN_WIDTH_PX)}px`
+    : `minmax(${TITLE_COLUMN_MIN_WIDTH_PX}px, 1fr)`;
+  return `${titleTrack} ${builtInTracks} ${customTracks} ${ACTIONS_COLUMN_WIDTH_PX}px`.replace(/\s+/g, " ").trim();
 }

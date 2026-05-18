@@ -48,6 +48,7 @@ interface IssueBlockProps {
   updateIssue: ((projectId: string | null, issueId: string, data: Partial<TIssue>) => Promise<void>) | undefined;
   quickActions: TRenderQuickActions;
   displayProperties: IIssueDisplayProperties | undefined;
+  columnOrder?: string[];
   canEditProperties: (projectId: string | undefined) => boolean;
   nestingLevel: number;
   spacingLeft?: number;
@@ -68,6 +69,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
     updateIssue,
     quickActions,
     displayProperties,
+    columnOrder,
     canEditProperties,
     nestingLevel,
     spacingLeft = 14,
@@ -114,7 +116,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
   const subIssuesCount = issue?.sub_issues_count ?? 0;
   const canEditIssueProperties = canEditProperties(issue?.project_id ?? undefined);
   const isDraggingAllowed = canDrag && canEditIssueProperties;
-  const visibleColumns = getVisibleListColumns(displayProperties, { isEpic });
+  const visibleColumns = getVisibleListColumns(displayProperties, { isEpic }, columnOrder);
   // Runtime custom-field columns (design §7), rendered after built-ins so
   // cells line up with the sticky header + the --list-cols grid template.
   const customColumns = getCustomListColumns();

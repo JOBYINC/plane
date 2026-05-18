@@ -35,6 +35,7 @@ type Props = {
   quickActions: TRenderQuickActions;
   canEditProperties: (projectId: string | undefined) => boolean;
   displayProperties: IIssueDisplayProperties | undefined;
+  columnOrder?: string[];
   nestingLevel: number;
   spacingLeft?: number;
   containerRef: MutableRefObject<HTMLDivElement | null>;
@@ -57,6 +58,7 @@ export const IssueBlockRoot = observer(function IssueBlockRoot(props: Props) {
     quickActions,
     canEditProperties,
     displayProperties,
+    columnOrder,
     nestingLevel,
     spacingLeft = 14,
     containerRef,
@@ -150,6 +152,7 @@ export const IssueBlockRoot = observer(function IssueBlockRoot(props: Props) {
           quickActions={quickActions}
           canEditProperties={canEditProperties}
           displayProperties={displayProperties}
+          columnOrder={columnOrder}
           isExpanded={isExpanded}
           setExpanded={setExpanded}
           nestingLevel={nestingLevel}
@@ -173,6 +176,7 @@ export const IssueBlockRoot = observer(function IssueBlockRoot(props: Props) {
             quickActions={quickActions}
             canEditProperties={canEditProperties}
             displayProperties={displayProperties}
+            columnOrder={columnOrder}
             nestingLevel={nestingLevel + 1}
             spacingLeft={spacingLeft + 12}
             containerRef={containerRef}

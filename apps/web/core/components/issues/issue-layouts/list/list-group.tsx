@@ -58,6 +58,7 @@ interface Props {
   updateIssue: ((projectId: string | null, issueId: string, data: Partial<TIssue>) => Promise<void>) | undefined;
   quickActions: TRenderQuickActions;
   displayProperties: IIssueDisplayProperties | undefined;
+  columnOrder?: string[];
   enableIssueQuickAdd: boolean;
   canEditProperties: (projectId: string | undefined) => boolean;
   containerRef: MutableRefObject<HTMLDivElement | null>;
@@ -85,6 +86,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
     updateIssue,
     quickActions,
     displayProperties,
+    columnOrder,
     enableIssueQuickAdd,
     canEditProperties,
     containerRef,
@@ -308,6 +310,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
               updateIssue={updateIssue}
               quickActions={quickActions}
               displayProperties={displayProperties}
+              columnOrder={columnOrder}
               canEditProperties={canEditProperties}
               containerRef={containerRef}
               isDragAllowed={isDragAllowed}
