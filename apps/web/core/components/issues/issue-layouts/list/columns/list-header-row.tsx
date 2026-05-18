@@ -119,7 +119,11 @@ export function ListHeaderRow(props: Props) {
         className="grid w-full items-center gap-2 [&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-subtle"
         style={{ gridTemplateColumns: gridTemplate }}
       >
-        <div className="relative flex min-w-0 items-center gap-1.5 truncate">
+        {/* Frozen first column: pinned left while the rest scroll. z-[4] keeps
+            this top-left corner above the sticky-top header (z-[3]) and the
+            sticky-left body cells (z-[1]). bg-layer-1 matches the header Row so
+            columns scrolling under it are hidden. */}
+        <div className="sticky left-0 z-[4] flex h-full min-w-0 items-center gap-1.5 truncate bg-layer-1 pl-5">
           <span className="truncate">{t("common.work_item")}</span>
           {handleDisplayFilterUpdate && (
             <ColumnResizeHandle

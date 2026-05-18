@@ -226,7 +226,27 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
         <div
           className={cn(
             "flex w-full gap-2 truncate",
-            isSidebarCollapsed ? "md:border-r md:border-subtle" : "lg:border-r lg:border-subtle"
+            // Frozen first column (desktop grid only — mobile stays the stacked
+            // layout, untouched). Opaque bg so scrolled columns are hidden; z-[1]
+            // sits above normal cells but below the sticky-top group header
+            // (z-[2]) so vertical pinning is unaffected. bg mirrors the row's
+            // resting / selected / dragging states.
+            // self-stretch + items-center: the Row grid is items-center, so a
+            // default cell is only content-height — its opaque bg wouldn't
+            // cover the row's py-3 band and scrolled cells bled through there.
+            // Stretch the frozen cell to the full row height; keep its own
+            // content vertically centered.
+            isSidebarCollapsed
+              ? cn(
+                  "md:sticky md:left-0 md:z-[1] md:items-center md:self-stretch md:border-r md:border-subtle md:pl-5",
+                  isIssueSelected ? "md:bg-accent-primary/5" : "md:bg-surface-1",
+                  isCurrentBlockDragging && "md:bg-layer-1"
+                )
+              : cn(
+                  "lg:sticky lg:left-0 lg:z-[1] lg:items-center lg:self-stretch lg:border-r lg:border-subtle lg:pl-5",
+                  isIssueSelected ? "lg:bg-accent-primary/5" : "lg:bg-surface-1",
+                  isCurrentBlockDragging && "lg:bg-layer-1"
+                )
           )}
         >
           <div className="flex flex-grow items-center gap-0.5 truncate">

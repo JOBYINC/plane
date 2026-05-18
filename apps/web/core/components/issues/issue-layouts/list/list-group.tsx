@@ -281,22 +281,28 @@ export const ListGroup = observer(function ListGroup(props: Props) {
           }
         )}
       >
-        <HeaderGroupByCard
-          groupID={group.id}
-          groupBy={group_by}
-          icon={group.icon}
-          title={group.name}
-          count={groupIssueCount}
-          issuePayload={group.payload}
-          canEditProperties={canEditProperties}
-          disableIssueCreation={
-            disableIssueCreation || isGroupByCreatedBy || isCompletedCycle || isWorkflowIssueCreationDisabled
-          }
-          addIssuesToView={addIssuesToView}
-          selectionHelpers={selectionHelpers}
-          handleCollapsedGroups={handleCollapsedGroups}
-          isEpic={isEpic}
-        />
+        {/* Frozen first column parity: the group title/count/+ stays pinned
+            left while the full-width grey bar (the Row's bg) scrolls behind
+            it. w-max so it's content-width (not the full Row), bg-layer-1 to
+            match the bar. */}
+        <div className="sticky left-0 z-[2] flex w-max bg-layer-1 pl-5">
+          <HeaderGroupByCard
+            groupID={group.id}
+            groupBy={group_by}
+            icon={group.icon}
+            title={group.name}
+            count={groupIssueCount}
+            issuePayload={group.payload}
+            canEditProperties={canEditProperties}
+            disableIssueCreation={
+              disableIssueCreation || isGroupByCreatedBy || isCompletedCycle || isWorkflowIssueCreationDisabled
+            }
+            addIssuesToView={addIssuesToView}
+            selectionHelpers={selectionHelpers}
+            handleCollapsedGroups={handleCollapsedGroups}
+            isEpic={isEpic}
+          />
+        </div>
       </Row>
       {shouldExpand && (
         <div className="relative">
