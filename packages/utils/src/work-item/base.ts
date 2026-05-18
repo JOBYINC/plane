@@ -283,6 +283,11 @@ export const getComputedDisplayFilters = (
     sub_group_by: filters?.sub_group_by || null,
     sub_issue: filters?.sub_issue || false,
     show_empty_groups: filters?.show_empty_groups || false,
+    // Asana list F1/F2: preserve persisted per-column order/width on load.
+    // This normalizer rebuilds a fresh object from known keys, so without
+    // this passthrough view_column_prefs is dropped every reload and
+    // resized/reordered columns "snap back" to defaults.
+    view_column_prefs: filters?.view_column_prefs,
   };
 };
 
