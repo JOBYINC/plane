@@ -38,7 +38,7 @@ import { IssueStats } from "@/plane-web/components/issues/issue-layouts/issue-st
 import { WithDisplayPropertiesHOC } from "../properties/with-display-properties-HOC";
 import { calculateIdentifierWidth } from "../utils";
 import { CELL_BY_COLUMN } from "./columns/issue-cells";
-import { customColumnKeyToFieldId, getCustomListColumns, getVisibleListColumns } from "./columns/list-columns";
+import { customColumnKeyToFieldId, getOrderedCustomColumns, getVisibleListColumns } from "./columns/list-columns";
 import type { TRenderQuickActions } from "./list-view-types";
 
 interface IssueBlockProps {
@@ -119,7 +119,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
   const visibleColumns = getVisibleListColumns(displayProperties, { isEpic }, columnOrder);
   // Runtime custom-field columns (design §7), rendered after built-ins so
   // cells line up with the sticky header + the --list-cols grid template.
-  const customColumns = getCustomListColumns();
+  const customColumns = getOrderedCustomColumns(columnOrder);
   const { getFieldById } = useWorkItemField();
 
   const { isMobile } = usePlatformOS();

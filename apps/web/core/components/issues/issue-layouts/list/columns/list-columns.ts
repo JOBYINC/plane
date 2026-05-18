@@ -168,6 +168,30 @@ export function getCustomListColumns(): TCustomListColumn[] {
   return customColumnProviders.flatMap((provider) => provider());
 }
 
+// F1 (4c-2): custom columns ordered by the persisted view_column_prefs.order
+// (custom keys present in `order` first, in that sequence; the rest keep
+// registry order). `order` is the same single array built-in reorder uses —
+// built-in keys in it are ignored here, custom keys are ignored by
+// getVisibleListColumns, so the two groups reorder independently without a
+// migration. Header, rows, and the grid template MUST all use this so cells
+// line up with their tracks.
+export function getOrderedCustomColumns(order?: string[]): TCustomListColumn[] {
+  const cols = getCustomListColumns();
+  if (!order || order.length === 0) return cols;
+  const byKey = new Map(cols.map((c) => [c.key, c] as const));
+  const seen = new Set<string>();
+  const ordered: TCustomListColumn[] = [];
+  for (const key of order) {
+    const col = byKey.get(key);
+    if (col && !seen.has(key)) {
+      ordered.push(col);
+      seen.add(key);
+    }
+  }
+  for (const col of cols) if (!seen.has(col.key)) ordered.push(col);
+  return ordered;
+}
+
 export function getCustomColumnWidth(key: string): number | undefined {
   return getCustomListColumns().find((c) => c.key === key)?.width;
 }
@@ -196,9 +220,13 @@ export function customColumnKeyToFieldId(key: string): string {
 // custom column key. Absent key → the column's default width (unchanged
 // behaviour when no prefs exist). Header + every row share this via the
 // `--list-cols` CSS var, so both realign for free.
-export function getListGridTemplateWithCustom(builtIn: TListColumnKey[], widths?: Record<string, number>): string {
+export function getListGridTemplateWithCustom(
+  builtIn: TListColumnKey[],
+  widths?: Record<string, number>,
+  order?: string[]
+): string {
   const builtInTracks = builtIn.map((c) => `${widths?.[c] ?? LIST_COLUMN_WIDTHS[c]}px`).join(" ");
-  const customTracks = getCustomListColumns()
+  const customTracks = getOrderedCustomColumns(order)
     .map((c) => `${widths?.[c.key] ?? c.width}px`)
     .join(" ");
   // Title column: flex (minmax) by default so it absorbs slack like Asana's

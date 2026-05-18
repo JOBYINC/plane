@@ -62,7 +62,7 @@ export const CustomColumnHeaderCell = observer(function CustomColumnHeaderCell(p
 
   if (!canManageFields || !field) {
     return (
-      <div className="relative flex min-w-0 items-center gap-1.5 truncate">
+      <div className="relative flex w-full min-w-0 items-center gap-1.5 truncate">
         <span className="truncate">{label}</span>
         {onCommitWidth && (
           <ColumnResizeHandle currentWidth={currentWidth} minWidth={minWidth} onCommit={onCommitWidth} />
@@ -72,7 +72,7 @@ export const CustomColumnHeaderCell = observer(function CustomColumnHeaderCell(p
   }
 
   return (
-    <div className="relative flex min-w-0 items-center gap-1.5 truncate">
+    <div className="relative flex w-full min-w-0 items-center gap-1.5 truncate">
       <CustomMenu
         placement="bottom-start"
         customButton={

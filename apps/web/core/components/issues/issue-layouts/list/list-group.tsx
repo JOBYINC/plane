@@ -263,15 +263,21 @@ export const ListGroup = observer(function ListGroup(props: Props) {
   return validateEmptyIssueGroups(groupIssueCount) ? (
     <div
       ref={groupRef}
-      className={cn(`relative flex flex-shrink-0 flex-col`, {
+      className={cn(`relative flex w-max min-w-full flex-shrink-0 flex-col`, {
         "border-accent-strong": isDraggingOverColumn,
         "border-danger-subtle": isDraggingOverColumn && isDropDisabled,
       })}
     >
       <Row
-        className={cn("w-full flex-shrink-0 border-b border-subtle bg-layer-1 py-1 pr-3 hover:bg-layer-1-hover", {
-          "sticky top-0 z-[2] lg:top-9": isExpanded && groupIssueCount > 0,
-        })}
+        className={cn(
+          // w-full = the group container's width, which is now w-max
+          // min-w-full (full --list-cols content width incl custom columns),
+          // so the group header / section bar spans custom-field columns too.
+          "w-full flex-shrink-0 border-b border-subtle bg-layer-1 py-1 pr-3 hover:bg-layer-1-hover",
+          {
+            "sticky top-0 z-[2] lg:top-9": isExpanded && groupIssueCount > 0,
+          }
+        )}
       >
         <HeaderGroupByCard
           groupID={group.id}

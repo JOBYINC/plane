@@ -10,7 +10,6 @@ import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import { draggable, dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { cn } from "@plane/utils";
 
-const COLUMN_DND_TYPE = "LIST_COLUMN";
 // Same explicit Asana blue as the resize affordance (Plane's primary token
 // is a near-black neutral, not blue).
 const DROP_INDICATOR_BLUE = "#3b82f6";
@@ -21,6 +20,10 @@ interface DraggableColumnHeaderProps {
   columnKey: string;
   /** Reorder: move `fromKey` to the `edge` side of this column (`columnKey`). */
   onReorder: (fromKey: string, toKey: string, edge: Edge) => void;
+  // Built-in and custom columns use distinct dnd types so a built-in can't be
+  // dropped into the custom group or vice versa (4c-2 scope: reorder within
+  // each group; the two share one persisted order array but never intermix).
+  dndType?: string;
   children: ReactNode;
 }
 
@@ -33,7 +36,7 @@ interface DraggableColumnHeaderProps {
  * resize grip stops pointer propagation).
  */
 export function DraggableColumnHeader(props: DraggableColumnHeaderProps) {
-  const { columnKey, onReorder, children } = props;
+  const { columnKey, onReorder, dndType = "LIST_COLUMN", children } = props;
   const ref = useRef<HTMLDivElement | null>(null);
   const edgeRef = useRef<Edge | null>(null);
   const [edge, setEdge] = useState<Edge | null>(null);
@@ -45,14 +48,14 @@ export function DraggableColumnHeader(props: DraggableColumnHeaderProps) {
     return combine(
       draggable({
         element: el,
-        getInitialData: () => ({ type: COLUMN_DND_TYPE, columnKey }),
+        getInitialData: () => ({ type: dndType, columnKey }),
         onDragStart: () => setIsDragging(true),
         onDrop: () => setIsDragging(false),
       }),
       dropTargetForElements({
         element: el,
-        canDrop: ({ source }) => source.data.type === COLUMN_DND_TYPE && source.data.columnKey !== columnKey,
-        getData: () => ({ type: COLUMN_DND_TYPE, columnKey }),
+        canDrop: ({ source }) => source.data.type === dndType && source.data.columnKey !== columnKey,
+        getData: () => ({ type: dndType, columnKey }),
         onDrag: ({ location }) => {
           const rect = el.getBoundingClientRect();
           const next: Edge = location.current.input.clientX < rect.left + rect.width / 2 ? "left" : "right";
@@ -71,7 +74,7 @@ export function DraggableColumnHeader(props: DraggableColumnHeaderProps) {
         },
       })
     );
-  }, [columnKey, onReorder]);
+  }, [columnKey, onReorder, dndType]);
 
   return (
     <div ref={ref} className={cn("relative flex h-full w-full cursor-grab items-center", isDragging && "opacity-50")}>

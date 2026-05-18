@@ -109,7 +109,11 @@ export const List = observer(function List(props: IList) {
   // Asana-style aligned column layout — header + every row share this CSS template
   const columnOrder = displayFilters?.view_column_prefs?.order;
   const visibleColumns = getVisibleListColumns(displayProperties, { isEpic }, columnOrder);
-  const gridTemplateColumns = getListGridTemplateWithCustom(visibleColumns, displayFilters?.view_column_prefs?.widths);
+  const gridTemplateColumns = getListGridTemplateWithCustom(
+    visibleColumns,
+    displayFilters?.view_column_prefs?.widths,
+    columnOrder
+  );
   const gridVisibilityClass = isSidebarCollapsed ? "hidden md:flex" : "hidden lg:flex";
 
   const groups = getGroupByColumns({
