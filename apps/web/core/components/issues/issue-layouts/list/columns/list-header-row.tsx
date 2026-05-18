@@ -13,6 +13,7 @@ import { AddCustomFieldHeaderButton, CustomColumnHeaderCell } from "@/components
 import { ColumnResizeHandle } from "./column-resize-handle";
 import { DraggableColumnHeader } from "./draggable-column-header";
 import {
+  LIST_COLUMN_MIN_WIDTH_PX,
   TITLE_COLUMN_KEY,
   TITLE_COLUMN_MIN_WIDTH_PX,
   getCustomListColumns,
@@ -110,7 +111,24 @@ export function ListHeaderRow(props: Props) {
           </DraggableColumnHeader>
         ))}
         {customColumns.map((c) => (
-          <CustomColumnHeaderCell key={c.key} columnKey={c.key} label={c.label} />
+          <CustomColumnHeaderCell
+            key={c.key}
+            columnKey={c.key}
+            label={c.label}
+            currentWidth={columnWidths?.[c.key] ?? c.width}
+            minWidth={LIST_COLUMN_MIN_WIDTH_PX}
+            onCommitWidth={
+              handleDisplayFilterUpdate
+                ? (w) =>
+                    handleDisplayFilterUpdate({
+                      view_column_prefs: {
+                        ...displayFilters?.view_column_prefs,
+                        widths: { ...columnWidths, [c.key]: w },
+                      },
+                    })
+                : undefined
+            }
+          />
         ))}
         <AddCustomFieldHeaderButton />
       </div>

@@ -17,6 +17,7 @@ import { CustomMenu, Tooltip } from "@plane/ui";
 import { useWorkItemField } from "@/hooks/store/use-work-item-field";
 import { useUserPermissions } from "@/hooks/store/user";
 // local
+import { ColumnResizeHandle } from "@/components/issues/issue-layouts/list/columns/column-resize-handle";
 import { customColumnKeyToFieldId } from "@/components/issues/issue-layouts/list/columns/list-columns";
 import { DeleteFieldModal } from "./delete-field-modal";
 import { WorkItemFieldEditorModal } from "./work-item-field-editor-modal";
@@ -36,6 +37,11 @@ function useCanManageFields(): boolean {
 interface CustomColumnHeaderCellProps {
   columnKey: string;
   label: string;
+  // 4c: per-column resize (parity with built-in columns). currentWidth is a
+  // fallback — the handle measures the rendered cell at pointer-down.
+  currentWidth: number;
+  minWidth: number;
+  onCommitWidth?: (newWidth: number) => void;
 }
 
 /**
@@ -43,7 +49,7 @@ interface CustomColumnHeaderCellProps {
  * label (zero visual change); admins get a click-to-open Edit / Archive menu.
  */
 export const CustomColumnHeaderCell = observer(function CustomColumnHeaderCell(props: CustomColumnHeaderCellProps) {
-  const { columnKey, label } = props;
+  const { columnKey, label, currentWidth, minWidth, onCommitWidth } = props;
   const { workspaceSlug, projectId } = useParams();
   const { getFieldById, deleteField } = useWorkItemField();
   const { t } = useTranslation();
@@ -56,14 +62,17 @@ export const CustomColumnHeaderCell = observer(function CustomColumnHeaderCell(p
 
   if (!canManageFields || !field) {
     return (
-      <div className="flex min-w-0 items-center gap-1.5 truncate">
+      <div className="relative flex min-w-0 items-center gap-1.5 truncate">
         <span className="truncate">{label}</span>
+        {onCommitWidth && (
+          <ColumnResizeHandle currentWidth={currentWidth} minWidth={minWidth} onCommit={onCommitWidth} />
+        )}
       </div>
     );
   }
 
   return (
-    <div className="flex min-w-0 items-center gap-1.5 truncate">
+    <div className="relative flex min-w-0 items-center gap-1.5 truncate">
       <CustomMenu
         placement="bottom-start"
         customButton={
@@ -94,6 +103,7 @@ export const CustomColumnHeaderCell = observer(function CustomColumnHeaderCell(p
           await deleteField(workspaceSlug?.toString() ?? "", projectId?.toString() ?? "", field.id);
         }}
       />
+      {onCommitWidth && <ColumnResizeHandle currentWidth={currentWidth} minWidth={minWidth} onCommit={onCommitWidth} />}
     </div>
   );
 });
