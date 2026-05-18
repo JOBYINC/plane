@@ -52,6 +52,7 @@ export interface IList {
   displayProperties: IIssueDisplayProperties | undefined;
   displayFilters?: IIssueDisplayFilterOptions | undefined;
   handleDisplayFilterUpdate?: (data: Partial<IIssueDisplayFilterOptions>) => void;
+  handleDisplayPropertiesUpdate?: (data: Partial<IIssueDisplayProperties>) => void;
   enableIssueQuickAdd: boolean;
   showEmptyGroup?: boolean;
   canEditProperties: (projectId: string | undefined) => boolean;
@@ -77,6 +78,7 @@ export const List = observer(function List(props: IList) {
     displayProperties,
     displayFilters,
     handleDisplayFilterUpdate,
+    handleDisplayPropertiesUpdate,
     enableIssueQuickAdd,
     showEmptyGroup,
     canEditProperties,
@@ -177,6 +179,7 @@ export const List = observer(function List(props: IList) {
                   context={{ isEpic }}
                   displayFilters={displayFilters}
                   handleDisplayFilterUpdate={handleDisplayFilterUpdate}
+                  handleDisplayPropertiesUpdate={handleDisplayPropertiesUpdate}
                   visibilityClassName={gridVisibilityClass}
                 />
                 {groups.map((group: IGroupByColumn) => (

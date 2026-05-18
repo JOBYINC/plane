@@ -4,15 +4,20 @@
  * See the LICENSE file for details.
  */
 
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDownIcon, Eraser, MoveRight } from "lucide-react";
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDownIcon, Eraser, EyeOff, MoveRight } from "lucide-react";
 import { SPREADSHEET_PROPERTY_DETAILS } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
-import type { IIssueDisplayFilterOptions, TIssueOrderByOptions } from "@plane/types";
+import type { IIssueDisplayFilterOptions, IIssueDisplayProperties, TIssueOrderByOptions } from "@plane/types";
 import { CustomMenu } from "@plane/ui";
 import { cn } from "@plane/utils";
 import { SpreadSheetPropertyIcon } from "../../utils";
 import { ColumnResizeHandle } from "./column-resize-handle";
-import { LIST_COLUMN_MIN_WIDTH_PX, LIST_COLUMN_WIDTHS, type TListColumnKey } from "./list-columns";
+import {
+  LIST_COLUMN_MIN_WIDTH_PX,
+  LIST_COLUMN_WIDTHS,
+  getDisplayPropertyKey,
+  type TListColumnKey,
+} from "./list-columns";
 
 // Clearing a column sort returns the list to manual drag order.
 const CLEAR_ORDER_BY: TIssueOrderByOptions = "sort_order";
@@ -21,10 +26,11 @@ interface Props {
   column: TListColumnKey;
   displayFilters: IIssueDisplayFilterOptions | undefined;
   handleDisplayFilterUpdate?: (data: Partial<IIssueDisplayFilterOptions>) => void;
+  handleDisplayPropertiesUpdate?: (data: Partial<IIssueDisplayProperties>) => void;
 }
 
 export function ListSortHeaderCell(props: Props) {
-  const { column, displayFilters, handleDisplayFilterUpdate } = props;
+  const { column, displayFilters, handleDisplayFilterUpdate, handleDisplayPropertiesUpdate } = props;
   const { t } = useTranslation();
 
   const details = SPREADSHEET_PROPERTY_DETAILS[column];
@@ -127,6 +133,17 @@ export function ListSortHeaderCell(props: Props) {
             <div className="flex items-center gap-2 px-1">
               <Eraser className="h-3 w-3" />
               <span>{t("common.actions.clear_sorting")}</span>
+            </div>
+          </CustomMenu.MenuItem>
+        )}
+        {handleDisplayPropertiesUpdate && (
+          <CustomMenu.MenuItem
+            className="mt-0.5"
+            onClick={() => handleDisplayPropertiesUpdate({ [getDisplayPropertyKey(column)]: false })}
+          >
+            <div className="flex items-center gap-2 px-1">
+              <EyeOff className="h-3 w-3" />
+              <span>{t("common.actions.hide_field")}</span>
             </div>
           </CustomMenu.MenuItem>
         )}

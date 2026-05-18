@@ -27,6 +27,7 @@ interface Props {
   context: TListColumnContext;
   displayFilters?: IIssueDisplayFilterOptions | undefined;
   handleDisplayFilterUpdate?: (data: Partial<IIssueDisplayFilterOptions>) => void;
+  handleDisplayPropertiesUpdate?: (data: Partial<IIssueDisplayProperties>) => void;
   // Supplies the responsive display (e.g. "hidden lg:flex"). Replaces the
   // static `flex` so the row is a direct child of the scroll container —
   // required for position:sticky to track the scrollport, not a short wrapper.
@@ -37,7 +38,14 @@ export const LIST_HEADER_HEIGHT_CLASS = "h-9";
 export const LIST_HEADER_GROUP_STICKY_OFFSET_CLASS = "top-9";
 
 export function ListHeaderRow(props: Props) {
-  const { displayProperties, context, displayFilters, handleDisplayFilterUpdate, visibilityClassName } = props;
+  const {
+    displayProperties,
+    context,
+    displayFilters,
+    handleDisplayFilterUpdate,
+    handleDisplayPropertiesUpdate,
+    visibilityClassName,
+  } = props;
   const { t } = useTranslation();
   if (!displayProperties) return null;
   const order = displayFilters?.view_column_prefs?.order;
@@ -106,6 +114,7 @@ export function ListHeaderRow(props: Props) {
                 column={d.key}
                 displayFilters={displayFilters}
                 handleDisplayFilterUpdate={handleDisplayFilterUpdate}
+                handleDisplayPropertiesUpdate={handleDisplayPropertiesUpdate}
               />
             ) : (
               <CustomColumnHeaderCell

@@ -667,6 +667,8 @@ export default {
       subscribe: "Subscribe",
       unsubscribe: "Unsubscribe",
       clear_sorting: "Clear sorting",
+      hide_field: "Hide field",
+      show_field: "Show field",
       show_weekends: "Show weekends",
       enable: "Enable",
       disable: "Disable",
