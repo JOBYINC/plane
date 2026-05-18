@@ -14,7 +14,7 @@ import { observer } from "mobx-react";
 import { useParams, useRouter } from "next/navigation";
 import { createRoot } from "react-dom/client";
 import scrollIntoView from "smooth-scroll-into-view-if-needed";
-import { Settings, Share2, LogOut, MoreHorizontal } from "lucide-react";
+import { Settings, Share2, LogOut, MoreHorizontal, Star } from "lucide-react";
 import { Disclosure, Transition } from "@headlessui/react";
 // plane imports
 import { EUserPermissions, EUserPermissionsLevel, MEMBER_TRACKER_ELEMENTS } from "@plane/constants";
@@ -23,6 +23,7 @@ import { useTranslation } from "@plane/i18n";
 import { Logo } from "@plane/propel/emoji-icon-picker";
 import { LinkIcon, ArchiveIcon, ChevronRightIcon } from "@plane/propel/icons";
 import { IconButton } from "@plane/propel/icon-button";
+import { setPromiseToast } from "@plane/propel/toast";
 import { Tooltip } from "@plane/propel/tooltip";
 import { CustomMenu, DropIndicator, DragHandle, ControlLink } from "@plane/ui";
 import { cn } from "@plane/utils";
@@ -34,6 +35,7 @@ import { PublishProjectModal } from "@/components/project/publish-project/modal"
 // hooks
 import { useAppTheme } from "@/hooks/store/use-app-theme";
 import { useCommandPalette } from "@/hooks/store/use-command-palette";
+import { useFavorite } from "@/hooks/store/use-favorite";
 import { useProject } from "@/hooks/store/use-project";
 import { useUserPermissions } from "@/hooks/store/user";
 import { useProjectNavigationPreferences } from "@/hooks/use-navigation-preferences";
@@ -72,7 +74,8 @@ export const SidebarProjectsListItem = observer(function SidebarProjectsListItem
   } = props;
   // store hooks
   const { t } = useTranslation();
-  const { getPartialProjectById } = useProject();
+  const { getPartialProjectById, addProjectToFavorites, removeProjectFromFavorites } = useProject();
+  const { entityMap: favoriteEntityMap } = useFavorite();
   const { isMobile } = usePlatformOS();
   const { allowPermissions } = useUserPermissions();
   const { getIsProjectListOpen, toggleProjectListOpen } = useCommandPalette();
@@ -95,6 +98,31 @@ export const SidebarProjectsListItem = observer(function SidebarProjectsListItem
   const router = useRouter();
   // derived values
   const project = getPartialProjectById(projectId);
+
+  // The sidebar uses the *partial* project (the projects-API optimisation
+  // dropped is_favorite from it), so derive favourite state from the
+  // favorite store's entity map instead.
+  const isProjectFavorite = !!favoriteEntityMap[projectId];
+
+  const handleAddToFavorites = () => {
+    if (!workspaceSlug) return;
+    const promise = addProjectToFavorites(workspaceSlug.toString(), projectId);
+    setPromiseToast(promise, {
+      loading: "Adding project to favorites...",
+      success: { title: "Success!", message: () => "Project added to favorites." },
+      error: { title: "Error!", message: () => "Couldn't add the project to favorites. Please try again." },
+    });
+  };
+
+  const handleRemoveFromFavorites = () => {
+    if (!workspaceSlug) return;
+    const promise = removeProjectFromFavorites(workspaceSlug.toString(), projectId);
+    setPromiseToast(promise, {
+      loading: "Removing project from favorites...",
+      success: { title: "Success!", message: () => "Project removed from favorites." },
+      error: { title: "Error!", message: () => "Couldn't remove the project from favorites. Please try again." },
+    });
+  };
 
   // Get available navigation items for this project
   const navigationItems = useNavigationItems({
@@ -177,6 +205,8 @@ export const SidebarProjectsListItem = observer(function SidebarProjectsListItem
         element,
         canDrop: ({ source }) =>
           !disableDrop && source?.data?.id !== projectId && source?.data?.dragInstanceId === "PROJECTS",
+        // pre-existing DnD code, untouched by the favorite-menu change
+        // eslint-disable-next-line no-shadow
         getData: ({ input, element }) => {
           const data = { id: projectId };
 
@@ -222,6 +252,8 @@ export const SidebarProjectsListItem = observer(function SidebarProjectsListItem
         },
       })
     );
+    // pre-existing DnD deps, untouched by the favorite-menu change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, isLastChild, projectListType, handleOnProjectDrop]);
 
   useEffect(() => {
@@ -376,21 +408,20 @@ export const SidebarProjectsListItem = observer(function SidebarProjectsListItem
                   closeOnSelect
                   onMenuClose={() => setIsMenuActive(false)}
                 >
-                  {/* TODO: Removed is_favorite logic due to the optimization in projects API */}
-                  {/* {isAuthorized && (
-                    <CustomMenu.MenuItem
-                      onClick={project.is_favorite ? handleRemoveFromFavorites : handleAddToFavorites}
-                    >
+                  {/* Favorite toggle — favourite state comes from the favorite
+                      store (the partial sidebar project has no is_favorite). */}
+                  {isAuthorized && (
+                    <CustomMenu.MenuItem onClick={isProjectFavorite ? handleRemoveFromFavorites : handleAddToFavorites}>
                       <span className="flex items-center justify-start gap-2">
                         <Star
-                          className={cn("h-3.5 w-3.5 ", {
-                            "fill-yellow-500 stroke-yellow-500": project.is_favorite,
+                          className={cn("h-3.5 w-3.5", {
+                            "fill-yellow-500 stroke-yellow-500": isProjectFavorite,
                           })}
                         />
-                        <span>{project.is_favorite ? t("remove_from_favorites") : t("add_to_favorites")}</span>
+                        <span>{isProjectFavorite ? t("remove_from_favorites") : t("add_to_favorites")}</span>
                       </span>
                     </CustomMenu.MenuItem>
-                  )} */}
+                  )}
 
                   {/* publish project settings */}
                   {isAdmin && (
