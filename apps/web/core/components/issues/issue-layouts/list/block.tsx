@@ -220,7 +220,12 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
           }
         }}
       >
-        <div className="flex w-full gap-2 truncate">
+        <div
+          className={cn(
+            "flex w-full gap-2 truncate",
+            isSidebarCollapsed ? "md:border-r md:border-subtle" : "lg:border-r lg:border-subtle"
+          )}
+        >
           <div className="flex flex-grow items-center gap-0.5 truncate">
             <div className="flex items-center gap-1" style={isSubIssue ? { marginLeft } : {}}>
               {/* select checkbox */}
@@ -343,7 +348,12 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
         {/* Desktop/grid mode: per-column cells aligned with sticky header.
             display:contents flattens this wrapper so its children become grid items
             of the outer Row, sharing the same --list-cols template. */}
-        <div className={cn("hidden", isSidebarCollapsed ? "md:contents" : "lg:contents")}>
+        <div
+          className={cn(
+            "hidden [&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-subtle",
+            isSidebarCollapsed ? "md:contents" : "lg:contents"
+          )}
+        >
           {visibleColumns.map((column) => {
             const Cell = CELL_BY_COLUMN[column];
             return (

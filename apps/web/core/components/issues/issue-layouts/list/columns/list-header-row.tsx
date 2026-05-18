@@ -51,7 +51,10 @@ export function ListHeaderRow(props: Props) {
         LIST_HEADER_HEIGHT_CLASS
       )}
     >
-      <div className="grid w-full items-center gap-2" style={{ gridTemplateColumns: gridTemplate }}>
+      <div
+        className="grid w-full items-center gap-2 [&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-subtle"
+        style={{ gridTemplateColumns: gridTemplate }}
+      >
         <div className="flex min-w-0 items-center gap-1.5 truncate">
           <span className="truncate">{t("common.work_item")}</span>
         </div>
