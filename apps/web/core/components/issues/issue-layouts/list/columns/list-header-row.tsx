@@ -4,12 +4,14 @@
  * See the LICENSE file for details.
  */
 
+import { useCallback } from "react";
 import { useTranslation } from "@plane/i18n";
 import type { IIssueDisplayFilterOptions, IIssueDisplayProperties } from "@plane/types";
 import { Row } from "@plane/ui";
 import { cn } from "@plane/utils";
 import { AddCustomFieldHeaderButton, CustomColumnHeaderCell } from "@/components/work-item-fields";
 import { ColumnResizeHandle } from "./column-resize-handle";
+import { DraggableColumnHeader } from "./draggable-column-header";
 import {
   TITLE_COLUMN_KEY,
   TITLE_COLUMN_MIN_WIDTH_PX,
@@ -47,6 +49,25 @@ export function ListHeaderRow(props: Props) {
   const columnWidths = displayFilters?.view_column_prefs?.widths;
   const gridTemplate = getListGridTemplateWithCustom(columns, columnWidths);
 
+  // F1 (4b): drop `fromKey` next to `toKey` and persist the full reordered
+  // built-in sequence as view_column_prefs.order (header + rows realign via
+  // getVisibleListColumns honoring it).
+  const handleColumnReorder = useCallback(
+    (fromKey: string, toKey: string, edge: "left" | "right") => {
+      if (!handleDisplayFilterUpdate || fromKey === toKey) return;
+      const current: string[] = columns;
+      const without = current.filter((c) => c !== fromKey);
+      let insertAt = without.indexOf(toKey);
+      if (insertAt === -1) return;
+      if (edge === "right") insertAt += 1;
+      const next = [...without.slice(0, insertAt), fromKey, ...without.slice(insertAt)];
+      handleDisplayFilterUpdate({
+        view_column_prefs: { ...displayFilters?.view_column_prefs, order: next },
+      });
+    },
+    [columns, displayFilters, handleDisplayFilterUpdate]
+  );
+
   return (
     <Row
       className={cn(
@@ -80,12 +101,13 @@ export function ListHeaderRow(props: Props) {
           )}
         </div>
         {columns.map((column) => (
-          <ListSortHeaderCell
-            key={column}
-            column={column}
-            displayFilters={displayFilters}
-            handleDisplayFilterUpdate={handleDisplayFilterUpdate}
-          />
+          <DraggableColumnHeader key={column} columnKey={column} onReorder={handleColumnReorder}>
+            <ListSortHeaderCell
+              column={column}
+              displayFilters={displayFilters}
+              handleDisplayFilterUpdate={handleDisplayFilterUpdate}
+            />
+          </DraggableColumnHeader>
         ))}
         {customColumns.map((c) => (
           <CustomColumnHeaderCell key={c.key} columnKey={c.key} label={c.label} />
