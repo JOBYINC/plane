@@ -185,11 +185,16 @@ export type TListColumnDescriptor =
 export function getOrderedListColumns(
   displayProperties: IIssueDisplayProperties | undefined,
   ctx: TListColumnContext,
-  order?: string[]
+  order?: string[],
+  // Custom-field column keys hidden from this list (view_column_prefs.hidden).
+  // Built-in columns hide via displayProperties (already excluded by
+  // getVisibleListColumns), so this only filters custom columns.
+  hidden?: string[]
 ): TListColumnDescriptor[] {
   // Default order is resolved here (unified), so call without `order`.
   const builtinVisible = getVisibleListColumns(displayProperties, ctx);
-  const customAll = getCustomListColumns();
+  const hiddenSet = new Set<string>(hidden ?? []);
+  const customAll = getCustomListColumns().filter((c) => !hiddenSet.has(c.key));
   const builtinSet = new Set<string>(builtinVisible);
   const customByKey = new Map(customAll.map((c) => [c.key, c] as const));
 
@@ -221,6 +226,15 @@ export function getOrderedListColumns(
     }
   }
   return result;
+}
+
+// Custom columns currently hidden (view_column_prefs.hidden ∩ registered
+// custom columns). Drives the re-show list in the header "+" menu so hide is
+// reversible from the list UI (custom fields have no Display-dropdown entry).
+export function getHiddenCustomColumns(hidden?: string[]): TCustomListColumn[] {
+  if (!hidden || hidden.length === 0) return [];
+  const hiddenSet = new Set<string>(hidden);
+  return getCustomListColumns().filter((c) => hiddenSet.has(c.key));
 }
 
 export function getCustomColumnWidth(key: string): number | undefined {

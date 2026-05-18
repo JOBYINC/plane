@@ -49,6 +49,7 @@ interface IssueBlockProps {
   quickActions: TRenderQuickActions;
   displayProperties: IIssueDisplayProperties | undefined;
   columnOrder?: string[];
+  columnHidden?: string[];
   canEditProperties: (projectId: string | undefined) => boolean;
   nestingLevel: number;
   spacingLeft?: number;
@@ -70,6 +71,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
     quickActions,
     displayProperties,
     columnOrder,
+    columnHidden,
     canEditProperties,
     nestingLevel,
     spacingLeft = 14,
@@ -118,7 +120,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
   const isDraggingAllowed = canDrag && canEditIssueProperties;
   // ONE unified ordered column sequence (Inc A) — MUST match the sticky
   // header + --list-cols grid template so every cell lines up with its track.
-  const orderedColumns = getOrderedListColumns(displayProperties, { isEpic }, columnOrder);
+  const orderedColumns = getOrderedListColumns(displayProperties, { isEpic }, columnOrder, columnHidden);
   const { getFieldById } = useWorkItemField();
 
   const { isMobile } = usePlatformOS();

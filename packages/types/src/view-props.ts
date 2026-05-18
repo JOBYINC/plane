@@ -157,6 +157,12 @@ export type TViewColumnPrefs = {
   order?: string[];
   /** Pixel width override per column key; absent = the column's default width. */
   widths?: Record<string, number>;
+  /**
+   * Custom-field column keys hidden from this list (per user). Built-in
+   * columns hide via the native displayProperties channel instead; this only
+   * covers custom fields, which have no displayProperties entry.
+   */
+  hidden?: string[];
 };
 
 export interface IIssueDisplayFilterOptions {

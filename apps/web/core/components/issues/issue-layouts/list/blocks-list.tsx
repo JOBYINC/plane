@@ -22,6 +22,7 @@ interface Props {
   quickActions: TRenderQuickActions;
   displayProperties: IIssueDisplayProperties | undefined;
   columnOrder?: string[];
+  columnHidden?: string[];
   containerRef: MutableRefObject<HTMLDivElement | null>;
   isDragAllowed: boolean;
   canDropOverIssue: boolean;
@@ -38,6 +39,7 @@ export function IssueBlocksList(props: Props) {
     quickActions,
     displayProperties,
     columnOrder,
+    columnHidden,
     canEditProperties,
     containerRef,
     selectionHelpers,
@@ -64,6 +66,7 @@ export function IssueBlocksList(props: Props) {
             canEditProperties={canEditProperties}
             displayProperties={displayProperties}
             columnOrder={columnOrder}
+            columnHidden={columnHidden}
             nestingLevel={0}
             spacingLeft={0}
             containerRef={containerRef}

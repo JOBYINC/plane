@@ -59,6 +59,7 @@ interface Props {
   quickActions: TRenderQuickActions;
   displayProperties: IIssueDisplayProperties | undefined;
   columnOrder?: string[];
+  columnHidden?: string[];
   enableIssueQuickAdd: boolean;
   canEditProperties: (projectId: string | undefined) => boolean;
   containerRef: MutableRefObject<HTMLDivElement | null>;
@@ -87,6 +88,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
     quickActions,
     displayProperties,
     columnOrder,
+    columnHidden,
     enableIssueQuickAdd,
     canEditProperties,
     containerRef,
@@ -317,6 +319,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
               quickActions={quickActions}
               displayProperties={displayProperties}
               columnOrder={columnOrder}
+              columnHidden={columnHidden}
               canEditProperties={canEditProperties}
               containerRef={containerRef}
               isDragAllowed={isDragAllowed}

@@ -16,6 +16,7 @@ import {
   LIST_COLUMN_MIN_WIDTH_PX,
   TITLE_COLUMN_KEY,
   TITLE_COLUMN_MIN_WIDTH_PX,
+  getHiddenCustomColumns,
   getOrderedListColumns,
   getUnifiedListGridTemplate,
   type TListColumnContext,
@@ -49,13 +50,41 @@ export function ListHeaderRow(props: Props) {
   const { t } = useTranslation();
   if (!displayProperties) return null;
   const order = displayFilters?.view_column_prefs?.order;
-  // ONE unified ordered column sequence: built-in + custom intermixed (Inc A).
-  // Header, rows and the grid template all consume this so every cell lines up
-  // with its track.
-  const orderedColumns = getOrderedListColumns(displayProperties, context, order);
+  const hidden = displayFilters?.view_column_prefs?.hidden;
+  // ONE unified ordered column sequence: built-in + custom intermixed (Inc A),
+  // minus hidden custom columns (B2). Header, rows and the grid template all
+  // consume this so every cell lines up with its track.
+  const orderedColumns = getOrderedListColumns(displayProperties, context, order, hidden);
   const columnKeys = orderedColumns.map((d) => d.key);
   const columnWidths = displayFilters?.view_column_prefs?.widths;
   const gridTemplate = getUnifiedListGridTemplate(orderedColumns, columnWidths);
+  // Custom fields currently hidden — surfaced in the "+" menu so hide is
+  // reversible from the list UI (no Display-dropdown entry for custom fields).
+  const hiddenCustomColumns = getHiddenCustomColumns(hidden);
+
+  // Hide / show a custom-field column for this user (view_column_prefs.hidden,
+  // DISPLAY_FILTERS channel). Built-in columns hide via displayProperties (B1).
+  const hideCustomColumn = useCallback(
+    (key: string) => {
+      if (!handleDisplayFilterUpdate) return;
+      const next = Array.from(new Set([...(hidden ?? []), key]));
+      handleDisplayFilterUpdate({
+        view_column_prefs: { ...displayFilters?.view_column_prefs, hidden: next },
+      });
+    },
+    [handleDisplayFilterUpdate, displayFilters, hidden]
+  );
+
+  const showCustomColumn = useCallback(
+    (key: string) => {
+      if (!handleDisplayFilterUpdate) return;
+      const next = (hidden ?? []).filter((k) => k !== key);
+      handleDisplayFilterUpdate({
+        view_column_prefs: { ...displayFilters?.view_column_prefs, hidden: next },
+      });
+    },
+    [handleDisplayFilterUpdate, displayFilters, hidden]
+  );
 
   // Reorder within the single unified sequence and persist the full order.
   // The rendered key list IS the source of truth, so the move is a plain
@@ -122,6 +151,7 @@ export function ListHeaderRow(props: Props) {
                 label={d.col.label}
                 currentWidth={columnWidths?.[d.key] ?? d.col.width}
                 minWidth={LIST_COLUMN_MIN_WIDTH_PX}
+                onHide={handleDisplayFilterUpdate ? () => hideCustomColumn(d.key) : undefined}
                 onCommitWidth={
                   handleDisplayFilterUpdate
                     ? (w) =>
@@ -137,7 +167,10 @@ export function ListHeaderRow(props: Props) {
             )}
           </DraggableColumnHeader>
         ))}
-        <AddCustomFieldHeaderButton />
+        <AddCustomFieldHeaderButton
+          hiddenColumns={hiddenCustomColumns}
+          onShow={handleDisplayFilterUpdate ? showCustomColumn : undefined}
+        />
       </div>
     </Row>
   );

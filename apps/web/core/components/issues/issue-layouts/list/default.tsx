@@ -111,7 +111,8 @@ export const List = observer(function List(props: IList) {
   // Asana-style aligned column layout — header + every row share this CSS
   // template, built from the ONE unified column sequence (Inc A).
   const columnOrder = displayFilters?.view_column_prefs?.order;
-  const orderedColumns = getOrderedListColumns(displayProperties, { isEpic }, columnOrder);
+  const columnHidden = displayFilters?.view_column_prefs?.hidden;
+  const orderedColumns = getOrderedListColumns(displayProperties, { isEpic }, columnOrder, columnHidden);
   const gridTemplateColumns = getUnifiedListGridTemplate(orderedColumns, displayFilters?.view_column_prefs?.widths);
   const gridVisibilityClass = isSidebarCollapsed ? "hidden md:flex" : "hidden lg:flex";
 
@@ -196,6 +197,7 @@ export const List = observer(function List(props: IList) {
                     handleOnDrop={handleOnDrop}
                     displayProperties={displayProperties}
                     columnOrder={columnOrder}
+                    columnHidden={columnHidden}
                     enableIssueQuickAdd={enableIssueQuickAdd}
                     showEmptyGroup={showEmptyGroup}
                     canEditProperties={canEditProperties}
