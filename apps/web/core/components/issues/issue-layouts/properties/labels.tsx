@@ -18,6 +18,7 @@ import type { IIssueLabel } from "@plane/types";
 // ui
 // hooks
 import { cn } from "@plane/utils";
+import { LABEL_PILL_CLASS, labelPillStyle } from "@/components/issues/label";
 import { useLabel } from "@/hooks/store/use-label";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 import { LabelDropdown } from "./label-dropdown";
@@ -83,14 +84,13 @@ type LabelSummaryProps = {
   value: string[];
 };
 
-function LabelSummary({ isMobile, fullWidth, noLabelBorder, disabled, projectLabels, value }: LabelSummaryProps) {
+function LabelSummary({ isMobile, fullWidth, disabled, projectLabels, value }: LabelSummaryProps) {
   const { t } = useTranslation();
   return (
     <div
       className={cn(
-        "flex h-5 flex-shrink-0 items-center justify-center rounded-sm px-2.5 text-caption-sm-regular",
-        fullWidth && "w-full",
-        noLabelBorder ? "rounded-none" : "border-[0.5px] border-strong",
+        "inline-flex flex-shrink-0 items-center rounded-full bg-layer-1 px-2 py-[7px] text-11 leading-tight font-medium text-secondary",
+        fullWidth && "w-full justify-center",
         disabled ? "cursor-not-allowed" : "cursor-pointer"
       )}
     >
@@ -104,10 +104,7 @@ function LabelSummary({ isMobile, fullWidth, noLabelBorder, disabled, projectLab
           .join(", ")}
         renderByDefault={false}
       >
-        <div className="flex h-full items-center gap-1.5 text-secondary">
-          <span className="h-2 w-2 flex-shrink-0 rounded-full bg-accent-primary" />
-          {`${value.length} Labels`}
-        </div>
+        <span>{`${value.length} Labels`}</span>
       </Tooltip>
     </div>
   );
@@ -128,7 +125,6 @@ const LabelItem = observer(function LabelItem({
   renderByDefault,
   disabled,
   fullWidth,
-  noLabelBorder,
 }: LabelItemProps) {
   const { t } = useTranslation();
 
@@ -142,21 +138,14 @@ const LabelItem = observer(function LabelItem({
     >
       <div
         className={cn(
-          "flex h-full max-w-full flex-shrink-0 items-center justify-center overflow-hidden rounded-sm px-2.5 text-caption-sm-regular hover:bg-layer-1",
+          LABEL_PILL_CLASS,
+          "max-w-full overflow-hidden",
           !disabled && "cursor-pointer",
-          fullWidth && "w-full",
-          noLabelBorder ? "rounded-none" : "border-[0.5px] border-strong"
+          fullWidth && "w-full"
         )}
+        style={labelPillStyle(label?.color)}
       >
-        <div className="flex max-w-full items-center gap-1.5 overflow-hidden text-secondary">
-          <span
-            className="h-2 w-2 flex-shrink-0 rounded-full"
-            style={{
-              backgroundColor: label?.color ?? "#000000",
-            }}
-          />
-          <div className="line-clamp-1 inline-block w-auto max-w-[200px] truncate">{label?.name}</div>
-        </div>
+        <div className="line-clamp-1 inline-block w-auto max-w-[200px] truncate">{label?.name}</div>
       </div>
     </Tooltip>
   );
@@ -211,31 +200,35 @@ export const IssuePropertyLabels = observer(function IssuePropertyLabels(props: 
     <>
       {value.length > 0 ? (
         value.length <= maxRender ? (
-          projectLabels
-            ?.filter((l) => value.includes(l?.id))
-            .map((label) => (
-              <LabelDropdown
-                key={label.id}
-                projectId={projectId}
-                value={value}
-                onChange={onChange}
-                buttonClassName={buttonClassName}
-                placement={placement}
-                hideDropdownArrow={hideDropdownArrow}
-                fullWidth={fullWidth}
-                fullHeight={fullHeight}
-                label={
-                  <LabelItem
-                    label={label}
-                    isMobile={isMobile}
-                    renderByDefault={renderByDefault}
-                    disabled={disabled}
-                    fullWidth={fullWidth}
-                    noLabelBorder={noLabelBorder}
-                  />
-                }
-              />
-            ))
+          // 4px gap between adjacent label pills (flex-wrap so they wrap
+          // instead of overflowing a narrow cell).
+          <div className="flex flex-wrap items-center gap-1">
+            {projectLabels
+              ?.filter((l) => value.includes(l?.id))
+              .map((label) => (
+                <LabelDropdown
+                  key={label.id}
+                  projectId={projectId}
+                  value={value}
+                  onChange={onChange}
+                  buttonClassName={buttonClassName}
+                  placement={placement}
+                  hideDropdownArrow={hideDropdownArrow}
+                  fullWidth={fullWidth}
+                  fullHeight={fullHeight}
+                  label={
+                    <LabelItem
+                      label={label}
+                      isMobile={isMobile}
+                      renderByDefault={renderByDefault}
+                      disabled={disabled}
+                      fullWidth={fullWidth}
+                      noLabelBorder={noLabelBorder}
+                    />
+                  }
+                />
+              ))}
+          </div>
         ) : (
           <LabelDropdown
             projectId={projectId}

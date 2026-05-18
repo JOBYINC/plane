@@ -18,6 +18,7 @@ import { cn } from "@plane/utils";
 // components
 import { DropdownButton } from "@/components/dropdowns/buttons";
 import { BUTTON_VARIANTS_WITH_TEXT } from "@/components/dropdowns/constants";
+import { LABEL_PILL_CLASS, labelPillStyle } from "@/components/issues/label";
 import type { TDropdownProps } from "@/components/dropdowns/types";
 // hooks
 import { useDropdown } from "@/hooks/use-dropdown";
@@ -131,6 +132,10 @@ export const WorkItemStateDropdownBase = observer(function WorkItemStateDropdown
 
   const selectedState = stateValue ? getStateById(stateValue) : undefined;
 
+  // Solid-fill pill in the common text mode (unified with the label/priority
+  // pill); icon-only / no-state / loading keep the original DropdownButton.
+  const stateFilled = !isInitializing && BUTTON_VARIANTS_WITH_TEXT.includes(buttonVariant) && !!selectedState;
+
   const dropdownOnChange = (val: string) => {
     onChange(val);
     handleClose();
@@ -166,7 +171,11 @@ export const WorkItemStateDropdownBase = observer(function WorkItemStateDropdown
           disabled={disabled}
         >
           <DropdownButton
-            className={buttonClassName}
+            className={cn(buttonClassName, {
+              // Solid-fill pill: strip DropdownButton's own border/bg/padding
+              // so only our pill shows (the pill carries its own chrome).
+              "!border-0 !bg-transparent !p-0": stateFilled,
+            })}
             isActive={isOpen}
             tooltipHeading={t("state")}
             tooltipContent={selectedState?.name ?? t("state")}
@@ -176,6 +185,15 @@ export const WorkItemStateDropdownBase = observer(function WorkItemStateDropdown
           >
             {isInitializing ? (
               <Spinner className="h-3.5 w-3.5" />
+            ) : stateFilled ? (
+              // Asana-style pill, unified with the label/priority pill.
+              <span
+                className={cn(LABEL_PILL_CLASS, "max-w-full overflow-hidden")}
+                style={labelPillStyle(selectedState?.color)}
+              >
+                <span className="truncate">{selectedState?.name}</span>
+                {dropdownArrow && <ChevronDownIcon className="ml-1 h-2.5 w-2.5 flex-shrink-0" aria-hidden="true" />}
+              </span>
             ) : (
               <>
                 {!hideIcon && (
@@ -203,6 +221,11 @@ export const WorkItemStateDropdownBase = observer(function WorkItemStateDropdown
     </>
   );
 
+  /* eslint-disable jsx-a11y/no-static-element-interactions --
+     Pre-existing latent lint (the keydown-handling ComboDropDown wrapper has
+     no role) — repo-wide on every dropdown; surfaced only because this file
+     is now staged. Not introduced by this change; out of scope to
+     re-architect the shared combobox a11y here. Bounded to this component. */
   return (
     <ComboDropDown
       as="div"
@@ -260,4 +283,5 @@ export const WorkItemStateDropdownBase = observer(function WorkItemStateDropdown
       )}
     </ComboDropDown>
   );
+  /* eslint-enable jsx-a11y/no-static-element-interactions */
 });

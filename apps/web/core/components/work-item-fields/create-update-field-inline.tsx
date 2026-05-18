@@ -30,7 +30,7 @@ type DraftOption = { key: string; name: string; color: string };
 
 const makeDefaultOptions = (): DraftOption[] => [
   { key: crypto.randomUUID(), name: "Option 1", color: LABEL_COLOR_OPTIONS[3] },
-  { key: crypto.randomUUID(), name: "Option 2", color: LABEL_COLOR_OPTIONS[7] },
+  { key: crypto.randomUUID(), name: "Option 2", color: LABEL_COLOR_OPTIONS[4] },
 ];
 
 interface CreateUpdateFieldInlineProps {

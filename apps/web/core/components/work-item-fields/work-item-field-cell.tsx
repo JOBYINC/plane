@@ -12,8 +12,9 @@ import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
 import type { TWorkItemField, TWorkItemFieldOption, TWorkItemFieldValue } from "@plane/types";
 import { CustomMenu } from "@plane/ui";
-import { renderFormattedPayloadDate } from "@plane/utils";
+import { cn, renderFormattedPayloadDate } from "@plane/utils";
 import { DateDropdown } from "@/components/dropdowns/date";
+import { LABEL_PILL_CLASS, labelPillStyle } from "@/components/issues/label";
 import { MemberDropdown } from "@/components/dropdowns/member/dropdown";
 import { useWorkItemField } from "@/hooks/store/use-work-item-field";
 import { useUserPermissions } from "@/hooks/store/user";
@@ -114,13 +115,13 @@ export const WorkItemFieldCell = observer(function WorkItemFieldCell(props: Work
         placement="bottom-start"
         optionsClassName="z-20 min-w-[10rem]"
         customButton={
-          <div className="flex min-h-[1.75rem] w-full items-center justify-between gap-1 rounded border border-strong px-1.5 py-0.5">
+          <div className="flex min-h-[1.75rem] w-full items-center gap-1 px-0.5 py-0.5">
             {selected ? (
-              <span className="flex items-center gap-1.5 truncate">
-                <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: selected.color }} />
-                <span className="truncate" style={{ color: selected.color }}>
-                  {selected.name}
-                </span>
+              <span
+                className={cn(LABEL_PILL_CLASS, "max-w-full overflow-hidden")}
+                style={labelPillStyle(selected.color)}
+              >
+                <span className="truncate">{selected.name}</span>
               </span>
             ) : (
               <span className="text-13 text-placeholder">—</span>
@@ -191,10 +192,10 @@ export const WorkItemFieldCell = observer(function WorkItemFieldCell(props: Work
               selected.map((opt) => (
                 <span
                   key={opt.id}
-                  className="truncate rounded px-1.5 py-0.5 text-11"
-                  style={{ backgroundColor: `${opt.color}20`, color: opt.color }}
+                  className={cn(LABEL_PILL_CLASS, "max-w-full overflow-hidden")}
+                  style={labelPillStyle(opt.color)}
                 >
-                  {opt.name}
+                  <span className="truncate">{opt.name}</span>
                 </span>
               ))
             )}
