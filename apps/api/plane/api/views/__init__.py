@@ -18,6 +18,7 @@ from .work_item_field import (
     WorkItemFieldListAPIEndpoint,
     WorkItemFieldDetailAPIEndpoint,
     WorkItemFieldOptionListAPIEndpoint,
+    WorkItemFieldOptionDetailAPIEndpoint,
     WorkItemFieldValueListAPIEndpoint,
     WorkItemFieldValueBulkAPIEndpoint,
     WorkItemFieldValueUpsertAPIEndpoint,

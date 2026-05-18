@@ -2,8 +2,12 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
+# Django imports
+from django.db import IntegrityError
+
 # Third party imports
 from rest_framework import status
+from rest_framework.permissions import SAFE_METHODS
 from rest_framework.response import Response
 
 # Module imports
@@ -16,7 +20,7 @@ from plane.api.serializers.work_item_field import (
     assign_field_value,
     serialize_field_value,
 )
-from plane.app.permissions import ProjectEntityPermission
+from plane.app.permissions import ProjectAdminPermission, ProjectEntityPermission
 from plane.db.models import (
     Issue,
     WorkItemField,
@@ -26,20 +30,30 @@ from plane.db.models import (
 from .base import BaseAPIView
 
 # --------------------------------------------------------------------------- #
-# Public (API-token) read access to project custom fields. Mirrors the
-# internal app endpoints (plane/app/views/work_item_field) but uses the public
-# BaseAPIView (APIKeyAuthentication) + ProjectEntityPermission, exactly like
-# the State / Issue public endpoints. Inc 1 = READ ONLY (list/retrieve);
-# writing field values and CRUD over field schemas land in later increments.
+# Public (API-token) access to project custom fields. Mirrors the internal app
+# endpoints (plane/app/views/work_item_field) but uses the public BaseAPIView
+# (APIKeyAuthentication), exactly like the State / Issue public endpoints.
+# Inc1 read, Inc2 value writes, Inc3 schema CRUD. Reads = any project member;
+# schema mutations (create/update/archive a field or option) = project ADMIN
+# only, matching the internal @allow_permission([ROLE.ADMIN]) gate so an
+# external token can't reshape a project's data model unless it is an admin.
 # --------------------------------------------------------------------------- #
 
 
-class WorkItemFieldListAPIEndpoint(BaseAPIView):
-    """List a project's custom field definitions."""
+class _SchemaPermissionMixin:
+    """Read for any project member; write (schema mutation) for admins only."""
+
+    def get_permissions(self):
+        if self.request.method in SAFE_METHODS:
+            return [ProjectEntityPermission()]
+        return [ProjectAdminPermission()]
+
+
+class WorkItemFieldListAPIEndpoint(_SchemaPermissionMixin, BaseAPIView):
+    """List (any member) or create (admin) a project's custom field defs."""
 
     serializer_class = WorkItemFieldSerializer
     model = WorkItemField
-    permission_classes = [ProjectEntityPermission]
     use_read_replica = True
 
     def get_queryset(self):
@@ -63,13 +77,27 @@ class WorkItemFieldListAPIEndpoint(BaseAPIView):
             status=status.HTTP_200_OK,
         )
 
+    def post(self, request, slug, project_id):
+        try:
+            serializer = WorkItemFieldSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                )
+            serializer.save(project_id=project_id)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except IntegrityError:
+            return Response(
+                {"error": "A field with this name already exists in the project"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-class WorkItemFieldDetailAPIEndpoint(BaseAPIView):
-    """Retrieve a single custom field definition."""
+
+class WorkItemFieldDetailAPIEndpoint(_SchemaPermissionMixin, BaseAPIView):
+    """Retrieve (member), update or archive (admin) a custom field def."""
 
     serializer_class = WorkItemFieldSerializer
     model = WorkItemField
-    permission_classes = [ProjectEntityPermission]
     use_read_replica = True
 
     def get_queryset(self):
@@ -96,13 +124,46 @@ class WorkItemFieldDetailAPIEndpoint(BaseAPIView):
             WorkItemFieldSerializer(field).data, status=status.HTTP_200_OK
         )
 
+    def patch(self, request, slug, project_id, field_id):
+        field = self.get_queryset().filter(pk=field_id).first()
+        if not field:
+            return Response(
+                {"error": "Field not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        try:
+            serializer = WorkItemFieldSerializer(
+                field, data=request.data, partial=True
+            )
+            if not serializer.is_valid():
+                return Response(
+                    serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                )
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except IntegrityError:
+            return Response(
+                {"error": "A field with this name already exists in the project"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-class WorkItemFieldOptionListAPIEndpoint(BaseAPIView):
-    """List the selectable options of a single_select / multi_select field."""
+    def delete(self, request, slug, project_id, field_id):
+        # Archive (mirrors internal: DELETE soft-deletes via is_active=False;
+        # values stay and the name stays reserved while archived).
+        field = self.get_queryset().filter(pk=field_id).first()
+        if not field:
+            return Response(
+                {"error": "Field not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        field.is_active = False
+        field.save(update_fields=["is_active", "updated_at"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class WorkItemFieldOptionListAPIEndpoint(_SchemaPermissionMixin, BaseAPIView):
+    """List (member) or create (admin) a select field's options."""
 
     serializer_class = WorkItemFieldOptionSerializer
     model = WorkItemFieldOption
-    permission_classes = [ProjectEntityPermission]
     use_read_replica = True
 
     def get_queryset(self):
@@ -119,12 +180,85 @@ class WorkItemFieldOptionListAPIEndpoint(BaseAPIView):
             .distinct()
         )
 
+    def _field_in_project(self, slug, project_id, field_id):
+        return WorkItemField.objects.filter(
+            pk=field_id, project_id=project_id, workspace__slug=slug
+        ).exists()
+
     def get(self, request, slug, project_id, field_id):
         options = self.get_queryset().order_by("sort_order")
         return Response(
             WorkItemFieldOptionSerializer(options, many=True).data,
             status=status.HTTP_200_OK,
         )
+
+    def post(self, request, slug, project_id, field_id):
+        if not self._field_in_project(slug, project_id, field_id):
+            return Response(
+                {"error": "Field not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        try:
+            serializer = WorkItemFieldOptionSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                )
+            serializer.save(project_id=project_id, field_id=field_id)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except IntegrityError:
+            return Response(
+                {"error": "An option with this name already exists on the field"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class WorkItemFieldOptionDetailAPIEndpoint(BaseAPIView):
+    """Update or archive a single option (project admin only)."""
+
+    serializer_class = WorkItemFieldOptionSerializer
+    model = WorkItemFieldOption
+    permission_classes = [ProjectAdminPermission]
+
+    def get_queryset(self):
+        return (
+            WorkItemFieldOption.objects.filter(workspace__slug=self.kwargs.get("slug"))
+            .filter(project_id=self.kwargs.get("project_id"))
+            .filter(field_id=self.kwargs.get("field_id"))
+            .select_related("field", "project", "workspace")
+            .distinct()
+        )
+
+    def patch(self, request, slug, project_id, field_id, option_id):
+        option = self.get_queryset().filter(pk=option_id).first()
+        if not option:
+            return Response(
+                {"error": "Option not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        try:
+            serializer = WorkItemFieldOptionSerializer(
+                option, data=request.data, partial=True
+            )
+            if not serializer.is_valid():
+                return Response(
+                    serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                )
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except IntegrityError:
+            return Response(
+                {"error": "An option with this name already exists on the field"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    def delete(self, request, slug, project_id, field_id, option_id):
+        option = self.get_queryset().filter(pk=option_id).first()
+        if not option:
+            return Response(
+                {"error": "Option not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        option.is_active = False
+        option.save(update_fields=["is_active", "updated_at"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class WorkItemFieldValueListAPIEndpoint(BaseAPIView):

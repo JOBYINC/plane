@@ -8,6 +8,7 @@ from plane.api.views import (
     WorkItemFieldListAPIEndpoint,
     WorkItemFieldDetailAPIEndpoint,
     WorkItemFieldOptionListAPIEndpoint,
+    WorkItemFieldOptionDetailAPIEndpoint,
     WorkItemFieldValueListAPIEndpoint,
     WorkItemFieldValueBulkAPIEndpoint,
     WorkItemFieldValueUpsertAPIEndpoint,
@@ -16,18 +17,27 @@ from plane.api.views import (
 urlpatterns = [
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/fields/",
-        WorkItemFieldListAPIEndpoint.as_view(http_method_names=["get"]),
+        WorkItemFieldListAPIEndpoint.as_view(http_method_names=["get", "post"]),
         name="work-item-fields",
     ),
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/fields/<uuid:field_id>/",
-        WorkItemFieldDetailAPIEndpoint.as_view(http_method_names=["get"]),
+        WorkItemFieldDetailAPIEndpoint.as_view(
+            http_method_names=["get", "patch", "delete"]
+        ),
         name="work-item-field-detail",
     ),
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/fields/<uuid:field_id>/options/",
-        WorkItemFieldOptionListAPIEndpoint.as_view(http_method_names=["get"]),
+        WorkItemFieldOptionListAPIEndpoint.as_view(http_method_names=["get", "post"]),
         name="work-item-field-options",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/fields/<uuid:field_id>/options/<uuid:option_id>/",
+        WorkItemFieldOptionDetailAPIEndpoint.as_view(
+            http_method_names=["patch", "delete"]
+        ),
+        name="work-item-field-option-detail",
     ),
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/field-values/",
