@@ -16,9 +16,8 @@ import {
   LIST_COLUMN_MIN_WIDTH_PX,
   TITLE_COLUMN_KEY,
   TITLE_COLUMN_MIN_WIDTH_PX,
-  getListGridTemplateWithCustom,
-  getOrderedCustomColumns,
-  getVisibleListColumns,
+  getOrderedListColumns,
+  getUnifiedListGridTemplate,
   type TListColumnContext,
 } from "./list-columns";
 import { ListSortHeaderCell } from "./list-sort-header-cell";
@@ -42,46 +41,30 @@ export function ListHeaderRow(props: Props) {
   const { t } = useTranslation();
   if (!displayProperties) return null;
   const order = displayFilters?.view_column_prefs?.order;
-  const columns = getVisibleListColumns(displayProperties, context, order);
-  // Runtime custom-field columns (design §7), ordered by the same persisted
-  // order array (custom subset). Header, rows and the grid template all use
-  // getOrderedCustomColumns so cells line up with their tracks.
-  const customColumns = getOrderedCustomColumns(order);
-  const customKeys = customColumns.map((c) => c.key);
+  // ONE unified ordered column sequence: built-in + custom intermixed (Inc A).
+  // Header, rows and the grid template all consume this so every cell lines up
+  // with its track.
+  const orderedColumns = getOrderedListColumns(displayProperties, context, order);
+  const columnKeys = orderedColumns.map((d) => d.key);
   const columnWidths = displayFilters?.view_column_prefs?.widths;
-  const gridTemplate = getListGridTemplateWithCustom(columns, columnWidths, order);
+  const gridTemplate = getUnifiedListGridTemplate(orderedColumns, columnWidths);
 
-  // Reorder one group and persist the FULL order = [built-in…, custom…] so a
-  // built-in move never wipes the custom order and vice versa
-  // (getVisibleListColumns reads the built-in subset, getOrderedCustomColumns
-  // the custom subset; header + rows realign via both).
-  const persistReorder = useCallback(
-    (group: string[], otherGroup: string[], fromKey: string, toKey: string, edge: "left" | "right") => {
+  // Reorder within the single unified sequence and persist the full order.
+  // The rendered key list IS the source of truth, so the move is a plain
+  // splice — built-in and custom intermix with no group split.
+  const handleColumnReorder = useCallback(
+    (fromKey: string, toKey: string, edge: "left" | "right") => {
       if (!handleDisplayFilterUpdate || fromKey === toKey) return;
-      const without = group.filter((c) => c !== fromKey);
+      const without = columnKeys.filter((c) => c !== fromKey);
       let insertAt = without.indexOf(toKey);
       if (insertAt === -1) return;
       if (edge === "right") insertAt += 1;
       const reordered = [...without.slice(0, insertAt), fromKey, ...without.slice(insertAt)];
       handleDisplayFilterUpdate({
-        view_column_prefs: { ...displayFilters?.view_column_prefs, order: [...reordered, ...otherGroup] },
+        view_column_prefs: { ...displayFilters?.view_column_prefs, order: reordered },
       });
     },
-    [handleDisplayFilterUpdate, displayFilters]
-  );
-
-  // F1 (4b): built-in column drag-reorder.
-  const handleColumnReorder = useCallback(
-    (fromKey: string, toKey: string, edge: "left" | "right") =>
-      persistReorder(columns, customKeys, fromKey, toKey, edge),
-    [persistReorder, columns, customKeys]
-  );
-
-  // F1 (4c-2): custom-field column drag-reorder (built-in order preserved).
-  const handleCustomColumnReorder = useCallback(
-    (fromKey: string, toKey: string, edge: "left" | "right") =>
-      persistReorder(customKeys, columns, fromKey, toKey, edge),
-    [persistReorder, customKeys, columns]
+    [handleDisplayFilterUpdate, displayFilters, columnKeys]
   );
 
   return (
@@ -116,39 +99,33 @@ export function ListHeaderRow(props: Props) {
             />
           )}
         </div>
-        {columns.map((column) => (
-          <DraggableColumnHeader key={column} columnKey={column} onReorder={handleColumnReorder}>
-            <ListSortHeaderCell
-              column={column}
-              displayFilters={displayFilters}
-              handleDisplayFilterUpdate={handleDisplayFilterUpdate}
-            />
-          </DraggableColumnHeader>
-        ))}
-        {customColumns.map((c) => (
-          <DraggableColumnHeader
-            key={c.key}
-            columnKey={c.key}
-            dndType="LIST_CUSTOM_COLUMN"
-            onReorder={handleCustomColumnReorder}
-          >
-            <CustomColumnHeaderCell
-              columnKey={c.key}
-              label={c.label}
-              currentWidth={columnWidths?.[c.key] ?? c.width}
-              minWidth={LIST_COLUMN_MIN_WIDTH_PX}
-              onCommitWidth={
-                handleDisplayFilterUpdate
-                  ? (w) =>
-                      handleDisplayFilterUpdate({
-                        view_column_prefs: {
-                          ...displayFilters?.view_column_prefs,
-                          widths: { ...columnWidths, [c.key]: w },
-                        },
-                      })
-                  : undefined
-              }
-            />
+        {orderedColumns.map((d) => (
+          <DraggableColumnHeader key={d.key} columnKey={d.key} onReorder={handleColumnReorder}>
+            {d.kind === "builtin" ? (
+              <ListSortHeaderCell
+                column={d.key}
+                displayFilters={displayFilters}
+                handleDisplayFilterUpdate={handleDisplayFilterUpdate}
+              />
+            ) : (
+              <CustomColumnHeaderCell
+                columnKey={d.key}
+                label={d.col.label}
+                currentWidth={columnWidths?.[d.key] ?? d.col.width}
+                minWidth={LIST_COLUMN_MIN_WIDTH_PX}
+                onCommitWidth={
+                  handleDisplayFilterUpdate
+                    ? (w) =>
+                        handleDisplayFilterUpdate({
+                          view_column_prefs: {
+                            ...displayFilters?.view_column_prefs,
+                            widths: { ...columnWidths, [d.key]: w },
+                          },
+                        })
+                    : undefined
+                }
+              />
+            )}
           </DraggableColumnHeader>
         ))}
         <AddCustomFieldHeaderButton />

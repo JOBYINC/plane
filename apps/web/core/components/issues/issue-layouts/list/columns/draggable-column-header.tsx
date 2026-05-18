@@ -16,27 +16,27 @@ const DROP_INDICATOR_BLUE = "#3b82f6";
 
 type Edge = "left" | "right";
 
+// Single dnd type: built-in and custom columns share ONE drag group so they
+// intermix freely (Inc A). Reorder is persisted as one unified order array.
+const DND_TYPE = "LIST_COLUMN";
+
 interface DraggableColumnHeaderProps {
   columnKey: string;
   /** Reorder: move `fromKey` to the `edge` side of this column (`columnKey`). */
   onReorder: (fromKey: string, toKey: string, edge: Edge) => void;
-  // Built-in and custom columns use distinct dnd types so a built-in can't be
-  // dropped into the custom group or vice versa (4c-2 scope: reorder within
-  // each group; the two share one persisted order array but never intermix).
-  dndType?: string;
   children: ReactNode;
 }
 
 /**
- * F1: wraps a built-in column header so it can be dragged to reorder columns.
- * Reuses the same pragmatic-drag-and-drop adapter as row drag. A blue bar on
- * the near edge marks where the dragged column will drop. The Title column is
- * NOT wrapped (pinned first, like Asana's Task column); the click-to-sort
- * menu and the resize grip still work (drag only starts past a threshold; the
- * resize grip stops pointer propagation).
+ * F1: wraps a column header (built-in or custom) so it can be dragged to
+ * reorder columns. Reuses the same pragmatic-drag-and-drop adapter as row
+ * drag. A blue bar on the near edge marks where the dragged column will drop.
+ * The Title column is NOT wrapped (pinned first, like Asana's Task column);
+ * the click-to-sort menu and the resize grip still work (drag only starts past
+ * a threshold; the resize grip stops pointer propagation).
  */
 export function DraggableColumnHeader(props: DraggableColumnHeaderProps) {
-  const { columnKey, onReorder, dndType = "LIST_COLUMN", children } = props;
+  const { columnKey, onReorder, children } = props;
   const ref = useRef<HTMLDivElement | null>(null);
   const edgeRef = useRef<Edge | null>(null);
   const [edge, setEdge] = useState<Edge | null>(null);
@@ -48,14 +48,14 @@ export function DraggableColumnHeader(props: DraggableColumnHeaderProps) {
     return combine(
       draggable({
         element: el,
-        getInitialData: () => ({ type: dndType, columnKey }),
+        getInitialData: () => ({ type: DND_TYPE, columnKey }),
         onDragStart: () => setIsDragging(true),
         onDrop: () => setIsDragging(false),
       }),
       dropTargetForElements({
         element: el,
-        canDrop: ({ source }) => source.data.type === dndType && source.data.columnKey !== columnKey,
-        getData: () => ({ type: dndType, columnKey }),
+        canDrop: ({ source }) => source.data.type === DND_TYPE && source.data.columnKey !== columnKey,
+        getData: () => ({ type: DND_TYPE, columnKey }),
         onDrag: ({ location }) => {
           const rect = el.getBoundingClientRect();
           const next: Edge = location.current.input.clientX < rect.left + rect.width / 2 ? "left" : "right";
@@ -74,7 +74,7 @@ export function DraggableColumnHeader(props: DraggableColumnHeaderProps) {
         },
       })
     );
-  }, [columnKey, onReorder, dndType]);
+  }, [columnKey, onReorder]);
 
   return (
     <div ref={ref} className={cn("relative flex h-full w-full cursor-grab items-center", isDragging && "opacity-50")}>

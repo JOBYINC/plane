@@ -168,28 +168,59 @@ export function getCustomListColumns(): TCustomListColumn[] {
   return customColumnProviders.flatMap((provider) => provider());
 }
 
-// F1 (4c-2): custom columns ordered by the persisted view_column_prefs.order
-// (custom keys present in `order` first, in that sequence; the rest keep
-// registry order). `order` is the same single array built-in reorder uses —
-// built-in keys in it are ignored here, custom keys are ignored by
-// getVisibleListColumns, so the two groups reorder independently without a
-// migration. Header, rows, and the grid template MUST all use this so cells
-// line up with their tracks.
-export function getOrderedCustomColumns(order?: string[]): TCustomListColumn[] {
-  const cols = getCustomListColumns();
-  if (!order || order.length === 0) return cols;
-  const byKey = new Map(cols.map((c) => [c.key, c] as const));
+// F1 (Inc A): ONE unified ordered column sequence so built-in and custom
+// columns intermix freely under a single drag group. The persisted
+// view_column_prefs.order array is now the single source of truth for the
+// whole sequence (built-in + custom interleaved). Any visible column NOT named
+// in `order` falls back to its default slot — visible built-in (LIST_COLUMN_ORDER)
+// first, then custom in registry order — appended after the named ones. This
+// makes the change back-compatible with no migration: an older `order` that
+// only reordered one group still produces the exact same layout (its keys lead,
+// the untouched group lands in default position behind them). Header, rows AND
+// the grid template MUST all consume this so every cell lines up with its track.
+export type TListColumnDescriptor =
+  | { kind: "builtin"; key: TListColumnKey }
+  | { kind: "custom"; key: string; col: TCustomListColumn };
+
+export function getOrderedListColumns(
+  displayProperties: IIssueDisplayProperties | undefined,
+  ctx: TListColumnContext,
+  order?: string[]
+): TListColumnDescriptor[] {
+  // Default order is resolved here (unified), so call without `order`.
+  const builtinVisible = getVisibleListColumns(displayProperties, ctx);
+  const customAll = getCustomListColumns();
+  const builtinSet = new Set<string>(builtinVisible);
+  const customByKey = new Map(customAll.map((c) => [c.key, c] as const));
+
+  const result: TListColumnDescriptor[] = [];
   const seen = new Set<string>();
-  const ordered: TCustomListColumn[] = [];
-  for (const key of order) {
-    const col = byKey.get(key);
-    if (col && !seen.has(key)) {
-      ordered.push(col);
+  for (const key of order ?? []) {
+    if (seen.has(key)) continue;
+    if (builtinSet.has(key)) {
+      result.push({ kind: "builtin", key: key as TListColumnKey });
+      seen.add(key);
+    } else {
+      const col = customByKey.get(key);
+      if (col) {
+        result.push({ kind: "custom", key, col });
+        seen.add(key);
+      }
+    }
+  }
+  for (const key of builtinVisible) {
+    if (!seen.has(key)) {
+      result.push({ kind: "builtin", key });
       seen.add(key);
     }
   }
-  for (const col of cols) if (!seen.has(col.key)) ordered.push(col);
-  return ordered;
+  for (const col of customAll) {
+    if (!seen.has(col.key)) {
+      result.push({ kind: "custom", key: col.key, col });
+      seen.add(col.key);
+    }
+  }
+  return result;
 }
 
 export function getCustomColumnWidth(key: string): number | undefined {
@@ -210,24 +241,20 @@ export function customColumnKeyToFieldId(key: string): string {
   return key.slice(CUSTOM_COLUMN_KEY_PREFIX.length);
 }
 
-// Grid template that also lays out registered custom columns. default.tsx
-// swaps getListGridTemplate -> this once it also appends
-// getCustomListColumns() keys to the rendered column list (the gated wiring
-// edits documented in design §7).
+// Grid template for the unified column sequence (title | …ordered columns… |
+// actions). Walks the descriptor list in order so built-in and custom tracks
+// interleave exactly as the header and rows render them.
 //
 // F2: an optional persisted `widths` map (display_filters.view_column_prefs)
 // overrides per-column px width, keyed uniformly by built-in TListColumnKey or
 // custom column key. Absent key → the column's default width (unchanged
 // behaviour when no prefs exist). Header + every row share this via the
 // `--list-cols` CSS var, so both realign for free.
-export function getListGridTemplateWithCustom(
-  builtIn: TListColumnKey[],
-  widths?: Record<string, number>,
-  order?: string[]
-): string {
-  const builtInTracks = builtIn.map((c) => `${widths?.[c] ?? LIST_COLUMN_WIDTHS[c]}px`).join(" ");
-  const customTracks = getOrderedCustomColumns(order)
-    .map((c) => `${widths?.[c.key] ?? c.width}px`)
+export function getUnifiedListGridTemplate(cols: TListColumnDescriptor[], widths?: Record<string, number>): string {
+  const tracks = cols
+    .map((d) =>
+      d.kind === "builtin" ? `${widths?.[d.key] ?? LIST_COLUMN_WIDTHS[d.key]}px` : `${widths?.[d.key] ?? d.col.width}px`
+    )
     .join(" ");
   // Title column: flex (minmax) by default so it absorbs slack like Asana's
   // Task column; once the user resizes it, honor the fixed px width (clamped).
@@ -235,5 +262,5 @@ export function getListGridTemplateWithCustom(
   const titleTrack = titleWidth
     ? `${Math.max(titleWidth, TITLE_COLUMN_MIN_WIDTH_PX)}px`
     : `minmax(${TITLE_COLUMN_MIN_WIDTH_PX}px, 1fr)`;
-  return `${titleTrack} ${builtInTracks} ${customTracks} ${ACTIONS_COLUMN_WIDTH_PX}px`.replace(/\s+/g, " ").trim();
+  return `${titleTrack} ${tracks} ${ACTIONS_COLUMN_WIDTH_PX}px`.replace(/\s+/g, " ").trim();
 }

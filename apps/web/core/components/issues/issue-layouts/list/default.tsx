@@ -37,7 +37,7 @@ import { useBulkOperationStatus } from "@/plane-web/hooks/use-bulk-operation-sta
 // utils
 import type { GroupDropLocation } from "../utils";
 import { getGroupByColumns, isWorkspaceLevel, isSubGrouped } from "../utils";
-import { getListGridTemplateWithCustom, getVisibleListColumns } from "./columns/list-columns";
+import { getOrderedListColumns, getUnifiedListGridTemplate } from "./columns/list-columns";
 import { ListHeaderRow } from "./columns/list-header-row";
 import { ListGroup } from "./list-group";
 import type { TRenderQuickActions } from "./list-view-types";
@@ -106,14 +106,11 @@ export const List = observer(function List(props: IList) {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Asana-style aligned column layout — header + every row share this CSS template
+  // Asana-style aligned column layout — header + every row share this CSS
+  // template, built from the ONE unified column sequence (Inc A).
   const columnOrder = displayFilters?.view_column_prefs?.order;
-  const visibleColumns = getVisibleListColumns(displayProperties, { isEpic }, columnOrder);
-  const gridTemplateColumns = getListGridTemplateWithCustom(
-    visibleColumns,
-    displayFilters?.view_column_prefs?.widths,
-    columnOrder
-  );
+  const orderedColumns = getOrderedListColumns(displayProperties, { isEpic }, columnOrder);
+  const gridTemplateColumns = getUnifiedListGridTemplate(orderedColumns, displayFilters?.view_column_prefs?.widths);
   const gridVisibilityClass = isSidebarCollapsed ? "hidden md:flex" : "hidden lg:flex";
 
   const groups = getGroupByColumns({
