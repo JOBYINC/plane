@@ -330,7 +330,7 @@ class WorkspaceUserProperties(BaseModel):
     navigation_control_preference = models.CharField(
         max_length=25,
         choices=NavigationControlPreference.choices,
-        default=NavigationControlPreference.ACCORDION,
+        default=NavigationControlPreference.TABBED,
     )
 
     class Meta:
