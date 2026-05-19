@@ -10,6 +10,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.utils import timezone
 
 # Third party imports
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -99,6 +100,20 @@ class PersonalTaskAPIEndpoint(BaseAPIView):
             "url": url,
         }
 
+    @extend_schema(
+        operation_id="create_personal_task",
+        summary="Create personal task on behalf of a workspace member",
+        description=(
+            "System-token endpoint. Creates a work item in the target "
+            "member's personal 'My Tasks' project, lazily creating that "
+            "project if it doesn't exist yet. Requires an APIToken flagged "
+            "is_service=True. Body must include owner (target user UUID), "
+            "name, external_source, and external_id. Idempotent on "
+            "(project, external_source, external_id) — duplicate returns "
+            "409 with the existing work item id."
+        ),
+        tags=["Personal Tasks"],
+    )
     def post(self, request, slug):
         """Create (or idempotently return) a work item in the owner's
         personal project.
@@ -189,6 +204,18 @@ class PersonalTaskAPIEndpoint(BaseAPIView):
             status=status.HTTP_201_CREATED,
         )
 
+    @extend_schema(
+        operation_id="update_personal_task",
+        summary="Update a personal task created via this endpoint",
+        description=(
+            "System-token endpoint. Updates a work item in a member's "
+            "personal project. Body MUST include the original "
+            "external_source — system tokens can only modify work items "
+            "they created via the same source (privacy boundary). "
+            "Mismatching or missing external_source returns 403."
+        ),
+        tags=["Personal Tasks"],
+    )
     def patch(self, request, slug, work_item_id):
         """Update a personal-project work item.
 

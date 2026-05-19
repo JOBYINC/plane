@@ -4,6 +4,7 @@
 
 import uuid
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -48,6 +49,20 @@ class AssignedWorkItemAPIEndpoint(BaseAPIView):
             str(target_uuid) if target_uuid is not None else None
         )
 
+    @extend_schema(
+        operation_id="list_assigned_work_items",
+        summary="List a workspace member's assigned work items",
+        description=(
+            "System-token endpoint. Returns the target user's assigned "
+            "work items across the entire workspace — both their personal "
+            "'My Tasks' project AND any shared project they're a member "
+            "of. Privacy boundary: only items where the target is an "
+            "assignee are returned. Optional filters: state_group (CSV) "
+            "and target_date_before (ISO date). Requires an APIToken "
+            "flagged is_service=True."
+        ),
+        tags=["Assigned Work Items"],
+    )
     def get(self, request, slug):
         assignee = request.query_params.get("assignee")
         if not assignee:
