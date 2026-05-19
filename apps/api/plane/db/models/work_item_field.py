@@ -44,6 +44,11 @@ class WorkItemField(ProjectBaseModel):
     description = models.TextField(blank=True, default="")
     # Per-type config (e.g. number formatting, date format). JSONB for flexibility.
     config = models.JSONField(default=dict, blank=True)
+    # External-integration idempotency keys (mirrors Issue / IssueType). The
+    # public token API uses (project, external_source, external_id) for
+    # GET-then-create so an agent's ensure_* is idempotent.
+    external_source = models.CharField(max_length=255, null=True, blank=True)
+    external_id = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:
         unique_together = [["project", "name", "deleted_at"]]
@@ -81,6 +86,11 @@ class WorkItemFieldOption(ProjectBaseModel):
     color = models.CharField(max_length=16, default="#6B7280")
     sort_order = models.FloatField(default=65535.0)
     is_active = models.BooleanField(default=True)
+    # External-integration idempotency keys (mirrors Issue / IssueType). The
+    # public token API uses (field, external_source, external_id) for
+    # GET-then-create so an agent's ensure_* is idempotent.
+    external_source = models.CharField(max_length=255, null=True, blank=True)
+    external_id = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:
         unique_together = [["field", "name", "deleted_at"]]
