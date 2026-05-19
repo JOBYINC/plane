@@ -22,6 +22,7 @@ from plane.app.serializers import (
     ProjectListSerializer,
     ProjectSerializer,
 )
+from plane.app.services.personal_project import get_or_create_personal_project
 from plane.app.views.base import BaseAPIView, BaseViewSet
 from plane.bgtasks.recent_visited_task import recent_visited_task
 from plane.bgtasks.webhook_task import model_activity, webhook_activity
@@ -325,77 +326,15 @@ class ProjectViewSet(BaseViewSet):
         """Return the requesting user's private personal ("My Tasks")
         project for this workspace, lazily creating it on first use.
 
-        System-managed: bypasses the human-input name/identifier
-        validators in ProjectSerializer but mirrors the create()
-        bootstrap (ADMIN membership + default states + identifier row)
-        so the bucket behaves exactly like a normal project for every
-        issue-scoped feature.
+        Thin wrapper over
+        :func:`plane.app.services.personal_project.get_or_create_personal_project`
+        — the bootstrap logic (ADMIN membership, default states,
+        identifier row, name/id collision suffixing) lives there so it
+        can be shared with token-API callers that act on behalf of
+        other users.
         """
         workspace = Workspace.objects.get(slug=slug)
-
-        project = Project.objects.filter(
-            workspace=workspace,
-            is_personal=True,
-            personal_owner=request.user,
-            deleted_at__isnull=True,
-        ).first()
-
-        if project is None:
-            short = str(request.user.id).replace("-", "")[:8].upper()
-            identifier = f"MT{short}"[:12]
-            name = f"My Tasks {short}"
-            # defensive: stay within the per-workspace unique constraints
-            # on (identifier, workspace) and (name, workspace)
-            suffix = 1
-            while (
-                Project.objects.filter(
-                    workspace=workspace,
-                    identifier=identifier,
-                    deleted_at__isnull=True,
-                ).exists()
-                or Project.objects.filter(
-                    workspace=workspace, name=name, deleted_at__isnull=True
-                ).exists()
-            ):
-                identifier = f"MT{short}{suffix}"[:12]
-                name = f"My Tasks {short} {suffix}"
-                suffix += 1
-
-            project = Project.objects.create(
-                name=name,
-                identifier=identifier,
-                workspace=workspace,
-                network=ProjectNetwork.SECRET.value,
-                is_personal=True,
-                personal_owner=request.user,
-                created_by=request.user,
-            )
-            ProjectIdentifier.objects.create(
-                name=project.identifier,
-                project=project,
-                workspace_id=workspace.id,
-            )
-            ProjectMember.objects.create(
-                project=project,
-                member=request.user,
-                role=ROLE.ADMIN.value,
-            )
-            State.objects.bulk_create(
-                [
-                    State(
-                        name=state["name"],
-                        color=state["color"],
-                        project=project,
-                        sequence=state["sequence"],
-                        workspace=workspace,
-                        group=state["group"],
-                        default=state.get("default", False),
-                        created_by=request.user,
-                    )
-                    for state in DEFAULT_STATES
-                ]
-            )
-
+        project = get_or_create_personal_project(workspace, request.user)
         project = self.get_queryset().filter(pk=project.id).first()
         serializer = ProjectListSerializer(project)
         return Response(serializer.data, status=status.HTTP_200_OK)
