@@ -53,7 +53,7 @@ export const SpreadsheetHeader = observer(function SpreadsheetHeader(props: Prop
         {/* First-column width box MUST match the body <td> in issue-row.tsx
             exactly, or the single auto-table desyncs header vs rows. */}
         <th
-          className="group/list-header left-0 z-[15] h-11 max-w-lg min-w-[360px] border-r-[0.5px] border-subtle bg-layer-1 text-13 font-medium md:sticky"
+          className="group/list-header left-0 z-[15] h-11 w-[360px] max-w-[360px] min-w-[360px] border-r-[0.5px] border-subtle bg-layer-1 text-13 font-medium md:sticky"
           tabIndex={-1}
         >
           <div className="flex h-full w-full items-center gap-2 px-page-x">
