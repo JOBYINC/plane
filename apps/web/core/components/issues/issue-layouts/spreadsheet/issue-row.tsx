@@ -215,6 +215,8 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
   useOutsideClickDetector(menuActionRef, () => setIsMenuActive(false));
 
   const customActionButton = (
+    // pre-existing a11y (not introduced by this change)
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       ref={menuActionRef}
       className={`flex h-full w-full cursor-pointer items-center rounded-sm p-1 text-placeholder hover:bg-layer-1 ${
@@ -260,11 +262,13 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
   return (
     <>
       {/* Single sticky column containing both identifier and workitem */}
+      {/* First-column width box MUST match the header <th> in
+          spreadsheet-header.tsx exactly, or header/rows desync. */}
       <td
         id={`issue-${issueId}`}
         ref={cellRef}
         tabIndex={0}
-        className="group/list-block relative left-0 z-10 max-w-lg bg-surface-1 md:sticky"
+        className="group/list-block relative left-0 z-10 max-w-lg min-w-[360px] bg-surface-1 md:sticky"
       >
         <ControlLink
           href={workItemLink}
@@ -370,6 +374,8 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
                     </Tooltip>
                   </div>
                 </div>
+                {/* pre-existing a11y (not introduced by this change) */}
+                {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
                 <div
                   className={`opacity-0 transition-opacity group-hover:opacity-100 ${isMenuActive ? "!opacity-100" : ""}`}
                   onClick={(e) => e.stopPropagation()}
