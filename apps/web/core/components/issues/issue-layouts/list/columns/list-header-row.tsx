@@ -155,6 +155,8 @@ export function ListHeaderRow(props: Props) {
                 label={d.col.label}
                 currentWidth={columnWidths?.[d.key] ?? d.col.width}
                 minWidth={LIST_COLUMN_MIN_WIDTH_PX}
+                displayFilters={displayFilters}
+                handleDisplayFilterUpdate={handleDisplayFilterUpdate}
                 onHide={handleDisplayFilterUpdate ? () => hideCustomColumn(d.key) : undefined}
                 onCommitWidth={
                   handleDisplayFilterUpdate

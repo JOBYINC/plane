@@ -40,7 +40,10 @@ from plane.app.serializers import (
     IssueSerializer,
     ProjectUserPropertySerializer,
 )
-from plane.app.views.work_item_field.filters import build_custom_field_filter
+from plane.app.views.work_item_field.filters import (
+    apply_custom_field_order,
+    build_custom_field_filter,
+)
 from plane.bgtasks.issue_activities_task import issue_activity
 from plane.bgtasks.issue_description_version_task import issue_description_version_task
 from plane.bgtasks.recent_visited_task import recent_visited_task
@@ -148,8 +151,10 @@ class IssueListEndpoint(BaseAPIView):
         )
 
         order_by_param = request.GET.get("order_by", "-created_at")
-        # Issue queryset
-        issue_queryset, _ = order_issue_queryset(issue_queryset=issue_queryset, order_by_param=order_by_param)
+        # Issue queryset — custom-field sort takes precedence, else built-in
+        issue_queryset, _cf_order = apply_custom_field_order(issue_queryset, order_by_param)
+        if _cf_order is None:
+            issue_queryset, _ = order_issue_queryset(issue_queryset=issue_queryset, order_by_param=order_by_param)
 
         # Group by
         group_by = request.GET.get("group_by", False)
@@ -288,10 +293,14 @@ class IssueViewSet(BaseViewSet):
         # Applying annotations to the issue queryset
         issue_queryset = self.apply_annotations(issue_queryset)
 
-        # Issue queryset
-        issue_queryset, order_by_param = order_issue_queryset(
-            issue_queryset=issue_queryset, order_by_param=order_by_param
-        )
+        # Issue queryset — custom-field sort takes precedence, else built-in
+        issue_queryset, _cf_order = apply_custom_field_order(issue_queryset, order_by_param)
+        if _cf_order is not None:
+            order_by_param = _cf_order
+        else:
+            issue_queryset, order_by_param = order_issue_queryset(
+                issue_queryset=issue_queryset, order_by_param=order_by_param
+            )
 
         # Group by
         group_by = request.GET.get("group_by", False)
