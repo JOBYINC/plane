@@ -4,6 +4,8 @@
 
 from rest_framework.permissions import BasePermission
 
+from plane.db.models import APIToken
+
 
 class IsSystemToken(BasePermission):
     """Grant access only to API tokens flagged ``is_service=True``.
@@ -15,10 +17,17 @@ class IsSystemToken(BasePermission):
     token's own owner (cross-user writes into personal projects,
     workspace-wide assignee scans), where ordinary token holders must
     not be allowed.
+
+    Implementation note: ``APIKeyAuthentication.authenticate`` returns
+    ``request.auth = api_token.token`` (the raw string), not the model,
+    so this class re-queries ``APIToken`` from the X-Api-Key header —
+    same pattern as ``BaseAPIView.get_throttles``.
     """
 
     def has_permission(self, request, view):
-        return bool(
-            request.auth is not None
-            and getattr(request.auth, "is_service", False)
-        )
+        token_value = request.headers.get("X-Api-Key")
+        if not token_value:
+            return False
+        return APIToken.objects.filter(
+            token=token_value, is_service=True, is_active=True
+        ).exists()
