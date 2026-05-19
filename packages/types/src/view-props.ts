@@ -54,7 +54,12 @@ export type TIssueOrderByOptions =
   | "attachment_count"
   | "-attachment_count"
   | "sub_issues_count"
-  | "-sub_issues_count";
+  | "-sub_issues_count"
+  // Custom-field sort: `custom_field__<fieldId>` (asc) / `-custom_field__<fieldId>` (desc).
+  // The server (apply_custom_field_order) is authoritative for the actual ordering;
+  // ISSUE_ORDERBY_KEY has no entry for these, so client-side reorder no-ops (server order kept).
+  | `custom_field__${string}`
+  | `-custom_field__${string}`;
 
 export type TIssueGroupingFilters = "active" | "backlog";
 

@@ -7,12 +7,23 @@
 import React, { useState } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
-import { Pencil, Trash2, Plus, Eye, EyeOff, ChevronDownIcon } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  Plus,
+  Eye,
+  EyeOff,
+  ChevronDownIcon,
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
+  Eraser,
+} from "lucide-react";
 // plane imports
 import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
-import type { TWorkItemField } from "@plane/types";
+import type { IIssueDisplayFilterOptions, TIssueOrderByOptions, TWorkItemField } from "@plane/types";
 import { CustomMenu, Tooltip } from "@plane/ui";
+import { cn } from "@plane/utils";
 // hooks
 import { useWorkItemField } from "@/hooks/store/use-work-item-field";
 import { useUserPermissions } from "@/hooks/store/user";
@@ -48,7 +59,16 @@ interface CustomColumnHeaderCellProps {
   // B2: hide this custom column from the current user's list. Available to
   // everyone (per-user view pref), unlike Edit/Delete which are admin-only.
   onHide?: () => void;
+  // Sort by this custom field (parity with built-in columns). When the
+  // parent threads the display-filter handler, the header offers asc/desc;
+  // the server (apply_custom_field_order) does the actual ordering.
+  displayFilters?: IIssueDisplayFilterOptions;
+  handleDisplayFilterUpdate?: (data: Partial<IIssueDisplayFilterOptions>) => void;
 }
+
+// Clearing a column sort returns the list to manual drag order (mirrors
+// ListSortHeaderCell).
+const CLEAR_ORDER_BY: TIssueOrderByOptions = "sort_order";
 
 /**
  * One custom-field column header. Everyone with a `onHide` handler gets a
@@ -57,7 +77,8 @@ interface CustomColumnHeaderCellProps {
  * (zero visual change — e.g. read-only views with no onHide).
  */
 export const CustomColumnHeaderCell = observer(function CustomColumnHeaderCell(props: CustomColumnHeaderCellProps) {
-  const { columnKey, label, currentWidth, minWidth, onCommitWidth, onHide } = props;
+  const { columnKey, label, currentWidth, minWidth, onCommitWidth, onHide, displayFilters, handleDisplayFilterUpdate } =
+    props;
   const { workspaceSlug, projectId } = useParams();
   const { getFieldById, deleteField } = useWorkItemField();
   const { t } = useTranslation();
@@ -68,9 +89,20 @@ export const CustomColumnHeaderCell = observer(function CustomColumnHeaderCell(p
   const fieldId = customColumnKeyToFieldId(columnKey);
   const field: TWorkItemField | null = getFieldById(fieldId);
 
+  // Sort parity with built-in columns. Server (apply_custom_field_order)
+  // does the ordering; this just sets the order_by display filter.
+  const ascOrderKey: TIssueOrderByOptions = `custom_field__${fieldId}`;
+  const descOrderKey: TIssueOrderByOptions = `-custom_field__${fieldId}`;
+  const currentOrderBy = displayFilters?.order_by;
+  const isAscActive = currentOrderBy === ascOrderKey;
+  const isDescActive = currentOrderBy === descOrderKey;
+  const isSortedByThisColumn = isAscActive || isDescActive;
+  const canSort = !!handleDisplayFilterUpdate;
+  const setOrderBy = (order: TIssueOrderByOptions) => handleDisplayFilterUpdate?.({ order_by: order });
+
   // Edit/Delete need the resolved field + admin; Hide only needs the column key.
   const canManageThisField = canManageFields && !!field;
-  const hasMenu = canManageThisField || !!onHide;
+  const hasMenu = canManageThisField || !!onHide || canSort;
 
   const resizeHandle = onCommitWidth ? (
     <ColumnResizeHandle currentWidth={currentWidth} minWidth={minWidth} onCommit={onCommitWidth} />
@@ -102,12 +134,55 @@ export const CustomColumnHeaderCell = observer(function CustomColumnHeaderCell(p
               <span className="truncate">{label}</span>
             </div>
             <div className="ml-1 flex shrink-0 items-center">
+              {isSortedByThisColumn && (
+                <span className="flex h-3.5 w-3.5 items-center justify-center">
+                  {isAscActive ? (
+                    <ArrowDownWideNarrow className="h-3 w-3" />
+                  ) : (
+                    <ArrowUpNarrowWide className="h-3 w-3" />
+                  )}
+                </span>
+              )}
               <ChevronDownIcon className="h-3 w-3" aria-hidden="true" />
             </div>
           </div>
         }
         optionsClassName="z-20"
       >
+        {canSort && (
+          <>
+            <CustomMenu.MenuItem onClick={() => setOrderBy(ascOrderKey)}>
+              <div
+                className={cn("flex items-center gap-2 px-1", {
+                  "text-primary": isAscActive,
+                  "text-secondary hover:text-primary": !isAscActive,
+                })}
+              >
+                <ArrowDownWideNarrow className="h-3 w-3 stroke-[1.5]" />
+                <span>{t("common.actions.sort_ascending")}</span>
+              </div>
+            </CustomMenu.MenuItem>
+            <CustomMenu.MenuItem onClick={() => setOrderBy(descOrderKey)}>
+              <div
+                className={cn("flex items-center gap-2 px-1", {
+                  "text-primary": isDescActive,
+                  "text-secondary hover:text-primary": !isDescActive,
+                })}
+              >
+                <ArrowUpNarrowWide className="h-3 w-3 stroke-[1.5]" />
+                <span>{t("common.actions.sort_descending")}</span>
+              </div>
+            </CustomMenu.MenuItem>
+            {isSortedByThisColumn && (
+              <CustomMenu.MenuItem className="mt-0.5" onClick={() => setOrderBy(CLEAR_ORDER_BY)}>
+                <div className="flex items-center gap-2 px-1">
+                  <Eraser className="h-3 w-3" />
+                  <span>{t("common.actions.clear_sorting")}</span>
+                </div>
+              </CustomMenu.MenuItem>
+            )}
+          </>
+        )}
         {canManageThisField && (
           <CustomMenu.MenuItem onClick={() => setIsEditorOpen(true)}>
             <span className="flex items-center gap-2">

@@ -806,6 +806,8 @@ export default {
       subscribe: "订阅",
       unsubscribe: "取消订阅",
       clear_sorting: "清除排序",
+      sort_ascending: "升序",
+      sort_descending: "降序",
       hide_field: "隐藏此列",
       show_field: "显示此列",
       show_weekends: "显示周末",
