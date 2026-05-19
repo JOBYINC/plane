@@ -538,6 +538,33 @@ def execute_rule_on_issue(rule, issue, ctx=None, bypass_dedup=False):
 
     ctx = ctx or {}
 
+    # Durable "remind each issue once" gate for scheduled due_soon rules.
+    # evaluate_scheduled_automations_task runs hourly, but the Redis dedup
+    # below has a 5-min TTL (DEDUP_TTL_SECONDS) -- far shorter than the
+    # hourly cadence -- so it deduped nothing across ticks and didn't
+    # survive cache loss, re-firing the rule (and re-DMing the assignee)
+    # every hour for every in-window issue. A due_soon rule must notify
+    # each issue exactly once: skip if a prior SUCCESS run already exists
+    # for this (rule, issue). Deliberately NOT bypassed by bypass_dedup --
+    # "once per issue" is a hard requirement; re-saving a rule must not
+    # re-DM already-notified issues. Event-driven rules don't set
+    # trigger_type=="due_soon" so they are unaffected (they keep the
+    # short Redis burst-dedup below).
+    if ctx.get("trigger_type") == "due_soon" and AutomationRuleRun.objects.filter(
+        rule=rule,
+        issue=issue,
+        status=AutomationRuleRun.RunStatus.SUCCESS,
+    ).exists():
+        AutomationRuleRun.objects.create(
+            rule=rule,
+            issue=issue,
+            project_id=issue.project_id,
+            workspace_id=issue.workspace_id,
+            status=AutomationRuleRun.RunStatus.SKIPPED_DEDUP,
+            detail={"trigger_context": ctx, "durable_once_per_issue": True},
+        )
+        return AutomationRuleRun.RunStatus.SKIPPED_DEDUP
+
     dedup_key = _dedup_key(str(rule.id), str(issue.id))
     if not bypass_dedup and cache.get(dedup_key):
         AutomationRuleRun.objects.create(

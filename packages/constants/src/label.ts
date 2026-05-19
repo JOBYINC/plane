@@ -4,18 +4,11 @@
  * See the LICENSE file for details.
  */
 
-export const LABEL_COLOR_OPTIONS = [
-  "#FF6900",
-  "#FCB900",
-  "#7BDCB5",
-  "#00D084",
-  "#8ED1FC",
-  "#0693E3",
-  "#ABB8C3",
-  "#EB144C",
-  "#F78DA7",
-  "#9900EF",
-];
+// Asana-style vivid label palette (color-hex.com/color-palette/1011310).
+// Swatch set for label + custom-field option colour pickers and
+// getRandomLabelColor(). Solid-fill pills render text in a contrasting
+// colour (see labelPillStyle), so these saturated values read well.
+export const LABEL_COLOR_OPTIONS = ["#3be8b0", "#1aafd0", "#6a67ce", "#ffb900", "#fc636b"];
 
 export const getRandomLabelColor = () => {
   const randomIndex = Math.floor(Math.random() * LABEL_COLOR_OPTIONS.length);

@@ -9,7 +9,7 @@ import uuid
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('db', '0123_workitemfield_workitemfieldoption_workitemfieldvalue'),
+        ('db', '0122_automationrule_automationrulerun'),
     ]
 
     operations = [

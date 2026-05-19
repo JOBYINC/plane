@@ -10,7 +10,7 @@ import uuid
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("db", "0122_automationrule_automationrulerun"),
+        ("db", "0123_larkduereminderlog"),
     ]
 
     operations = [

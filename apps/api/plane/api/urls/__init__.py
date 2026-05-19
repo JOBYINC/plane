@@ -3,29 +3,35 @@
 # See the LICENSE file for details.
 
 from .asset import urlpatterns as asset_patterns
+from .assigned_work_item import urlpatterns as assigned_work_item_patterns
 from .cycle import urlpatterns as cycle_patterns
 from .intake import urlpatterns as intake_patterns
 from .label import urlpatterns as label_patterns
 from .member import urlpatterns as member_patterns
 from .module import urlpatterns as module_patterns
+from .personal_task import urlpatterns as personal_task_patterns
 from .project import urlpatterns as project_patterns
 from .state import urlpatterns as state_patterns
 from .user import urlpatterns as user_patterns
 from .work_item import urlpatterns as work_item_patterns
 from .invite import urlpatterns as invite_patterns
 from .sticky import urlpatterns as sticky_patterns
+from .work_item_field import urlpatterns as work_item_field_patterns
 
 urlpatterns = [
     *asset_patterns,
+    *assigned_work_item_patterns,
     *cycle_patterns,
     *intake_patterns,
     *label_patterns,
     *member_patterns,
     *module_patterns,
+    *personal_task_patterns,
     *project_patterns,
     *state_patterns,
     *user_patterns,
     *work_item_patterns,
     *invite_patterns,
     *sticky_patterns,
+    *work_item_field_patterns,
 ]

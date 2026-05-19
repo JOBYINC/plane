@@ -112,6 +112,16 @@ class Project(BaseModel):
     logo_props = models.JSONField(default=dict)
     default_state = models.ForeignKey("db.State", on_delete=models.SET_NULL, null=True, related_name="default_state")
     archived_at = models.DateTimeField(null=True)
+    # personal project: a per-user private bucket for project-less ("My Tasks")
+    # work items; hidden from the normal project lists, only the owner is a member
+    is_personal = models.BooleanField(default=False)
+    personal_owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="personal_projects",
+        null=True,
+        blank=True,
+    )
     # timezone
     TIMEZONE_CHOICES = tuple(zip(pytz.common_timezones, pytz.common_timezones))
     timezone = models.CharField(max_length=255, default="UTC", choices=TIMEZONE_CHOICES)

@@ -7,7 +7,7 @@
 import React, { useState } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, Eye, EyeOff, ChevronDownIcon } from "lucide-react";
 // plane imports
 import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
@@ -17,7 +17,11 @@ import { CustomMenu, Tooltip } from "@plane/ui";
 import { useWorkItemField } from "@/hooks/store/use-work-item-field";
 import { useUserPermissions } from "@/hooks/store/user";
 // local
-import { customColumnKeyToFieldId } from "@/components/issues/issue-layouts/list/columns/list-columns";
+import { ColumnResizeHandle } from "@/components/issues/issue-layouts/list/columns/column-resize-handle";
+import {
+  customColumnKeyToFieldId,
+  type TCustomListColumn,
+} from "@/components/issues/issue-layouts/list/columns/list-columns";
 import { DeleteFieldModal } from "./delete-field-modal";
 import { WorkItemFieldEditorModal } from "./work-item-field-editor-modal";
 
@@ -36,14 +40,24 @@ function useCanManageFields(): boolean {
 interface CustomColumnHeaderCellProps {
   columnKey: string;
   label: string;
+  // 4c: per-column resize (parity with built-in columns). currentWidth is a
+  // fallback — the handle measures the rendered cell at pointer-down.
+  currentWidth: number;
+  minWidth: number;
+  onCommitWidth?: (newWidth: number) => void;
+  // B2: hide this custom column from the current user's list. Available to
+  // everyone (per-user view pref), unlike Edit/Delete which are admin-only.
+  onHide?: () => void;
 }
 
 /**
- * One custom-field column header. Non-admins see exactly the previous plain
- * label (zero visual change); admins get a click-to-open Edit / Archive menu.
+ * One custom-field column header. Everyone with a `onHide` handler gets a
+ * menu (so any user can hide the column); admins additionally get Edit /
+ * Delete. With no menu actions at all, it falls back to the plain label
+ * (zero visual change — e.g. read-only views with no onHide).
  */
 export const CustomColumnHeaderCell = observer(function CustomColumnHeaderCell(props: CustomColumnHeaderCellProps) {
-  const { columnKey, label } = props;
+  const { columnKey, label, currentWidth, minWidth, onCommitWidth, onHide } = props;
   const { workspaceSlug, projectId } = useParams();
   const { getFieldById, deleteField } = useWorkItemField();
   const { t } = useTranslation();
@@ -54,76 +68,152 @@ export const CustomColumnHeaderCell = observer(function CustomColumnHeaderCell(p
   const fieldId = customColumnKeyToFieldId(columnKey);
   const field: TWorkItemField | null = getFieldById(fieldId);
 
-  if (!canManageFields || !field) {
+  // Edit/Delete need the resolved field + admin; Hide only needs the column key.
+  const canManageThisField = canManageFields && !!field;
+  const hasMenu = canManageThisField || !!onHide;
+
+  const resizeHandle = onCommitWidth ? (
+    <ColumnResizeHandle currentWidth={currentWidth} minWidth={minWidth} onCommit={onCommitWidth} />
+  ) : null;
+
+  if (!hasMenu) {
     return (
-      <div className="flex min-w-0 items-center gap-1.5 truncate">
+      <div className="relative flex w-full min-w-0 items-center gap-1.5 truncate">
         <span className="truncate">{label}</span>
+        {resizeHandle}
       </div>
     );
   }
 
   return (
-    <div className="flex min-w-0 items-center gap-1.5 truncate">
+    <div className="relative flex w-full min-w-0 items-center">
       <CustomMenu
+        customButtonClassName="clickable !w-full"
+        customButtonTabIndex={-1}
+        className="!w-full"
         placement="bottom-start"
+        closeOnSelect
         customButton={
-          <span className="truncate rounded px-1 py-0.5 hover:bg-surface-2" title={label}>
-            {label}
-          </span>
+          <div
+            className="flex w-full cursor-pointer items-center justify-between gap-1.5 text-secondary hover:text-primary"
+            title={label}
+          >
+            <div className="flex min-w-0 items-center gap-1.5 truncate">
+              <span className="truncate">{label}</span>
+            </div>
+            <div className="ml-1 flex shrink-0 items-center">
+              <ChevronDownIcon className="h-3 w-3" aria-hidden="true" />
+            </div>
+          </div>
         }
         optionsClassName="z-20"
       >
-        <CustomMenu.MenuItem onClick={() => setIsEditorOpen(true)}>
-          <span className="flex items-center gap-2">
-            <Pencil className="size-3.5" />
-            {t("project_settings.custom_fields.edit_field")}
-          </span>
-        </CustomMenu.MenuItem>
-        <CustomMenu.MenuItem onClick={() => setIsDeleteOpen(true)}>
-          <span className="flex items-center gap-2">
-            <Trash2 className="size-3.5" />
-            {t("project_settings.custom_fields.delete_field")}
-          </span>
-        </CustomMenu.MenuItem>
+        {canManageThisField && (
+          <CustomMenu.MenuItem onClick={() => setIsEditorOpen(true)}>
+            <span className="flex items-center gap-2">
+              <Pencil className="size-3.5" />
+              {t("project_settings.custom_fields.edit_field")}
+            </span>
+          </CustomMenu.MenuItem>
+        )}
+        {onHide && (
+          <CustomMenu.MenuItem onClick={onHide}>
+            <span className="flex items-center gap-2">
+              <EyeOff className="size-3.5" />
+              {t("common.actions.hide_field")}
+            </span>
+          </CustomMenu.MenuItem>
+        )}
+        {canManageThisField && (
+          <CustomMenu.MenuItem onClick={() => setIsDeleteOpen(true)}>
+            <span className="flex items-center gap-2">
+              <Trash2 className="size-3.5" />
+              {t("project_settings.custom_fields.delete_field")}
+            </span>
+          </CustomMenu.MenuItem>
+        )}
       </CustomMenu>
-      <WorkItemFieldEditorModal isOpen={isEditorOpen} onClose={() => setIsEditorOpen(false)} fieldToUpdate={field} />
-      <DeleteFieldModal
-        isOpen={isDeleteOpen}
-        handleClose={() => setIsDeleteOpen(false)}
-        handleSubmit={async () => {
-          await deleteField(workspaceSlug?.toString() ?? "", projectId?.toString() ?? "", field.id);
-        }}
-      />
+      {canManageThisField && (
+        <>
+          <WorkItemFieldEditorModal
+            isOpen={isEditorOpen}
+            onClose={() => setIsEditorOpen(false)}
+            fieldToUpdate={field}
+          />
+          <DeleteFieldModal
+            isOpen={isDeleteOpen}
+            handleClose={() => setIsDeleteOpen(false)}
+            handleSubmit={async () => {
+              await deleteField(workspaceSlug?.toString() ?? "", projectId?.toString() ?? "", field.id);
+            }}
+          />
+        </>
+      )}
+      {resizeHandle}
     </div>
   );
 });
 
+interface AddCustomFieldHeaderButtonProps {
+  // B2: custom fields currently hidden from this user's list. Listed here so
+  // hide is reversible from the list UI (custom fields have no entry in
+  // Plane's Display dropdown).
+  hiddenColumns: TCustomListColumn[];
+  onShow?: (key: string) => void;
+}
+
 /**
- * Trailing "+ add field" affordance. Occupies the header's existing 56px
- * actions track (replaces the old empty `aria-hidden` div), so the grid
- * template is untouched and row alignment is unaffected. Non-admins get
- * the same empty slot as before.
+ * Trailing affordance in the header's existing 56px actions track (so the
+ * grid template + row alignment are unaffected). Admins can add a new field;
+ * any user can re-show a hidden custom column. Non-admins with nothing hidden
+ * get the same empty slot as before (zero change).
  */
-export const AddCustomFieldHeaderButton = observer(function AddCustomFieldHeaderButton() {
+export const AddCustomFieldHeaderButton = observer(function AddCustomFieldHeaderButton(
+  props: AddCustomFieldHeaderButtonProps
+) {
+  const { hiddenColumns, onShow } = props;
   const { t } = useTranslation();
   const canManageFields = useCanManageFields();
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
-  if (!canManageFields) return <div aria-hidden />;
+  const hasHidden = hiddenColumns.length > 0 && !!onShow;
+  if (!canManageFields && !hasHidden) return <div aria-hidden />;
 
   return (
     <div className="flex items-center justify-center">
-      <Tooltip tooltipContent={t("project_settings.custom_fields.add_field")}>
-        <button
-          type="button"
-          onClick={() => setIsEditorOpen(true)}
-          aria-label={t("project_settings.custom_fields.add_field")}
-          className="rounded p-1 text-tertiary hover:bg-surface-2 hover:text-secondary"
-        >
-          <Plus className="size-4" />
-        </button>
-      </Tooltip>
-      <WorkItemFieldEditorModal isOpen={isEditorOpen} onClose={() => setIsEditorOpen(false)} />
+      <CustomMenu
+        placement="bottom-end"
+        optionsClassName="z-20"
+        customButton={
+          <Tooltip tooltipContent={t("project_settings.custom_fields.add_field")}>
+            <span
+              aria-label={t("project_settings.custom_fields.add_field")}
+              className="flex rounded p-1 text-tertiary hover:bg-surface-2 hover:text-secondary"
+            >
+              <Plus className="size-4" />
+            </span>
+          </Tooltip>
+        }
+      >
+        {canManageFields && (
+          <CustomMenu.MenuItem onClick={() => setIsEditorOpen(true)}>
+            <span className="flex items-center gap-2">
+              <Plus className="size-3.5" />
+              {t("project_settings.custom_fields.add_field")}
+            </span>
+          </CustomMenu.MenuItem>
+        )}
+        {hasHidden &&
+          hiddenColumns.map((c) => (
+            <CustomMenu.MenuItem key={c.key} onClick={() => onShow?.(c.key)}>
+              <span className="flex items-center gap-2">
+                <Eye className="size-3.5" />
+                {t("common.actions.show_field")}: {c.label}
+              </span>
+            </CustomMenu.MenuItem>
+          ))}
+      </CustomMenu>
+      {canManageFields && <WorkItemFieldEditorModal isOpen={isEditorOpen} onClose={() => setIsEditorOpen(false)} />}
     </div>
   );
 });

@@ -131,6 +131,13 @@ class APITokenLogMiddleware:
                 "response_code": response.status_code,
                 "ip_address": get_client_ip(request=request),
                 "user_agent": request.META.get("HTTP_USER_AGENT", None),
+                # Endpoints that act on behalf of a specific workspace member
+                # (system-tier writes into personal projects, assignee reads
+                # for another member) set this on the request during dispatch
+                # so the audit trail records "acting agent X on behalf of Y".
+                "acting_on_behalf_of": getattr(
+                    request, "_acting_on_behalf_of", None
+                ),
             }
             user_id = (
                 str(request.user.id)

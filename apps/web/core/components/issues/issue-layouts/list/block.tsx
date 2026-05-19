@@ -38,7 +38,7 @@ import { IssueStats } from "@/plane-web/components/issues/issue-layouts/issue-st
 import { WithDisplayPropertiesHOC } from "../properties/with-display-properties-HOC";
 import { calculateIdentifierWidth } from "../utils";
 import { CELL_BY_COLUMN } from "./columns/issue-cells";
-import { customColumnKeyToFieldId, getCustomListColumns, getVisibleListColumns } from "./columns/list-columns";
+import { customColumnKeyToFieldId, getOrderedListColumns } from "./columns/list-columns";
 import type { TRenderQuickActions } from "./list-view-types";
 
 interface IssueBlockProps {
@@ -48,6 +48,8 @@ interface IssueBlockProps {
   updateIssue: ((projectId: string | null, issueId: string, data: Partial<TIssue>) => Promise<void>) | undefined;
   quickActions: TRenderQuickActions;
   displayProperties: IIssueDisplayProperties | undefined;
+  columnOrder?: string[];
+  columnHidden?: string[];
   canEditProperties: (projectId: string | undefined) => boolean;
   nestingLevel: number;
   spacingLeft?: number;
@@ -68,6 +70,8 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
     updateIssue,
     quickActions,
     displayProperties,
+    columnOrder,
+    columnHidden,
     canEditProperties,
     nestingLevel,
     spacingLeft = 14,
@@ -114,10 +118,9 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
   const subIssuesCount = issue?.sub_issues_count ?? 0;
   const canEditIssueProperties = canEditProperties(issue?.project_id ?? undefined);
   const isDraggingAllowed = canDrag && canEditIssueProperties;
-  const visibleColumns = getVisibleListColumns(displayProperties, { isEpic });
-  // Runtime custom-field columns (design §7), rendered after built-ins so
-  // cells line up with the sticky header + the --list-cols grid template.
-  const customColumns = getCustomListColumns();
+  // ONE unified ordered column sequence (Inc A) — MUST match the sticky
+  // header + --list-cols grid template so every cell lines up with its track.
+  const orderedColumns = getOrderedListColumns(displayProperties, { isEpic }, columnOrder, columnHidden);
   const { getFieldById } = useWorkItemField();
 
   const { isMobile } = usePlatformOS();
@@ -220,7 +223,32 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
           }
         }}
       >
-        <div className="flex w-full gap-2 truncate">
+        <div
+          className={cn(
+            "flex w-full gap-2 truncate",
+            // Frozen first column (desktop grid only — mobile stays the stacked
+            // layout, untouched). Opaque bg so scrolled columns are hidden; z-[1]
+            // sits above normal cells but below the sticky-top group header
+            // (z-[2]) so vertical pinning is unaffected. bg mirrors the row's
+            // resting / selected / dragging states.
+            // self-stretch + items-center: the Row grid is items-center, so a
+            // default cell is only content-height — its opaque bg wouldn't
+            // cover the row's py-3 band and scrolled cells bled through there.
+            // Stretch the frozen cell to the full row height; keep its own
+            // content vertically centered.
+            isSidebarCollapsed
+              ? cn(
+                  "md:sticky md:left-0 md:z-[1] md:items-center md:self-stretch md:border-r md:border-subtle md:pl-5",
+                  isIssueSelected ? "md:bg-accent-primary/5" : "md:bg-surface-1",
+                  isCurrentBlockDragging && "md:bg-layer-1"
+                )
+              : cn(
+                  "lg:sticky lg:left-0 lg:z-[1] lg:items-center lg:self-stretch lg:border-r lg:border-subtle lg:pl-5",
+                  isIssueSelected ? "lg:bg-accent-primary/5" : "lg:bg-surface-1",
+                  isCurrentBlockDragging && "lg:bg-layer-1"
+                )
+          )}
+        >
           <div className="flex flex-grow items-center gap-0.5 truncate">
             <div className="flex items-center gap-1" style={isSubIssue ? { marginLeft } : {}}>
               {/* select checkbox */}
@@ -343,23 +371,34 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
         {/* Desktop/grid mode: per-column cells aligned with sticky header.
             display:contents flattens this wrapper so its children become grid items
             of the outer Row, sharing the same --list-cols template. */}
-        <div className={cn("hidden", isSidebarCollapsed ? "md:contents" : "lg:contents")}>
-          {visibleColumns.map((column) => {
-            const Cell = CELL_BY_COLUMN[column];
+        <div
+          className={cn(
+            "hidden [&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-subtle",
+            isSidebarCollapsed ? "md:contents" : "lg:contents"
+          )}
+        >
+          {orderedColumns.map((d) => {
+            if (d.kind === "builtin") {
+              const Cell = CELL_BY_COLUMN[d.key];
+              return (
+                <div key={d.key} className="flex min-w-0 items-center">
+                  {!issue?.tempId ? (
+                    <Cell
+                      issue={issue}
+                      updateIssue={updateIssue}
+                      isReadOnly={!canEditIssueProperties}
+                      isEpic={isEpic}
+                    />
+                  ) : null}
+                </div>
+              );
+            }
+            // Custom field. Always render the slot div so the grid stays
+            // aligned even before the field schema resolves (may be null
+            // briefly).
+            const field = getFieldById(customColumnKeyToFieldId(d.key));
             return (
-              <div key={column} className="flex min-w-0 items-center">
-                {!issue?.tempId ? (
-                  <Cell issue={issue} updateIssue={updateIssue} isReadOnly={!canEditIssueProperties} isEpic={isEpic} />
-                ) : null}
-              </div>
-            );
-          })}
-          {customColumns.map((c) => {
-            // Always render the slot div so the grid stays aligned even
-            // before the field schema resolves (field may be null briefly).
-            const field = getFieldById(customColumnKeyToFieldId(c.key));
-            return (
-              <div key={c.key} className="flex min-w-0 items-center">
+              <div key={d.key} className="flex min-w-0 items-center">
                 {!issue?.tempId && field && issue?.project_id ? (
                   <WorkItemFieldCell
                     field={field}

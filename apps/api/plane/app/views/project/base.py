@@ -22,6 +22,7 @@ from plane.app.serializers import (
     ProjectListSerializer,
     ProjectSerializer,
 )
+from plane.app.services.personal_project import get_or_create_personal_project
 from plane.app.views.base import BaseAPIView, BaseViewSet
 from plane.bgtasks.recent_visited_task import recent_visited_task
 from plane.bgtasks.webhook_task import model_activity, webhook_activity
@@ -100,7 +101,9 @@ class ProjectViewSet(BaseViewSet):
     @allow_permission(allowed_roles=[ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], level="WORKSPACE")
     def list_detail(self, request, slug):
         fields = [field for field in request.GET.get("fields", "").split(",") if field]
-        projects = self.get_queryset().order_by("sort_order", "name")
+        # personal ("My Tasks") buckets are hidden from the normal project
+        # list; they remain reachable by pk for the My Tasks view + issue CRUD
+        projects = self.get_queryset().exclude(is_personal=True).order_by("sort_order", "name")
         if WorkspaceMember.objects.filter(
             member=request.user,
             workspace__slug=slug,
@@ -147,6 +150,7 @@ class ProjectViewSet(BaseViewSet):
 
         projects = (
             Project.objects.filter(workspace__slug=self.kwargs.get("slug"))
+            .exclude(is_personal=True)
             .select_related("workspace", "workspace__owner", "default_assignee", "project_lead")
             .annotate(
                 member_role=ProjectMember.objects.filter(
@@ -316,6 +320,24 @@ class ProjectViewSet(BaseViewSet):
             serializer = ProjectListSerializer(project)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @allow_permission([ROLE.ADMIN, ROLE.MEMBER], level="WORKSPACE")
+    def personal(self, request, slug):
+        """Return the requesting user's private personal ("My Tasks")
+        project for this workspace, lazily creating it on first use.
+
+        Thin wrapper over
+        :func:`plane.app.services.personal_project.get_or_create_personal_project`
+        — the bootstrap logic (ADMIN membership, default states,
+        identifier row, name/id collision suffixing) lives there so it
+        can be shared with token-API callers that act on behalf of
+        other users.
+        """
+        workspace = Workspace.objects.get(slug=slug)
+        project = get_or_create_personal_project(workspace, request.user)
+        project = self.get_queryset().filter(pk=project.id).first()
+        serializer = ProjectListSerializer(project)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def partial_update(self, request, slug, pk=None):
         # try:

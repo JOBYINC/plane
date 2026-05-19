@@ -37,7 +37,7 @@ import { useBulkOperationStatus } from "@/plane-web/hooks/use-bulk-operation-sta
 // utils
 import type { GroupDropLocation } from "../utils";
 import { getGroupByColumns, isWorkspaceLevel, isSubGrouped } from "../utils";
-import { getListGridTemplateWithCustom, getVisibleListColumns } from "./columns/list-columns";
+import { getOrderedListColumns, getUnifiedListGridTemplate } from "./columns/list-columns";
 import { ListHeaderRow } from "./columns/list-header-row";
 import { ListGroup } from "./list-group";
 import type { TRenderQuickActions } from "./list-view-types";
@@ -52,6 +52,7 @@ export interface IList {
   displayProperties: IIssueDisplayProperties | undefined;
   displayFilters?: IIssueDisplayFilterOptions | undefined;
   handleDisplayFilterUpdate?: (data: Partial<IIssueDisplayFilterOptions>) => void;
+  handleDisplayPropertiesUpdate?: (data: Partial<IIssueDisplayProperties>) => void;
   enableIssueQuickAdd: boolean;
   showEmptyGroup?: boolean;
   canEditProperties: (projectId: string | undefined) => boolean;
@@ -77,6 +78,7 @@ export const List = observer(function List(props: IList) {
     displayProperties,
     displayFilters,
     handleDisplayFilterUpdate,
+    handleDisplayPropertiesUpdate,
     enableIssueQuickAdd,
     showEmptyGroup,
     canEditProperties,
@@ -106,9 +108,12 @@ export const List = observer(function List(props: IList) {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Asana-style aligned column layout — header + every row share this CSS template
-  const visibleColumns = getVisibleListColumns(displayProperties, { isEpic });
-  const gridTemplateColumns = getListGridTemplateWithCustom(visibleColumns);
+  // Asana-style aligned column layout — header + every row share this CSS
+  // template, built from the ONE unified column sequence (Inc A).
+  const columnOrder = displayFilters?.view_column_prefs?.order;
+  const columnHidden = displayFilters?.view_column_prefs?.hidden;
+  const orderedColumns = getOrderedListColumns(displayProperties, { isEpic }, columnOrder, columnHidden);
+  const gridTemplateColumns = getUnifiedListGridTemplate(orderedColumns, displayFilters?.view_column_prefs?.widths);
   const gridVisibilityClass = isSidebarCollapsed ? "hidden md:flex" : "hidden lg:flex";
 
   const groups = getGroupByColumns({
@@ -166,6 +171,7 @@ export const List = observer(function List(props: IList) {
             <>
               <div
                 ref={containerRef}
+                data-list-grid
                 className="vertical-scrollbar relative scrollbar-lg size-full overflow-auto bg-surface-1"
                 style={{ ["--list-cols" as string]: gridTemplateColumns }}
               >
@@ -174,6 +180,7 @@ export const List = observer(function List(props: IList) {
                   context={{ isEpic }}
                   displayFilters={displayFilters}
                   handleDisplayFilterUpdate={handleDisplayFilterUpdate}
+                  handleDisplayPropertiesUpdate={handleDisplayPropertiesUpdate}
                   visibilityClassName={gridVisibilityClass}
                 />
                 {groups.map((group: IGroupByColumn) => (
@@ -189,6 +196,8 @@ export const List = observer(function List(props: IList) {
                     getGroupIndex={getGroupIndex}
                     handleOnDrop={handleOnDrop}
                     displayProperties={displayProperties}
+                    columnOrder={columnOrder}
+                    columnHidden={columnHidden}
                     enableIssueQuickAdd={enableIssueQuickAdd}
                     showEmptyGroup={showEmptyGroup}
                     canEditProperties={canEditProperties}

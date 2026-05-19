@@ -114,8 +114,9 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
           {icon ?? <CircleDashed className="size-3.5" strokeWidth={2} />}
         </div>
 
-        <div
-          className="relative flex w-full cursor-pointer flex-row items-center gap-1 overflow-hidden"
+        <button
+          type="button"
+          className="relative flex max-w-md min-w-0 cursor-pointer flex-row items-center gap-1 overflow-hidden"
           onClick={() => handleCollapsedGroups(groupID)}
         >
           <div className="line-clamp-1 inline-block truncate font-medium text-primary">{title}</div>
@@ -123,7 +124,7 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
           <div className="px-2.5">
             <WorkFlowGroupTree groupBy={groupBy} groupId={groupID} />
           </div>
-        </div>
+        </button>
 
         {!disableIssueCreation &&
           (renderExistingIssueModal ? (
@@ -150,14 +151,15 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
               </CustomMenu.MenuItem>
             </CustomMenu>
           ) : (
-            <div
+            <button
+              type="button"
               className="flex h-5 w-5 flex-shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xs transition-all hover:bg-layer-1"
               onClick={() => {
                 setIsOpen(true);
               }}
             >
               <PlusIcon width={14} strokeWidth={2} />
-            </div>
+            </button>
           ))}
 
         {isEpic ? (

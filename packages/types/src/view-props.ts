@@ -146,6 +146,25 @@ export interface IIssueFilterOptions {
   issue_type?: string[] | null;
 }
 
+/**
+ * Asana-style per-column UI prefs (list view). Persisted per user inside the
+ * existing display_filters JSON blob, so order + width survive reload and sync
+ * across devices with no schema migration. Keyed by column id — built-in
+ * TListColumnKey OR a custom-field column key — so one structure covers both.
+ */
+export type TViewColumnPrefs = {
+  /** Ordered column keys; absent keys fall back to the default order. */
+  order?: string[];
+  /** Pixel width override per column key; absent = the column's default width. */
+  widths?: Record<string, number>;
+  /**
+   * Custom-field column keys hidden from this list (per user). Built-in
+   * columns hide via the native displayProperties channel instead; this only
+   * covers custom fields, which have no displayProperties entry.
+   */
+  hidden?: string[];
+};
+
 export interface IIssueDisplayFilterOptions {
   calendar?: {
     show_weekends?: boolean;
@@ -157,6 +176,7 @@ export interface IIssueDisplayFilterOptions {
   order_by?: TIssueOrderByOptions;
   show_empty_groups?: boolean;
   sub_issue?: boolean;
+  view_column_prefs?: TViewColumnPrefs;
 }
 export interface IIssueDisplayProperties {
   assignee?: boolean;

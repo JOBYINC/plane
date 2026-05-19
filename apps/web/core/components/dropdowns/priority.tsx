@@ -38,6 +38,19 @@ type Props = TDropdownProps & {
   renderByDefault?: boolean;
 };
 
+// Asana-style solid-fill pill for the priority chip, unified with the label
+// pill treatment. Priority keeps its own semantic colours (the existing
+// --priority-* CSS vars); text is the contrasting colour (white, except the
+// light yellow "medium"). Applied only in the text mode — the compact
+// icon-only mode (hideText) keeps the original styling.
+const PRIORITY_FILL: Record<TIssuePriorities, { bg: string; fg: string }> = {
+  urgent: { bg: "var(--priority-urgent)", fg: "#ffffff" },
+  high: { bg: "var(--priority-high)", fg: "#ffffff" },
+  medium: { bg: "var(--priority-medium)", fg: "#1f2937" },
+  low: { bg: "var(--priority-low)", fg: "#ffffff" },
+  none: { bg: "var(--priority-none)", fg: "#ffffff" },
+};
+
 type ButtonProps = {
   className?: string;
   dropdownArrow: boolean;
@@ -79,6 +92,11 @@ function BorderButton(props: ButtonProps) {
   const { isMobile } = usePlatformOS();
   const { t } = useTranslation();
 
+  // Solid-fill pill in the common text mode (unified with the label pill);
+  // the compact icon-only mode keeps the original border styling.
+  const filled = !hideText;
+  const fill = PRIORITY_FILL[priority ?? "none"];
+
   return (
     <Tooltip
       tooltipHeading={t("priority")}
@@ -89,18 +107,21 @@ function BorderButton(props: ButtonProps) {
     >
       <div
         className={cn(
-          "flex h-full items-center gap-1.5 rounded-sm border-[0.5px] px-2 py-0.5",
-          priorityClasses[priority ?? "none"],
-          {
-            // compact the icons if text is hidden
-            "px-0.5": hideText,
-            // highlight the whole button if text is hidden and priority is urgent
-            "border-priority-urgent": priority === "urgent" && hideText && highlightUrgent,
-          },
+          "flex h-full items-center gap-1.5",
+          filled
+            ? "rounded-full px-2 py-[7px] text-11 font-medium"
+            : cn("rounded-sm border-[0.5px] px-2 py-0.5", priorityClasses[priority ?? "none"], {
+                // compact the icons if text is hidden
+                "px-0.5": hideText,
+                // highlight the whole button if text is hidden and priority is urgent
+                "border-priority-urgent": priority === "urgent" && hideText && highlightUrgent,
+              }),
           className
         )}
+        style={filled ? { backgroundColor: fill.bg, color: fill.fg } : undefined}
       >
-        {!hideIcon &&
+        {!filled &&
+          !hideIcon &&
           (priority ? (
             <div
               className={cn({
@@ -128,8 +149,9 @@ function BorderButton(props: ButtonProps) {
         {!hideText && (
           <span
             className={cn("flex-grow truncate text-body-xs-medium", {
-              "text-secondary": priority && priority !== "none",
-              "text-placeholder": !priority || priority === "none",
+              // filled pill: colour is inherited from the wrapper (contrast fg)
+              "text-secondary": !filled && priority && priority !== "none",
+              "text-placeholder": !filled && (!priority || priority === "none"),
             })}
           >
             {priorityDetails?.title ?? placeholder}
@@ -170,6 +192,11 @@ function BackgroundButton(props: ButtonProps) {
   const { isMobile } = usePlatformOS();
   const { t } = useTranslation();
 
+  // Solid-fill pill in the common text mode (unified with the label pill);
+  // the compact icon-only mode keeps the original styling.
+  const filled = !hideText;
+  const fill = PRIORITY_FILL[priority ?? "none"];
+
   return (
     <Tooltip
       tooltipHeading={t("priority")}
@@ -180,18 +207,21 @@ function BackgroundButton(props: ButtonProps) {
     >
       <div
         className={cn(
-          "flex h-full items-center gap-1.5 rounded-sm px-2 py-0.5",
-          priorityClasses[priority ?? "none"],
-          {
-            // compact the icons if text is hidden
-            "px-0.5": hideText,
-            // highlight the whole button if text is hidden and priority is urgent
-            "border-priority-urgent": priority === "urgent" && hideText && highlightUrgent,
-          },
+          "flex h-full items-center gap-1.5",
+          filled
+            ? "rounded-full px-2 py-[7px] text-11 font-medium"
+            : cn("rounded-sm px-2 py-0.5", priorityClasses[priority ?? "none"], {
+                // compact the icons if text is hidden
+                "px-0.5": hideText,
+                // highlight the whole button if text is hidden and priority is urgent
+                "border-priority-urgent": priority === "urgent" && hideText && highlightUrgent,
+              }),
           className
         )}
+        style={filled ? { backgroundColor: fill.bg, color: fill.fg } : undefined}
       >
-        {!hideIcon &&
+        {!filled &&
+          !hideIcon &&
           (priority ? (
             <div
               className={cn({
@@ -219,8 +249,8 @@ function BackgroundButton(props: ButtonProps) {
         {!hideText && (
           <span
             className={cn("flex-grow truncate text-body-xs-medium", {
-              "text-secondary": priority && priority !== "none",
-              "text-placeholder": !priority || priority === "none",
+              "text-secondary": !filled && priority && priority !== "none",
+              "text-placeholder": !filled && (!priority || priority === "none"),
             })}
           >
             {priorityDetails?.title ?? t("common.priority") ?? placeholder}
@@ -254,6 +284,11 @@ function TransparentButton(props: ButtonProps) {
   const { isMobile } = usePlatformOS();
   const { t } = useTranslation();
 
+  // Solid-fill pill in the common text mode (unified with the label pill);
+  // the compact icon-only mode keeps the original styling.
+  const filled = !hideText;
+  const fill = PRIORITY_FILL[priority ?? "none"];
+
   return (
     <Tooltip
       tooltipHeading={t("priority")}
@@ -264,18 +299,22 @@ function TransparentButton(props: ButtonProps) {
     >
       <div
         className={cn(
-          "flex h-full w-full items-center gap-1.5 rounded-sm px-2 hover:bg-layer-transparent-hover",
-          {
-            // compact the icons if text is hidden
-            "px-0.5": hideText,
-            // highlight the whole button if text is hidden and priority is urgent
-            "border-priority-urgent": priority === "urgent" && hideText && highlightUrgent,
-            "bg-layer-1": isActive,
-          },
+          "flex h-full w-full items-center gap-1.5",
+          filled
+            ? "rounded-full px-2 py-[7px] text-11 font-medium"
+            : cn("rounded-sm px-2 hover:bg-layer-transparent-hover", {
+                // compact the icons if text is hidden
+                "px-0.5": hideText,
+                // highlight the whole button if text is hidden and priority is urgent
+                "border-priority-urgent": priority === "urgent" && hideText && highlightUrgent,
+                "bg-layer-1": isActive,
+              }),
           className
         )}
+        style={filled ? { backgroundColor: fill.bg, color: fill.fg } : undefined}
       >
-        {!hideIcon &&
+        {!filled &&
+          !hideIcon &&
           (priority ? (
             <div
               className={cn({
@@ -303,8 +342,8 @@ function TransparentButton(props: ButtonProps) {
         {!hideText && (
           <span
             className={cn("flex-grow truncate text-body-xs-medium", {
-              "text-secondary": priority && priority !== "none",
-              "text-placeholder": !priority || priority === "none",
+              "text-secondary": !filled && priority && priority !== "none",
+              "text-placeholder": !filled && (!priority || priority === "none"),
             })}
           >
             {priorityDetails?.title ?? t("common.priority") ?? placeholder}
@@ -444,6 +483,12 @@ export function PriorityDropdown(props: Props) {
     </>
   );
 
+  /* eslint-disable jsx-a11y/no-static-element-interactions --
+     Pre-existing latent lint (the keydown-handling ComboDropDown wrapper has
+     no role) — repo-wide on every dropdown (see state/base.tsx); surfaced
+     only because this file is now staged. Not introduced by this change and
+     out of scope to re-architect the shared combobox a11y here. Bounded to
+     this component; same rule the codebase already disables elsewhere. */
   return (
     <ComboDropDown
       as="div"
@@ -514,4 +559,5 @@ export function PriorityDropdown(props: Props) {
       )}
     </ComboDropDown>
   );
+  /* eslint-enable jsx-a11y/no-static-element-interactions */
 }

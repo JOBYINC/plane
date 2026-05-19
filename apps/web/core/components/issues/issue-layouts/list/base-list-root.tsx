@@ -15,6 +15,7 @@ import type {
   EIssuesStoreType,
   GroupByColumnTypes,
   IIssueDisplayFilterOptions,
+  IIssueDisplayProperties,
   TGroupedIssues,
   TIssueKanbanFilters,
 } from "@plane/types";
@@ -150,6 +151,18 @@ export const BaseListRoot = observer(function BaseListRoot(props: IBaseListRoot)
     [projectId, updateFilters]
   );
 
+  // Hide a built-in column from the per-column header menu. Toggling a
+  // display property is a separate channel from DISPLAY_FILTERS; re-show is
+  // the existing Display dropdown (round-trips for free).
+  const handleDisplayPropertiesUpdate = useCallback(
+    (updatedDisplayProperties: Partial<IIssueDisplayProperties>) => {
+      updateFilters(projectId?.toString() ?? "", EIssueFilterType.DISPLAY_PROPERTIES, {
+        ...updatedDisplayProperties,
+      });
+    },
+    [projectId, updateFilters]
+  );
+
   // kanbanFilters and EIssueFilterType.KANBAN_FILTERS are used because the state is shared between kanban view and list view
   const handleCollapsedGroups = useCallback(
     (value: string) => {
@@ -177,6 +190,7 @@ export const BaseListRoot = observer(function BaseListRoot(props: IBaseListRoot)
           displayProperties={displayProperties}
           displayFilters={displayFilters}
           handleDisplayFilterUpdate={handleDisplayFiltersUpdate}
+          handleDisplayPropertiesUpdate={handleDisplayPropertiesUpdate}
           group_by={group_by}
           orderBy={orderBy}
           updateIssue={updateIssue}

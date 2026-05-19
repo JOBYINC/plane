@@ -58,6 +58,8 @@ interface Props {
   updateIssue: ((projectId: string | null, issueId: string, data: Partial<TIssue>) => Promise<void>) | undefined;
   quickActions: TRenderQuickActions;
   displayProperties: IIssueDisplayProperties | undefined;
+  columnOrder?: string[];
+  columnHidden?: string[];
   enableIssueQuickAdd: boolean;
   canEditProperties: (projectId: string | undefined) => boolean;
   containerRef: MutableRefObject<HTMLDivElement | null>;
@@ -85,6 +87,8 @@ export const ListGroup = observer(function ListGroup(props: Props) {
     updateIssue,
     quickActions,
     displayProperties,
+    columnOrder,
+    columnHidden,
     enableIssueQuickAdd,
     canEditProperties,
     containerRef,
@@ -261,32 +265,44 @@ export const ListGroup = observer(function ListGroup(props: Props) {
   return validateEmptyIssueGroups(groupIssueCount) ? (
     <div
       ref={groupRef}
-      className={cn(`relative flex flex-shrink-0 flex-col`, {
+      className={cn(`relative flex w-max min-w-full flex-shrink-0 flex-col`, {
         "border-accent-strong": isDraggingOverColumn,
         "border-danger-subtle": isDraggingOverColumn && isDropDisabled,
       })}
     >
       <Row
-        className={cn("w-full flex-shrink-0 border-b border-subtle bg-layer-1 py-1 pr-3 hover:bg-layer-1-hover", {
-          "sticky top-0 z-[2] lg:top-9": isExpanded && groupIssueCount > 0,
-        })}
-      >
-        <HeaderGroupByCard
-          groupID={group.id}
-          groupBy={group_by}
-          icon={group.icon}
-          title={group.name}
-          count={groupIssueCount}
-          issuePayload={group.payload}
-          canEditProperties={canEditProperties}
-          disableIssueCreation={
-            disableIssueCreation || isGroupByCreatedBy || isCompletedCycle || isWorkflowIssueCreationDisabled
+        className={cn(
+          // w-full = the group container's width, which is now w-max
+          // min-w-full (full --list-cols content width incl custom columns),
+          // so the group header / section bar spans custom-field columns too.
+          "w-full flex-shrink-0 border-b border-subtle bg-layer-1 py-1 pr-3 hover:bg-layer-1-hover",
+          {
+            "sticky top-0 z-[2] lg:top-9": isExpanded && groupIssueCount > 0,
           }
-          addIssuesToView={addIssuesToView}
-          selectionHelpers={selectionHelpers}
-          handleCollapsedGroups={handleCollapsedGroups}
-          isEpic={isEpic}
-        />
+        )}
+      >
+        {/* Frozen first column parity: the group title/count/+ stays pinned
+            left while the full-width grey bar (the Row's bg) scrolls behind
+            it. w-max so it's content-width (not the full Row), bg-layer-1 to
+            match the bar. */}
+        <div className="sticky left-0 z-[2] flex w-max bg-layer-1 pl-5">
+          <HeaderGroupByCard
+            groupID={group.id}
+            groupBy={group_by}
+            icon={group.icon}
+            title={group.name}
+            count={groupIssueCount}
+            issuePayload={group.payload}
+            canEditProperties={canEditProperties}
+            disableIssueCreation={
+              disableIssueCreation || isGroupByCreatedBy || isCompletedCycle || isWorkflowIssueCreationDisabled
+            }
+            addIssuesToView={addIssuesToView}
+            selectionHelpers={selectionHelpers}
+            handleCollapsedGroups={handleCollapsedGroups}
+            isEpic={isEpic}
+          />
+        </div>
       </Row>
       {shouldExpand && (
         <div className="relative">
@@ -308,6 +324,8 @@ export const ListGroup = observer(function ListGroup(props: Props) {
               updateIssue={updateIssue}
               quickActions={quickActions}
               displayProperties={displayProperties}
+              columnOrder={columnOrder}
+              columnHidden={columnHidden}
               canEditProperties={canEditProperties}
               containerRef={containerRef}
               isDragAllowed={isDragAllowed}
