@@ -68,6 +68,20 @@ export class ProjectService extends APIService {
       });
   }
 
+  /**
+   * Returns the requesting user's private personal ("My Tasks") project for
+   * the workspace, lazily creating it server-side on first call. The bucket
+   * is a fully-functional but hidden project (excluded from normal project
+   * lists), reused so project-less tasks need no schema change.
+   */
+  async getPersonalProject(workspaceSlug: string): Promise<TProject> {
+    return this.get(`/api/workspaces/${workspaceSlug}/projects/personal/`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response;
+      });
+  }
+
   async getProjectAnalyticsCount(
     workspaceSlug: string,
     params?: TProjectAnalyticsCountParams

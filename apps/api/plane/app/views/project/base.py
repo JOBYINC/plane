@@ -100,7 +100,9 @@ class ProjectViewSet(BaseViewSet):
     @allow_permission(allowed_roles=[ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], level="WORKSPACE")
     def list_detail(self, request, slug):
         fields = [field for field in request.GET.get("fields", "").split(",") if field]
-        projects = self.get_queryset().order_by("sort_order", "name")
+        # personal ("My Tasks") buckets are hidden from the normal project
+        # list; they remain reachable by pk for the My Tasks view + issue CRUD
+        projects = self.get_queryset().exclude(is_personal=True).order_by("sort_order", "name")
         if WorkspaceMember.objects.filter(
             member=request.user,
             workspace__slug=slug,
@@ -147,6 +149,7 @@ class ProjectViewSet(BaseViewSet):
 
         projects = (
             Project.objects.filter(workspace__slug=self.kwargs.get("slug"))
+            .exclude(is_personal=True)
             .select_related("workspace", "workspace__owner", "default_assignee", "project_lead")
             .annotate(
                 member_role=ProjectMember.objects.filter(
@@ -316,6 +319,86 @@ class ProjectViewSet(BaseViewSet):
             serializer = ProjectListSerializer(project)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @allow_permission([ROLE.ADMIN, ROLE.MEMBER], level="WORKSPACE")
+    def personal(self, request, slug):
+        """Return the requesting user's private personal ("My Tasks")
+        project for this workspace, lazily creating it on first use.
+
+        System-managed: bypasses the human-input name/identifier
+        validators in ProjectSerializer but mirrors the create()
+        bootstrap (ADMIN membership + default states + identifier row)
+        so the bucket behaves exactly like a normal project for every
+        issue-scoped feature.
+        """
+        workspace = Workspace.objects.get(slug=slug)
+
+        project = Project.objects.filter(
+            workspace=workspace,
+            is_personal=True,
+            personal_owner=request.user,
+            deleted_at__isnull=True,
+        ).first()
+
+        if project is None:
+            short = str(request.user.id).replace("-", "")[:8].upper()
+            identifier = f"MT{short}"[:12]
+            name = f"My Tasks {short}"
+            # defensive: stay within the per-workspace unique constraints
+            # on (identifier, workspace) and (name, workspace)
+            suffix = 1
+            while (
+                Project.objects.filter(
+                    workspace=workspace,
+                    identifier=identifier,
+                    deleted_at__isnull=True,
+                ).exists()
+                or Project.objects.filter(
+                    workspace=workspace, name=name, deleted_at__isnull=True
+                ).exists()
+            ):
+                identifier = f"MT{short}{suffix}"[:12]
+                name = f"My Tasks {short} {suffix}"
+                suffix += 1
+
+            project = Project.objects.create(
+                name=name,
+                identifier=identifier,
+                workspace=workspace,
+                network=ProjectNetwork.SECRET.value,
+                is_personal=True,
+                personal_owner=request.user,
+                created_by=request.user,
+            )
+            ProjectIdentifier.objects.create(
+                name=project.identifier,
+                project=project,
+                workspace_id=workspace.id,
+            )
+            ProjectMember.objects.create(
+                project=project,
+                member=request.user,
+                role=ROLE.ADMIN.value,
+            )
+            State.objects.bulk_create(
+                [
+                    State(
+                        name=state["name"],
+                        color=state["color"],
+                        project=project,
+                        sequence=state["sequence"],
+                        workspace=workspace,
+                        group=state["group"],
+                        default=state.get("default", False),
+                        created_by=request.user,
+                    )
+                    for state in DEFAULT_STATES
+                ]
+            )
+
+        project = self.get_queryset().filter(pk=project.id).first()
+        serializer = ProjectListSerializer(project)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def partial_update(self, request, slug, pk=None):
         # try:

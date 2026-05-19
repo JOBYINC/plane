@@ -299,6 +299,7 @@ export default {
   workspace_logo: "工作区标志",
   new_issue: "新任务",
   your_work: "我的工作",
+  my_tasks: "我的任务",
   drafts: "草稿",
   projects: "项目",
   views: "视图",

@@ -142,6 +142,7 @@ export default {
   workspace_logo: "Workspace logo",
   new_issue: "New work item",
   your_work: "Your work",
+  my_tasks: "My Tasks",
   drafts: "Drafts",
   projects: "Projects",
   views: "Views",
