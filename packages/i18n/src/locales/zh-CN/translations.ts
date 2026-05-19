@@ -2815,5 +2815,7 @@ export default {
     debug_panel: "🔧 调试 (开发用)",
     warning_assignee_not_member:
       "该负责人不是当前项目的成员，将看不到这个任务。请改用共享项目（例如 Team Inbox），或先把他/她加入此项目。",
+    diagnostics: "诊断信息（截图发我）",
+    extraction_failed_hint: "未能自动读取对话内容，请把下面的详情截图发我。",
   },
 } as const;

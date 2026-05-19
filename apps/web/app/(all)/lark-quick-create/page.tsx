@@ -26,9 +26,10 @@ import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import { Button } from "@plane/propel/button";
 import { Loader } from "@plane/ui";
 import { useTranslation } from "@plane/i18n";
+import type { TLanguage } from "@plane/i18n";
 import { useWorkspace } from "@/hooks/store/use-workspace";
 import { useProject } from "@/hooks/store/use-project";
-import { useUser } from "@/hooks/store/user";
+import { useUser, useUserProfile } from "@/hooks/store/user";
 import { useMember } from "@/hooks/store/use-member";
 import { IssueService } from "@/services/issue/issue.service";
 import { WorkspaceService } from "@/services/workspace.service";
@@ -83,6 +84,8 @@ type LarkSourceDetail = {
 };
 
 const issueService = new IssueService();
+// pre-existing (not introduced by this change); kept to avoid touching unrelated code
+// eslint-disable-next-line no-unused-vars
 const workspaceService = new WorkspaceService();
 const projectMemberService = new ProjectMemberService();
 
@@ -126,8 +129,11 @@ async function injectScript(url: string): Promise<void> {
     s.src = url;
     s.async = true;
     s.dataset.larkH5sdk = url;
+    /* pre-existing (not introduced by this change) */
+    /* eslint-disable unicorn/prefer-add-event-listener */
     s.onload = () => resolve();
     s.onerror = () => reject(new Error(`script load failed: ${url}`));
+    /* eslint-enable unicorn/prefer-add-event-listener */
     document.head.appendChild(s);
   });
 }
@@ -142,8 +148,11 @@ async function loadSdkOnce(): Promise<void> {
   let lastErr: unknown = null;
   for (const url of H5_SDK_URLS) {
     try {
+      /* pre-existing sequential retry (not introduced by this change) */
+      /* eslint-disable no-await-in-loop */
       await injectScript(url);
       await waitForH5sdk();
+      /* eslint-enable no-await-in-loop */
       return;
     } catch (err) {
       lastErr = err;
@@ -159,11 +168,91 @@ function deriveTitle(text: string | undefined): string {
 }
 
 function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// A segment of a Lark "post" (rich text) message line.
+type LarkSeg = {
+  tag?: string;
+  text?: string;
+  user_name?: string;
+  user_id?: string;
+  href?: string;
+};
+
+// Drop Lark @-mention id placeholders / raw open_ids so a person's id is
+// never injected into the task (we keep human-readable text only).
+function stripMentionIds(s: string): string {
   return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/@_user_\d+/g, "")
+    .replace(/@_all\b/g, "")
+    .replace(/\bou_[A-Za-z0-9_-]+\b/g, "")
+    .replace(/\bon_[A-Za-z0-9_-]+\b/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+// Flatten a Lark "post" content (array of paragraphs, each an array of
+// segments) into plain text. @mentions resolve to the display name (never
+// the user id); links keep their label; images/other tags are skipped.
+function flattenPostContent(content: unknown): string {
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((para) =>
+      (Array.isArray(para) ? (para as LarkSeg[]) : [])
+        .map((seg) => {
+          if (!seg || typeof seg !== "object") return "";
+          switch (seg.tag) {
+            case "text":
+            case "a":
+              return typeof seg.text === "string" ? seg.text : "";
+            case "at":
+              return typeof seg.user_name === "string" && seg.user_name ? `@${seg.user_name}` : "";
+            default:
+              return ""; // img / media / emotion / hr / ...
+          }
+        })
+        .join("")
+    )
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .join("\n");
+}
+
+// Extract human-readable text from a Lark message `content` JSON string,
+// covering BOTH the plain "text" type and the "post" (rich text) type —
+// including its localized variant ({zh_cn|en_us|...: {title, content}}).
+// Long/formatted Lark messages are "post", which has no top-level `text`,
+// so the old `parsed.text` path silently injected nothing.
+function extractLarkText(rawContent: string | undefined): string {
+  if (!rawContent) return "";
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(rawContent) as Record<string, unknown>;
+  } catch {
+    return stripMentionIds(rawContent);
+  }
+  if (!parsed || typeof parsed !== "object") return "";
+
+  // text message
+  if (typeof parsed.text === "string" && parsed.text.trim()) {
+    return stripMentionIds(parsed.text);
+  }
+
+  // post (rich text): direct {title, content} or localized {zh_cn: {...}}
+  const direct = parsed.content || parsed.title ? parsed : undefined;
+  const localized =
+    direct ??
+    (Object.values(parsed).find(
+      (v): v is Record<string, unknown> => !!v && typeof v === "object" && ("content" in v || "title" in v)
+    ) as Record<string, unknown> | undefined);
+
+  if (localized) {
+    const body = flattenPostContent(localized.content);
+    const title = typeof localized.title === "string" ? localized.title.trim() : "";
+    return stripMentionIds([title, body].filter(Boolean).join("\n"));
+  }
+  return "";
 }
 
 // Local-date YYYY-MM-DD offset by `days` from today. Used for the Lark-style
@@ -182,18 +271,28 @@ function ymdFromDate(d: Date): string {
 }
 
 const LarkQuickCreatePage = observer(() => {
-  const { t } = useTranslation();
+  const { t, changeLanguage } = useTranslation();
   const workspaceRoot = useWorkspace();
   const projectStore = useProject();
   const { data: currentUser } = useUser();
+  // The Lark webview is wrapped only by AuthenticationWrapper (not
+  // StoreWrapper), so the profile→i18n language sync that StoreWrapper does
+  // never runs here — the page would otherwise stay on the device default
+  // (usually zh) regardless of the user's language. Mirror it locally.
+  const { data: userProfile } = useUserProfile();
   // Member store -- MemberDropdown resolves names/avatars via this map.
   const memberRoot = useMember();
   const { workspaces } = workspaceRoot;
+  // pre-existing unused destructure (not introduced by this change)
+  // eslint-disable-next-line no-unused-vars
   const { joinedProjectIds, getProjectById } = projectStore;
 
   const [ready, setReady] = useState(false);
+  const [extractionEmpty, setExtractionEmpty] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
   const [diagInfo, setDiagInfo] = useState<Record<string, unknown>>({});
+  // pre-existing: `source` state is set but not read (not introduced here)
+  // eslint-disable-next-line no-unused-vars
   const [source, setSource] = useState<LarkSourceDetail | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -202,18 +301,25 @@ const LarkQuickCreatePage = observer(() => {
   // Local project list -- bypasses the store's joinedProjectIds getter which
   // requires currentWorkspace + project.member_role, both unset on this
   // standalone page. We trust whatever the project-list API returned.
-  const [projectOptions, setProjectOptions] = useState<
-    Array<{ id: string; name: string }>
-  >([]);
+  const [projectOptions, setProjectOptions] = useState<Array<{ id: string; name: string }>>([]);
   // Mirror Lark native task panel: priority + due date + assignee.
-  const [priority, setPriority] = useState<"urgent" | "high" | "medium" | "low" | "none">(
-    "none",
-  );
+  const [priority, setPriority] = useState<"urgent" | "high" | "medium" | "low" | "none">("none");
   const [targetDate, setTargetDate] = useState<string>(""); // YYYY-MM-DD or empty
   const [memberOptions, setMemberOptions] = useState<MemberOption[]>([]);
   const [assigneeId, setAssigneeId] = useState<string>("");
+  /* pre-existing unused state (not introduced by this change) */
+  /* eslint-disable no-unused-vars */
   const [assigneeQuery, setAssigneeQuery] = useState<string>("");
   const [assigneeOpen, setAssigneeOpen] = useState<boolean>(false);
+  /* eslint-enable no-unused-vars */
+
+  // Match the page language to the user's Plane profile (Bug: the Lark
+  // shortcut always rendered in the device language). Mirrors StoreWrapper.
+  useEffect(() => {
+    if (!userProfile?.language) return;
+    changeLanguage(userProfile.language as TLanguage);
+  }, [userProfile?.language, changeLanguage]);
+
   // Project-member check: warn when the chosen assignee isn't a member of
   // the chosen project (they'd be assigned an issue they can't see).
   const [projectMemberIds, setProjectMemberIds] = useState<Set<string>>(new Set());
@@ -333,22 +439,20 @@ const LarkQuickCreatePage = observer(() => {
                     | undefined;
                   const msg = r?.content?.messages?.[0];
                   if (msg?.support && msg.content) {
-                    let text = "";
-                    try {
-                      const parsed = JSON.parse(msg.content);
-                      text =
-                        (parsed?.text as string | undefined) ??
-                        (parsed?.title as string | undefined) ??
-                        "";
-                    } catch {
-                      text = msg.content;
-                    }
+                    const text = extractLarkText(msg.content);
                     setSource({
                       sender: msg.sender,
                       content: { text },
                     });
                     setTitle(deriveTitle(text));
                     setDescription(text);
+                    // No devtools inside Lark: if a (likely long/rich)
+                    // message yielded nothing, surface the raw payload so
+                    // the user can screenshot it for diagnosis.
+                    if (!text.trim()) {
+                      setExtractionEmpty(true);
+                      setDiagInfo((d) => ({ ...d, emptyExtractionContent: msg.content }));
+                    }
                   }
                   resolve();
                 },
@@ -396,25 +500,15 @@ const LarkQuickCreatePage = observer(() => {
         // see "no match" for every member.
         if (primaryWorkspace?.slug) {
           try {
-            const rawMembers = await memberRoot.workspace.fetchWorkspaceMembers(
-              primaryWorkspace.slug,
-            );
+            const rawMembers = await memberRoot.workspace.fetchWorkspaceMembers(primaryWorkspace.slug);
             const mapped: MemberOption[] = (rawMembers ?? [])
               .map((m: Record<string, unknown>) => {
-                const memberObj =
-                  (m?.member as Record<string, unknown> | undefined) ?? null;
+                const memberObj = (m?.member as Record<string, unknown> | undefined) ?? null;
                 const id = String(memberObj?.id ?? m?.member_id ?? m?.id ?? "");
                 const name = String(
-                  memberObj?.display_name ??
-                    memberObj?.first_name ??
-                    memberObj?.email ??
-                    m?.display_name ??
-                    id ??
-                    "",
+                  memberObj?.display_name ?? memberObj?.first_name ?? memberObj?.email ?? m?.display_name ?? id ?? ""
                 );
-                const avatar = String(
-                  memberObj?.avatar_url ?? memberObj?.avatar ?? m?.avatar_url ?? "",
-                );
+                const avatar = String(memberObj?.avatar_url ?? memberObj?.avatar ?? m?.avatar_url ?? "");
                 return { id, name, avatar };
               })
               .filter((x: MemberOption) => x.id && x.name);
@@ -427,9 +521,7 @@ const LarkQuickCreatePage = observer(() => {
           ...d,
           workspacesReturned: Array.isArray(ws) ? ws.length : "undefined",
           primaryWorkspaceSlug: primaryWorkspace?.slug ?? null,
-          fetchProjectsReturned: Array.isArray(fetchedProjects)
-            ? fetchedProjects.length
-            : "non-array",
+          fetchProjectsReturned: Array.isArray(fetchedProjects) ? fetchedProjects.length : "non-array",
           joinedProjectIdsAfterFetch: projectStore.joinedProjectIds.length,
           fetchError,
         }));
@@ -453,7 +545,7 @@ const LarkQuickCreatePage = observer(() => {
         setBootError(msg);
       }
     },
-    { revalidateOnFocus: false },
+    { revalidateOnFocus: false }
   );
 
   useEffect(() => {
@@ -464,9 +556,7 @@ const LarkQuickCreatePage = observer(() => {
       //   3. First project in the list (fallback)
       // Matching anywhere in the name -- not just prefix -- so "Team Inbox"
       // wins over a personal "INBOX" if both exist.
-      const teamInbox = projectOptions.find((p) =>
-        /team[\s_-]*inbox|团队[\s_-]*(inbox|收纳|收件)/i.test(p.name),
-      );
+      const teamInbox = projectOptions.find((p) => /team[\s_-]*inbox|团队[\s_-]*(inbox|收纳|收件)/i.test(p.name));
       const anyInbox = projectOptions.find((p) => /(inbox|收纳|未分类)/i.test(p.name));
       setProjectId((teamInbox ?? anyInbox ?? projectOptions[0]).id);
     }
@@ -506,8 +596,7 @@ const LarkQuickCreatePage = observer(() => {
     };
   }, [workspace?.slug, projectId]);
 
-  const assigneeIsMember =
-    !assigneeId || projectMemberIds.size === 0 || projectMemberIds.has(assigneeId);
+  const assigneeIsMember = !assigneeId || projectMemberIds.size === 0 || projectMemberIds.has(assigneeId);
 
   // Search pool for the assignee dropdown = the workspace members we already
   // fetched into local state above. Going through `memberRoot.workspace.
@@ -548,13 +637,13 @@ const LarkQuickCreatePage = observer(() => {
 
   if (bootError) {
     return (
-      <div className="p-4 text-xs">
-        <div className="mb-2 font-semibold text-red-600">
+      <div className="text-xs p-4">
+        <div className="text-red-600 mb-2 font-semibold">
           {t("lark_quick_create.sdk_init_failed")}: {bootError}
         </div>
-        <details open className="mt-3 rounded border border-custom-border-200 p-2">
-          <summary className="cursor-pointer font-medium">诊断信息 (截图发我)</summary>
-          <pre className="mt-2 overflow-auto whitespace-pre-wrap break-all text-[10px] leading-tight">
+        <details open className="border-custom-border-200 mt-3 rounded border p-2">
+          <summary className="cursor-pointer font-medium">{t("lark_quick_create.diagnostics")}</summary>
+          <pre className="mt-2 overflow-auto text-[10px] leading-tight break-all whitespace-pre-wrap">
             {JSON.stringify(diagInfo, null, 2)}
           </pre>
         </details>
@@ -575,135 +664,142 @@ const LarkQuickCreatePage = observer(() => {
   return (
     <div className="mx-auto flex h-full max-w-md flex-col">
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-4 pb-24">
-      <h1 className="mb-3 text-sm font-semibold">{t("lark_quick_create.new_task_title")}</h1>
+        <h1 className="text-sm mb-3 font-semibold">{t("lark_quick_create.new_task_title")}</h1>
 
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="text-custom-text-300">{t("lark_quick_create.field_project")}</span>
-        <select
-          className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1.5 text-sm"
-          value={projectId ?? ""}
-          onChange={(e) => setProjectId(e.target.value)}
-        >
-          {projectOptions.length === 0 ? (
-            <option value="">{t("lark_quick_create.no_projects")}</option>
-          ) : (
-            projectOptions.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))
-          )}
-        </select>
-      </label>
+        {extractionEmpty && (
+          <div className="border-amber-300 bg-amber-50 text-amber-800 mb-1 rounded border p-2 text-[11px]">
+            <div className="font-medium">{t("lark_quick_create.extraction_failed_hint")}</div>
+            <details className="mt-1">
+              <summary className="cursor-pointer">{t("lark_quick_create.diagnostics")}</summary>
+              <pre className="mt-1 max-h-40 overflow-auto text-[10px] leading-tight break-all whitespace-pre-wrap">
+                {String(diagInfo.emptyExtractionContent ?? "")}
+              </pre>
+            </details>
+          </div>
+        )}
 
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="text-custom-text-300">{t("lark_quick_create.field_title")}</span>
-        <input
-          type="text"
-          maxLength={TITLE_MAX}
-          className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1.5 text-sm"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder={t("lark_quick_create.placeholder_title")}
-        />
-      </label>
+        <label className="text-xs flex flex-col gap-1">
+          <span className="text-custom-text-300">{t("lark_quick_create.field_project")}</span>
+          <select
+            className="border-custom-border-200 bg-custom-background-100 text-sm rounded border px-2 py-1.5"
+            value={projectId ?? ""}
+            onChange={(e) => setProjectId(e.target.value)}
+          >
+            {projectOptions.length === 0 ? (
+              <option value="">{t("lark_quick_create.no_projects")}</option>
+            ) : (
+              projectOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))
+            )}
+          </select>
+        </label>
 
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="text-custom-text-300">{t("lark_quick_create.field_description")}</span>
-        <textarea
-          rows={4}
-          className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1.5 text-sm"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder={t("lark_quick_create.placeholder_description")}
-        />
-      </label>
-
-      {/* Due date — label on left, quick buttons + calendar picker on right */}
-      <div className="flex items-start gap-3 text-xs">
-        <span className="w-16 shrink-0 pt-1 text-custom-text-300">{t("lark_quick_create.field_due_date")}</span>
-        <div className="flex flex-1 flex-wrap items-center gap-2">
-          {[
-            { label: t("lark_quick_create.due_today"), value: ymd(0) },
-            { label: t("lark_quick_create.due_tomorrow"), value: ymd(1) },
-            { label: t("lark_quick_create.due_day_after"), value: ymd(2) },
-            { label: t("lark_quick_create.due_one_week"), value: ymd(7) },
-          ].map((opt) => (
-            <button
-              key={opt.label}
-              type="button"
-              onClick={() => setTargetDate(opt.value === targetDate ? "" : opt.value)}
-              className={`rounded border-2 bg-white px-2 py-1 text-xs ${
-                targetDate === opt.value
-                  ? "border-custom-primary-100 text-custom-primary-100"
-                  : "border-custom-border-200"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-          <DateDropdown
-            value={targetDate ? new Date(targetDate) : null}
-            onChange={(d) => setTargetDate(d ? ymdFromDate(d) : "")}
-            buttonVariant="border-with-text"
-            placeholder={t("lark_quick_create.field_due_date")}
-            buttonClassName="border-2 bg-white"
+        <label className="text-xs flex flex-col gap-1">
+          <span className="text-custom-text-300">{t("lark_quick_create.field_title")}</span>
+          <input
+            type="text"
+            maxLength={TITLE_MAX}
+            className="border-custom-border-200 bg-custom-background-100 text-sm rounded border px-2 py-1.5"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={t("lark_quick_create.placeholder_title")}
           />
-          {targetDate ? (
-            <button
-              type="button"
-              onClick={() => setTargetDate("")}
-              className="text-xs text-custom-text-400 underline"
-            >
-              {t("lark_quick_create.clear")}
-            </button>
-          ) : null}
-        </div>
-      </div>
+        </label>
 
-      {/* Label-on-left, control-on-right rows. Labels share a fixed width
-          so the controls line up visually. */}
-      <div className="flex items-center gap-3 text-xs">
-        <span className="w-16 shrink-0 text-custom-text-300">{t("lark_quick_create.field_priority")}</span>
-        <PriorityDropdown
-          value={priority as TIssuePriorities}
-          onChange={(p) => setPriority(p as typeof priority)}
-          buttonVariant="border-with-text"
-          buttonClassName="border-2 bg-white"
-        />
-      </div>
+        <label className="text-xs flex flex-col gap-1">
+          <span className="text-custom-text-300">{t("lark_quick_create.field_description")}</span>
+          <textarea
+            rows={4}
+            className="border-custom-border-200 bg-custom-background-100 text-sm rounded border px-2 py-1.5"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={t("lark_quick_create.placeholder_description")}
+          />
+        </label>
 
-      <div className="flex flex-col gap-1 text-xs">
-        <div className="flex items-center gap-3">
-          <span className="w-16 shrink-0 text-custom-text-300">{t("lark_quick_create.field_assignee")}</span>
-          {projectId ? (
-            <MemberDropdown
-              memberIds={workspaceMemberIds}
-              value={assigneeId ? [assigneeId] : []}
-              onChange={(ids: string[]) => setAssigneeId(ids[0] ?? "")}
+        {/* Due date — label on left, quick buttons + calendar picker on right */}
+        <div className="text-xs flex items-start gap-3">
+          <span className="text-custom-text-300 w-16 shrink-0 pt-1">{t("lark_quick_create.field_due_date")}</span>
+          <div className="flex flex-1 flex-wrap items-center gap-2">
+            {[
+              { label: t("lark_quick_create.due_today"), value: ymd(0) },
+              { label: t("lark_quick_create.due_tomorrow"), value: ymd(1) },
+              { label: t("lark_quick_create.due_day_after"), value: ymd(2) },
+              { label: t("lark_quick_create.due_one_week"), value: ymd(7) },
+            ].map((opt) => (
+              <button
+                key={opt.label}
+                type="button"
+                onClick={() => setTargetDate(opt.value === targetDate ? "" : opt.value)}
+                className={`text-xs rounded border-2 bg-white px-2 py-1 ${
+                  targetDate === opt.value
+                    ? "border-custom-primary-100 text-custom-primary-100"
+                    : "border-custom-border-200"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+            <DateDropdown
+              value={targetDate ? new Date(targetDate) : null}
+              onChange={(d) => setTargetDate(d ? ymdFromDate(d) : "")}
               buttonVariant="border-with-text"
-              placeholder={t("lark_quick_create.field_assignee")}
-              multiple={false}
+              placeholder={t("lark_quick_create.field_due_date")}
               buttonClassName="border-2 bg-white"
             />
+            {targetDate ? (
+              <button
+                type="button"
+                onClick={() => setTargetDate("")}
+                className="text-xs text-custom-text-400 underline"
+              >
+                {t("lark_quick_create.clear")}
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Label-on-left, control-on-right rows. Labels share a fixed width
+          so the controls line up visually. */}
+        <div className="text-xs flex items-center gap-3">
+          <span className="text-custom-text-300 w-16 shrink-0">{t("lark_quick_create.field_priority")}</span>
+          <PriorityDropdown
+            value={priority as TIssuePriorities}
+            onChange={(p) => setPriority(p as typeof priority)}
+            buttonVariant="border-with-text"
+            buttonClassName="border-2 bg-white"
+          />
+        </div>
+
+        <div className="text-xs flex flex-col gap-1">
+          <div className="flex items-center gap-3">
+            <span className="text-custom-text-300 w-16 shrink-0">{t("lark_quick_create.field_assignee")}</span>
+            {projectId ? (
+              <MemberDropdown
+                memberIds={workspaceMemberIds}
+                value={assigneeId ? [assigneeId] : []}
+                onChange={(ids: string[]) => setAssigneeId(ids[0] ?? "")}
+                buttonVariant="border-with-text"
+                placeholder={t("lark_quick_create.field_assignee")}
+                multiple={false}
+                buttonClassName="border-2 bg-white"
+              />
+            ) : null}
+          </div>
+          {!assigneeIsMember ? (
+            <span className="text-amber-600 pl-[4.75rem] text-[11px]">
+              {t("lark_quick_create.warning_assignee_not_member")}
+            </span>
           ) : null}
         </div>
-        {!assigneeIsMember ? (
-          <span className="pl-[4.75rem] text-[11px] text-amber-600">
-            {t("lark_quick_create.warning_assignee_not_member")}
-          </span>
-        ) : null}
-      </div>
-
       </div>
 
       {/* Sticky footer so Create/Cancel stay visible even when content overflows. */}
-      <div className="sticky bottom-0 flex gap-2 border-t border-custom-border-200 bg-custom-background-100 p-3">
-        <Button
-          variant="primary"
-          onClick={handleSubmit}
-          disabled={submitting || !title.trim() || !projectId}
-        >
+      <div className="border-custom-border-200 bg-custom-background-100 sticky bottom-0 flex gap-2 border-t p-3">
+        <Button variant="primary" onClick={handleSubmit} disabled={submitting || !title.trim() || !projectId}>
           {submitting ? t("lark_quick_create.creating") : t("lark_quick_create.create_task")}
         </Button>
         <Button variant="neutral-primary" onClick={() => window.tt?.closeWindow?.()}>

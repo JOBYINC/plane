@@ -16,4 +16,6 @@ export default function LarkQuickCreateLayout() {
   );
 }
 
-export const meta: Route.MetaFunction = () => [{ title: "Tick · 任务管理" }];
+// Brand-only (language-neutral): a router MetaFunction runs outside the
+// React/i18n context, so we avoid a hardcoded localized word here.
+export const meta: Route.MetaFunction = () => [{ title: "Tick" }];
