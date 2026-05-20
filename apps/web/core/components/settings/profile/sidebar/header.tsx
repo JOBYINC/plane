@@ -9,7 +9,7 @@ import { observer } from "mobx-react";
 import { Avatar } from "@plane/ui";
 // hooks
 import { useUser } from "@/hooks/store/user";
-import { getFileURL } from "@plane/utils";
+import { getDisplayableUserEmail, getFileURL } from "@plane/utils";
 
 export const ProfileSettingsSidebarHeader = observer(function ProfileSettingsSidebarHeader() {
   // store hooks
@@ -30,7 +30,9 @@ export const ProfileSettingsSidebarHeader = observer(function ProfileSettingsSid
         <p className="truncate text-body-sm-medium">
           {currentUser?.first_name} {currentUser?.last_name}
         </p>
-        <p className="truncate text-caption-md-regular">{currentUser?.email}</p>
+        {getDisplayableUserEmail(currentUser?.email) && (
+          <p className="truncate text-caption-md-regular">{getDisplayableUserEmail(currentUser?.email)}</p>
+        )}
       </div>
     </div>
   );
