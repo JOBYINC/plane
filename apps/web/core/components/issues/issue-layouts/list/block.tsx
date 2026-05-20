@@ -225,15 +225,20 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
       >
         <div
           className={cn(
-            // min-w-0 is load-bearing: a grid item's default min-width is
-            // min-content, so a long task name + identifier + badges would
-            // force the title track wider than `minmax(320px, 1fr)` and push
-            // every column right — visibly out of alignment with the sticky
-            // header above, which lives in a separate grid container with no
-            // such content pressure. Adding min-w-0 lets this cell shrink
-            // below content size so the track stays at its declared minmax
-            // and the inner `truncate` (on the name <p>) actually engages.
-            "flex w-full min-w-0 gap-2 truncate",
+            // The body's row Row is inside a `w-max min-w-full` wrapper
+            // (blocks-list.tsx), so CSS Grid sizes the title track by its
+            // items' MAX-content — a long task name pushes the track far
+            // wider than the declared `minmax(320px, 1fr)`, and the sticky
+            // header (independent grid, short content) doesn't follow.
+            // Result: every column shifts right relative to its header.
+            //
+            // `min-w-0` alone only relaxes min-content; max-content still
+            // drives the track in this layout. `contain: inline-size`
+            // decouples this cell's inline size from its descendants —
+            // the cell contributes 0 to the track's max-content, the
+            // track stays at its declared min (320px), and the inner
+            // `truncate` on the name <p> finally engages.
+            "flex w-full min-w-0 gap-2 truncate [contain:inline-size]",
             // Frozen first column (desktop grid only — mobile stays the stacked
             // layout, untouched). Opaque bg so scrolled columns are hidden; z-[1]
             // sits above normal cells but below the sticky-top group header
