@@ -225,7 +225,15 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
       >
         <div
           className={cn(
-            "flex w-full gap-2 truncate",
+            // min-w-0 is load-bearing: a grid item's default min-width is
+            // min-content, so a long task name + identifier + badges would
+            // force the title track wider than `minmax(320px, 1fr)` and push
+            // every column right — visibly out of alignment with the sticky
+            // header above, which lives in a separate grid container with no
+            // such content pressure. Adding min-w-0 lets this cell shrink
+            // below content size so the track stays at its declared minmax
+            // and the inner `truncate` (on the name <p>) actually engages.
+            "flex w-full min-w-0 gap-2 truncate",
             // Frozen first column (desktop grid only — mobile stays the stacked
             // layout, untouched). Opaque bg so scrolled columns are hidden; z-[1]
             // sits above normal cells but below the sticky-top group header
@@ -249,7 +257,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
                 )
           )}
         >
-          <div className="flex flex-grow items-center gap-0.5 truncate">
+          <div className="flex min-w-0 flex-grow items-center gap-0.5 truncate">
             <div className="flex items-center gap-1" style={isSubIssue ? { marginLeft } : {}}>
               {/* select checkbox */}
               {projectId && canSelectIssues && !isEpic && (
@@ -323,7 +331,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               disabled={isCurrentBlockDragging}
               renderByDefault={false}
             >
-              <p className="cursor-pointer truncate text-body-xs-medium text-primary">{issue.name}</p>
+              <p className="min-w-0 cursor-pointer truncate text-body-xs-medium text-primary">{issue.name}</p>
             </Tooltip>
             {isEpic && displayProperties && (
               <WithDisplayPropertiesHOC
