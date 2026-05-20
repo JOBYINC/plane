@@ -190,9 +190,20 @@ class PersonalTaskAPIEndpoint(BaseAPIView):
         serializer.save()
         issue = Issue.objects.get(pk=serializer.data["id"])
 
+        # `create_issue_activity` (issue_activities_task.py) gates the
+        # assignee tracking branch on `requested_data["assignee_ids"]`
+        # being present, but the API IssueSerializer uses `assignees` as
+        # its write key. Without this alias the assignee IssueActivity
+        # row is never written, so `dispatch_lark_for_activities` has
+        # nothing to fan out and Lark DMs never fire for assignees on
+        # personal-task creation.
+        activity_payload = dict(payload)
+        if "assignees" in activity_payload and "assignee_ids" not in activity_payload:
+            activity_payload["assignee_ids"] = activity_payload["assignees"]
+
         issue_activity.delay(
             type="issue.activity.created",
-            requested_data=json.dumps(payload, cls=DjangoJSONEncoder),
+            requested_data=json.dumps(activity_payload, cls=DjangoJSONEncoder),
             actor_id=str(request.user.id),
             issue_id=str(issue.id),
             project_id=str(project.id),
