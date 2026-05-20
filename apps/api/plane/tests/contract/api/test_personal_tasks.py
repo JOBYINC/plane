@@ -5,6 +5,7 @@
 """Contract tests for the personal-tasks token endpoint
 (``/api/v1/workspaces/{slug}/personal-tasks/``)."""
 
+import json
 import uuid
 
 import pytest
@@ -396,6 +397,40 @@ class TestPersonalTasksWebhookFanOut:
         # task can diff old vs new and emit per-field updated events.
         assert kwargs["current_instance"] is not None
         assert kwargs["slug"] == workspace_with_owner.slug
+
+    @pytest.mark.django_db
+    def test_post_requested_data_includes_assignee_ids_for_lark_gate(
+        self, system_api_client, workspace_with_owner, owner_user, mocker
+    ):
+        """The real Lark fan-out path: ``create_issue_activity``
+        (issue_activities_task.py:581) only calls ``track_assignees``
+        when ``requested_data.get('assignee_ids') is not None``. Our
+        API serializer uses the ``assignees`` key, so the issue_activity
+        payload MUST mirror it under ``assignee_ids`` or the assignee
+        IssueActivity row is never emitted and dispatch_lark_for_activities
+        sees nothing to DM.
+        """
+        spy = mocker.patch("plane.api.views.personal_task.issue_activity.delay")
+        response = system_api_client.post(
+            _personal_tasks_url(workspace_with_owner.slug),
+            data={
+                "owner": str(owner_user.id),
+                "name": "Notify me on Lark",
+                "external_source": "task-manager-v1",
+                "external_id": "lark-gate-1",
+            },
+            format="json",
+            HTTP_HOST="task.example.com",
+        )
+        assert response.status_code == status.HTTP_201_CREATED, response.content
+        assert spy.called, "issue_activity.delay was not invoked"
+        requested_data = json.loads(spy.call_args.kwargs["requested_data"])
+        assert "assignee_ids" in requested_data, (
+            "issue_activity.requested_data is missing 'assignee_ids' — "
+            "create_issue_activity will skip track_assignees and no Lark "
+            "DM will fire."
+        )
+        assert requested_data["assignee_ids"] == [str(owner_user.id)]
 
     @pytest.mark.django_db
     def test_idempotent_409_reuse_does_not_trigger_model_activity(
