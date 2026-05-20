@@ -20,6 +20,7 @@ from plane.api.views.base import BaseAPIView
 from plane.app.permissions import IsSystemToken
 from plane.app.services.personal_project import get_or_create_personal_project
 from plane.bgtasks.issue_activities_task import issue_activity
+from plane.bgtasks.webhook_task import model_activity
 from plane.db.models import Issue, User, Workspace, WorkspaceMember
 from plane.utils.host import base_host
 
@@ -199,6 +200,20 @@ class PersonalTaskAPIEndpoint(BaseAPIView):
             epoch=int(timezone.now().timestamp()),
         )
 
+        # Fan out to webhook subscribers (Lark bot DMs assignees from
+        # this event). The standard IssueListCreateAPIEndpoint fires the
+        # same task; omitting it here silently dropped Lark notifications
+        # for system-token tasks.
+        model_activity.delay(
+            model_name="issue",
+            model_id=str(issue.id),
+            requested_data=payload,
+            current_instance=None,
+            actor_id=request.user.id,
+            slug=slug,
+            origin=base_host(request=request, is_app=True),
+        )
+
         return Response(
             self._build_response_body(slug, project, issue),
             status=status.HTTP_201_CREATED,
@@ -259,11 +274,24 @@ class PersonalTaskAPIEndpoint(BaseAPIView):
             for k, v in request.data.items()
             if k not in {"owner", "project", "workspace"}
         }
+        # Snapshot BEFORE save so model_activity can diff old vs new and
+        # emit per-field webhook_activity events to Lark/other subscribers.
+        current_instance = json.dumps(IssueSerializer(issue).data, cls=DjangoJSONEncoder)
         serializer = IssueSerializer(issue, data=payload, partial=True)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         serializer.save()
         issue.refresh_from_db()
+
+        model_activity.delay(
+            model_name="issue",
+            model_id=str(issue.id),
+            requested_data=payload,
+            current_instance=current_instance,
+            actor_id=request.user.id,
+            slug=slug,
+            origin=base_host(request=request, is_app=True),
+        )
 
         return Response(
             self._build_response_body(slug, issue.project, issue),
