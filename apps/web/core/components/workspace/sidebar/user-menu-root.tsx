@@ -13,7 +13,7 @@ import { GOD_MODE_URL } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import { Avatar, CustomMenu } from "@plane/ui";
-import { getFileURL } from "@plane/utils";
+import { getDisplayableUserEmail, getFileURL } from "@plane/utils";
 // components
 import { CoverImage } from "@/components/common/cover-image";
 import { AppSidebarItem } from "@/components/sidebar/sidebar-item";
@@ -102,7 +102,9 @@ export const UserMenuRoot = observer(function UserMenuRoot() {
               <p className="text-body-sm-medium">
                 {currentUser?.first_name} {currentUser?.last_name}
               </p>
-              <p className="text-caption-md-regular">{currentUser?.email}</p>
+              {getDisplayableUserEmail(currentUser?.email) && (
+                <p className="text-caption-md-regular">{getDisplayableUserEmail(currentUser?.email)}</p>
+              )}
             </div>
           </div>
         </div>

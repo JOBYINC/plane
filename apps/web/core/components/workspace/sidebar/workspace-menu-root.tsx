@@ -17,7 +17,7 @@ import { ChevronDownIcon } from "@plane/propel/icons";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { IWorkspace } from "@plane/types";
 import { Loader } from "@plane/ui";
-import { orderWorkspacesList, cn } from "@plane/utils";
+import { getDisplayableUserEmail, orderWorkspacesList, cn } from "@plane/utils";
 // helpers
 import { AppSidebarItem } from "@/components/sidebar/sidebar-item";
 // hooks
@@ -155,9 +155,11 @@ export const WorkspaceMenuRoot = observer(function WorkspaceMenuRoot(props: Work
                   )}
                 >
                   <div className="vertical-scrollbar flex scrollbar-sm max-h-96 flex-col items-start justify-start overflow-x-hidden overflow-y-scroll">
-                    <span className="sticky top-0 z-21 h-full w-full flex-shrink-0 truncate rounded-md bg-surface-1 px-4 pt-3 pb-1 text-left text-13 font-medium text-placeholder">
-                      {currentUser?.email}
-                    </span>
+                    {getDisplayableUserEmail(currentUser?.email) && (
+                      <span className="sticky top-0 z-21 h-full w-full flex-shrink-0 truncate rounded-md bg-surface-1 px-4 pt-3 pb-1 text-left text-13 font-medium text-placeholder">
+                        {getDisplayableUserEmail(currentUser?.email)}
+                      </span>
+                    )}
                     {workspacesList ? (
                       <div className="flex size-full flex-col items-start justify-start">
                         {(activeWorkspace

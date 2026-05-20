@@ -8,7 +8,7 @@ import { useState } from "react";
 import { observer } from "mobx-react";
 import { Menu, Transition } from "@headlessui/react";
 // ui
-import { cn, getFileURL } from "@plane/utils";
+import { cn, getDisplayableUserEmail, getFileURL } from "@plane/utils";
 // helpers
 // hooks
 import { useUser } from "@/hooks/store/user";
@@ -26,11 +26,13 @@ export const SwitchAccountDropdown = observer(function SwitchAccountDropdown(pro
   // store hooks
   const { data: user } = useUser();
 
+  // Same rule as onboarding/header.tsx: a synthetic Lark email is an
+  // internal identifier, never a label to render to the user.
   const displayName = user?.first_name
     ? `${user?.first_name} ${user?.last_name ?? ""}`
     : fullName && fullName.trim().length > 0
       ? fullName
-      : user?.email;
+      : getDisplayableUserEmail(user?.email);
 
   if (!displayName && !fullName) return null;
 
