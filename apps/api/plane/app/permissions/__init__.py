@@ -19,3 +19,4 @@ from .project import (
 )
 from .base import allow_permission, ROLE
 from .page import ProjectPagePermission
+from .system_token import IsSystemToken

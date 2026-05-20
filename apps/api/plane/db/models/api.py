@@ -65,6 +65,10 @@ class APIActivityLog(BaseModel):
     # Meta information
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.CharField(max_length=512, null=True, blank=True)
+    # Target user UUID when a system-tier token acts on behalf of someone
+    # other than the token's own user (e.g. creating a work item in another
+    # member's personal "My Tasks" project). Null for ordinary calls.
+    acting_on_behalf_of = models.UUIDField(null=True, blank=True, db_index=True)
 
     class Meta:
         verbose_name = "API Activity Log"
