@@ -363,7 +363,7 @@ class UserSessionEndpoint(BaseAPIView):
 
 class UpdateUserOnBoardedEndpoint(BaseAPIView):
     def patch(self, request):
-        profile = Profile.objects.get(user_id=request.user.id)
+        profile, _ = Profile.objects.get_or_create(user_id=request.user.id)
         profile.is_onboarded = request.data.get("is_onboarded", False)
         profile.save()
         return Response({"message": "Updated successfully"}, status=status.HTTP_200_OK)
@@ -371,7 +371,7 @@ class UpdateUserOnBoardedEndpoint(BaseAPIView):
 
 class UpdateUserTourCompletedEndpoint(BaseAPIView):
     def patch(self, request):
-        profile = Profile.objects.get(user_id=request.user.id)
+        profile, _ = Profile.objects.get_or_create(user_id=request.user.id)
         profile.is_tour_completed = request.data.get("is_tour_completed", False)
         profile.save()
         return Response({"message": "Updated successfully"}, status=status.HTTP_200_OK)
@@ -412,12 +412,18 @@ class ProfileEndpoint(BaseAPIView):
     @method_decorator(cache_control(private=True, max_age=12))
     @method_decorator(vary_on_cookie)
     def get(self, request):
-        profile = Profile.objects.get(user=request.user)
+        # get_or_create (not get) so any User row that bypassed the OAuth
+        # signup Profile-create path (e.g. directory-sourced via
+        # lark_sync_task) self-heals on first read. Without this fallback
+        # the web bootstrap 404s and the user can never load past login —
+        # which is exactly what hit 447 Lark-synced users until we shipped
+        # the lark_sync_task fix in this same PR.
+        profile, _ = Profile.objects.get_or_create(user=request.user)
         serializer = ProfileSerializer(profile)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def patch(self, request):
-        profile = Profile.objects.get(user=request.user)
+        profile, _ = Profile.objects.get_or_create(user=request.user)
         serializer = ProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
