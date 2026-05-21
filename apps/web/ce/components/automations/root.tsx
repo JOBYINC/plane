@@ -104,16 +104,14 @@ const STATE_GROUPS: { value: string; tKey: string }[] = [
 // Top-level root: switches between list and form views.
 // ===========================================================================
 
-export const CustomAutomationsRoot = observer(function CustomAutomationsRoot(
-  props: TCustomAutomationsRootProps,
-) {
+export const CustomAutomationsRoot = observer(function CustomAutomationsRoot(props: TCustomAutomationsRootProps) {
   const { workspaceSlug, projectId } = props;
   const { t } = useTranslation();
   const [view, setView] = useState<ViewMode>({ mode: "list" });
 
   const { data: rules, isLoading } = useSWR(
     workspaceSlug && projectId ? `automation-rules:${workspaceSlug}:${projectId}` : null,
-    () => automationService.list(workspaceSlug, projectId),
+    () => automationService.list(workspaceSlug, projectId)
   );
 
   if (view.mode === "edit") {
@@ -132,14 +130,14 @@ export const CustomAutomationsRoot = observer(function CustomAutomationsRoot(
   }
 
   return (
-    <section className="mt-10 border-t border-custom-border-100 pt-6">
+    <section className="border-custom-border-100 mt-10 border-t pt-6">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h3 className="flex items-center gap-2 text-base font-semibold">
-            <Zap className="h-4 w-4 text-custom-primary-100" />
+          <h3 className="text-base flex items-center gap-2 font-semibold">
+            <Zap className="text-custom-primary-100 h-4 w-4" />
             {t("automation.heading")}
           </h3>
-          <p className="mt-1 text-xs text-custom-text-300">{t("automation.description")}</p>
+          <p className="text-xs text-custom-text-300 mt-1">{t("automation.description")}</p>
         </div>
         <Button variant="primary" size="sm" onClick={() => setView({ mode: "edit", rule: null })}>
           <Plus className="h-3.5 w-3.5" /> {t("automation.new_rule")}
@@ -152,7 +150,7 @@ export const CustomAutomationsRoot = observer(function CustomAutomationsRoot(
           <Loader.Item height="48px" width="100%" />
         </Loader>
       ) : !rules || rules.length === 0 ? (
-        <div className="rounded border border-dashed border-custom-border-200 px-4 py-8 text-center text-xs text-custom-text-300">
+        <div className="border-custom-border-200 text-xs text-custom-text-300 rounded border border-dashed px-4 py-8 text-center">
           {t("automation.empty_state")}
         </div>
       ) : (
@@ -205,8 +203,8 @@ const RulesList = observer(function RulesList(props: {
   };
 
   return (
-    <div className="overflow-hidden rounded border border-custom-border-200">
-      <table className="w-full text-xs">
+    <div className="border-custom-border-200 overflow-hidden rounded border">
+      <table className="text-xs w-full">
         <thead className="bg-custom-background-90 text-custom-text-300">
           <tr>
             <th className="px-3 py-2 text-left font-medium">{t("automation.col_name")}</th>
@@ -219,33 +217,31 @@ const RulesList = observer(function RulesList(props: {
         </thead>
         <tbody>
           {rules.map((rule) => (
-            <tr key={rule.id} className="border-t border-custom-border-100">
+            <tr key={rule.id} className="border-custom-border-100 border-t">
               <td className="px-3 py-2">
                 <div className="font-medium">{rule.name}</div>
-                {rule.description ? (
-                  <div className="text-[11px] text-custom-text-300">{rule.description}</div>
-                ) : null}
+                {rule.description ? <div className="text-custom-text-300 text-[11px]">{rule.description}</div> : null}
               </td>
               <td className="px-3 py-2">{t(`automation.trigger.${rule.trigger_type}`)}</td>
-              <td className="px-3 py-2 text-custom-text-300">
+              <td className="text-custom-text-300 px-3 py-2">
                 {rule.actions.length}× {rule.actions.length > 0 ? t(`automation.action.${rule.actions[0].type}`) : "—"}
                 {rule.actions.length > 1 ? ", ..." : ""}
               </td>
-              <td className="px-3 py-2 text-custom-text-300">{rule.fire_count}</td>
+              <td className="text-custom-text-300 px-3 py-2">{rule.fire_count}</td>
               <td className="px-3 py-2">
                 <button
                   type="button"
                   onClick={() => handleToggle(rule)}
-                  className="inline-flex items-center gap-1 text-custom-text-200 hover:text-custom-text-100"
+                  className="text-custom-text-200 hover:text-custom-text-100 inline-flex items-center gap-1"
                 >
                   {rule.is_active ? (
                     <>
-                      <ToggleRight className="h-4 w-4 text-emerald-500" />
+                      <ToggleRight className="text-emerald-500 h-4 w-4" />
                       {t("automation.active")}
                     </>
                   ) : (
                     <>
-                      <ToggleLeft className="h-4 w-4 text-custom-text-300" />
+                      <ToggleLeft className="text-custom-text-300 h-4 w-4" />
                       {t("automation.inactive")}
                     </>
                   )}
@@ -256,14 +252,14 @@ const RulesList = observer(function RulesList(props: {
                   <button
                     type="button"
                     onClick={() => onEdit(rule)}
-                    className="rounded p-1 text-custom-text-300 hover:bg-custom-background-90 hover:text-custom-text-100"
+                    className="text-custom-text-300 hover:bg-custom-background-90 hover:text-custom-text-100 rounded p-1"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDelete(rule)}
-                    className="rounded p-1 text-custom-text-300 hover:bg-custom-background-90 hover:text-red-500"
+                    className="text-custom-text-300 hover:bg-custom-background-90 hover:text-red-500 rounded p-1"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -295,12 +291,8 @@ const RuleForm = observer(function RuleForm(props: RuleFormProps) {
 
   const [name, setName] = useState(rule?.name ?? "");
   const [description, setDescription] = useState(rule?.description ?? "");
-  const [triggerType, setTriggerType] = useState<AutomationTriggerType>(
-    rule?.trigger_type ?? "state_changed",
-  );
-  const [triggerConfig, setTriggerConfig] = useState<Record<string, unknown>>(
-    rule?.trigger_config ?? {},
-  );
+  const [triggerType, setTriggerType] = useState<AutomationTriggerType>(rule?.trigger_type ?? "state_changed");
+  const [triggerConfig, setTriggerConfig] = useState<Record<string, unknown>>(rule?.trigger_config ?? {});
   const [conditions, setConditions] = useState<AutomationCondition[]>(rule?.conditions ?? []);
   const [actions, setActions] = useState<AutomationAction[]>(rule?.actions ?? []);
   const [isActive, setIsActive] = useState(rule?.is_active ?? true);
@@ -342,22 +334,18 @@ const RuleForm = observer(function RuleForm(props: RuleFormProps) {
   };
 
   return (
-    <section className="mt-10 border-t border-custom-border-100 pt-6">
+    <section className="border-custom-border-100 mt-10 border-t pt-6">
       <div className="mb-4 flex items-center justify-between">
         <button
           type="button"
           onClick={onClose}
-          className="flex items-center gap-1 text-xs text-custom-text-300 hover:text-custom-text-100"
+          className="text-xs text-custom-text-300 hover:text-custom-text-100 flex items-center gap-1"
         >
           <ChevronLeft className="h-3.5 w-3.5" /> {t("automation.back_to_list")}
         </button>
         <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1 text-xs text-custom-text-300">
-            <input
-              type="checkbox"
-              checked={isActive}
-              onChange={(e) => setIsActive(e.target.checked)}
-            />
+          <label className="text-xs text-custom-text-300 flex items-center gap-1">
+            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
             {t("automation.is_active")}
           </label>
           <Button variant="primary" size="sm" onClick={handleSave} disabled={saving}>
@@ -368,28 +356,24 @@ const RuleForm = observer(function RuleForm(props: RuleFormProps) {
 
       <div className="space-y-6">
         <div className="space-y-2">
-          <label className="block text-xs font-medium text-custom-text-200">
-            {t("automation.field_name")}
-          </label>
+          <label className="text-xs text-custom-text-200 block font-medium">{t("automation.field_name")}</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t("automation.field_name_placeholder")}
-            className="w-full rounded border border-custom-border-200 bg-custom-background-100 px-3 py-2 text-sm"
+            className="border-custom-border-200 bg-custom-background-100 text-sm w-full rounded border px-3 py-2"
           />
         </div>
 
         <div className="space-y-2">
-          <label className="block text-xs font-medium text-custom-text-200">
-            {t("automation.field_description")}
-          </label>
+          <label className="text-xs text-custom-text-200 block font-medium">{t("automation.field_description")}</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
             placeholder={t("automation.field_description_placeholder")}
-            className="w-full rounded border border-custom-border-200 bg-custom-background-100 px-3 py-2 text-sm"
+            className="border-custom-border-200 bg-custom-background-100 text-sm w-full rounded border px-3 py-2"
           />
         </div>
 
@@ -403,17 +387,9 @@ const RuleForm = observer(function RuleForm(props: RuleFormProps) {
           onConfigChange={setTriggerConfig}
         />
 
-        <ConditionsSection
-          projectId={projectId}
-          conditions={conditions}
-          onChange={setConditions}
-        />
+        <ConditionsSection projectId={projectId} conditions={conditions} onChange={setConditions} />
 
-        <ActionsSection
-          projectId={projectId}
-          actions={actions}
-          onChange={setActions}
-        />
+        <ActionsSection projectId={projectId} actions={actions} onChange={setActions} />
       </div>
     </section>
   );
@@ -433,14 +409,14 @@ function TriggerSection(props: {
   const { t } = useTranslation();
 
   return (
-    <div className="rounded border-2 border-custom-primary-100/40 bg-custom-primary-100/5 p-4">
-      <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-custom-primary-100">
+    <div className="border-custom-primary-100/40 bg-custom-primary-100/5 rounded border-2 p-4">
+      <div className="text-xs tracking-wider text-custom-primary-100 mb-2 flex items-center gap-2 font-medium uppercase">
         <Zap className="h-3 w-3" /> {t("automation.section_when")}
       </div>
       <select
         value={triggerType}
         onChange={(e) => onTriggerChange(e.target.value as AutomationTriggerType)}
-        className="w-full rounded border border-custom-border-200 bg-custom-background-100 px-3 py-2 text-sm"
+        className="border-custom-border-200 bg-custom-background-100 text-sm w-full rounded border px-3 py-2"
       >
         {TRIGGER_TYPES.map((tr) => (
           <option key={tr.value} value={tr.value}>
@@ -450,7 +426,7 @@ function TriggerSection(props: {
       </select>
 
       {triggerType === "due_soon" ? (
-        <div className="mt-3 flex items-center gap-2 text-xs">
+        <div className="text-xs mt-3 flex items-center gap-2">
           <span className="text-custom-text-300">{t("automation.due_soon_days_before")}</span>
           <input
             type="number"
@@ -458,7 +434,7 @@ function TriggerSection(props: {
             max={365}
             value={Number(triggerConfig.days_before ?? 7)}
             onChange={(e) => onConfigChange({ ...triggerConfig, days_before: Number(e.target.value) })}
-            className="w-20 rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-sm"
+            className="border-custom-border-200 bg-custom-background-100 text-sm w-20 rounded border px-2 py-1"
           />
           <span className="text-custom-text-300">{t("automation.days")}</span>
         </div>
@@ -485,20 +461,16 @@ function ConditionsSection(props: {
   };
 
   return (
-    <div className="rounded border-2 border-amber-500/30 bg-amber-50/30 p-4 dark:bg-amber-950/10">
+    <div className="border-amber-500/30 bg-amber-50/30 dark:bg-amber-950/10 rounded border-2 p-4">
       <div className="mb-2 flex items-center justify-between">
-        <div className="text-xs font-medium uppercase tracking-wider text-amber-700 dark:text-amber-400">
+        <div className="text-xs tracking-wider text-amber-700 dark:text-amber-400 font-medium uppercase">
           {t("automation.section_and_if")}
-          <span className="ml-2 font-normal normal-case text-custom-text-300">
-            ({t("automation.conditions_hint")})
-          </span>
+          <span className="font-normal text-custom-text-300 ml-2 normal-case">({t("automation.conditions_hint")})</span>
         </div>
         <button
           type="button"
-          onClick={() =>
-            onChange([...conditions, { field: "priority", op: "eq", value: "high" }])
-          }
-          className="flex items-center gap-1 rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs hover:bg-custom-background-90"
+          onClick={() => onChange([...conditions, { field: "priority", op: "eq", value: "high" }])}
+          className="border-custom-border-200 bg-custom-background-100 text-xs hover:bg-custom-background-90 flex items-center gap-1 rounded border px-2 py-1"
         >
           <Plus className="h-3 w-3" /> {t("automation.add_condition")}
         </button>
@@ -510,6 +482,7 @@ function ConditionsSection(props: {
         <div className="space-y-2">
           {conditions.map((cond, idx) => (
             <ConditionRow
+              // eslint-disable-next-line react/no-array-index-key -- local-state list, items have no stable id; reorder is not supported in the UI
               key={idx}
               projectId={projectId}
               condition={cond}
@@ -535,13 +508,11 @@ function ConditionRow(props: {
   const projectStates = stateRoot.getProjectStates(projectId) ?? [];
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded bg-custom-background-100 px-2 py-1.5">
+    <div className="bg-custom-background-100 flex flex-wrap items-center gap-2 rounded px-2 py-1.5">
       <select
         value={condition.field}
-        onChange={(e) =>
-          onUpdate({ field: e.target.value as AutomationConditionField, value: "" })
-        }
-        className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs"
+        onChange={(e) => onUpdate({ field: e.target.value as AutomationConditionField, value: "" })}
+        className="border-custom-border-200 bg-custom-background-100 text-xs rounded border px-2 py-1"
       >
         {CONDITION_FIELDS.map((f) => (
           <option key={f.value} value={f.value}>
@@ -552,7 +523,7 @@ function ConditionRow(props: {
       <select
         value={condition.op}
         onChange={(e) => onUpdate({ op: e.target.value as AutomationConditionOp })}
-        className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs"
+        className="border-custom-border-200 bg-custom-background-100 text-xs rounded border px-2 py-1"
       >
         {CONDITION_OPS.map((o) => (
           <option key={o.value} value={o.value}>
@@ -568,11 +539,7 @@ function ConditionRow(props: {
           projectStates={projectStates}
         />
       )}
-      <button
-        type="button"
-        onClick={onRemove}
-        className="ml-auto rounded p-1 text-custom-text-300 hover:text-red-500"
-      >
+      <button type="button" onClick={onRemove} className="text-custom-text-300 hover:text-red-500 ml-auto rounded p-1">
         <Trash2 className="h-3.5 w-3.5" />
       </button>
     </div>
@@ -593,7 +560,7 @@ function ConditionValueInput(props: {
       <select
         value={String(value ?? "")}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs"
+        className="border-custom-border-200 bg-custom-background-100 text-xs rounded border px-2 py-1"
       >
         <option value="">--</option>
         {PRIORITY_VALUES.map((p) => (
@@ -609,7 +576,7 @@ function ConditionValueInput(props: {
       <select
         value={String(value ?? "")}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs"
+        className="border-custom-border-200 bg-custom-background-100 text-xs rounded border px-2 py-1"
       >
         <option value="">--</option>
         {projectStates.map((s) => (
@@ -625,7 +592,7 @@ function ConditionValueInput(props: {
       <select
         value={String(value ?? "")}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs"
+        className="border-custom-border-200 bg-custom-background-100 text-xs rounded border px-2 py-1"
       >
         <option value="">--</option>
         {STATE_GROUPS.map((g) => (
@@ -642,7 +609,7 @@ function ConditionValueInput(props: {
       value={typeof value === "string" || typeof value === "number" ? String(value) : ""}
       onChange={(e) => onChange(e.target.value)}
       placeholder={t("automation.value_placeholder")}
-      className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs"
+      className="border-custom-border-200 bg-custom-background-100 text-xs rounded border px-2 py-1"
     />
   );
 }
@@ -665,15 +632,15 @@ function ActionsSection(props: {
   };
 
   return (
-    <div className="rounded border-2 border-emerald-500/40 bg-emerald-50/30 p-4 dark:bg-emerald-950/10">
+    <div className="border-emerald-500/40 bg-emerald-50/30 dark:bg-emerald-950/10 rounded border-2 p-4">
       <div className="mb-2 flex items-center justify-between">
-        <div className="text-xs font-medium uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+        <div className="text-xs tracking-wider text-emerald-700 dark:text-emerald-400 font-medium uppercase">
           {t("automation.section_then")}
         </div>
         <button
           type="button"
           onClick={() => onChange([...actions, { type: "set_state", config: {} }])}
-          className="flex items-center gap-1 rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs hover:bg-custom-background-90"
+          className="border-custom-border-200 bg-custom-background-100 text-xs hover:bg-custom-background-90 flex items-center gap-1 rounded border px-2 py-1"
         >
           <Plus className="h-3 w-3" /> {t("automation.add_action")}
         </button>
@@ -685,6 +652,7 @@ function ActionsSection(props: {
         <div className="space-y-2">
           {actions.map((a, idx) => (
             <ActionRow
+              // eslint-disable-next-line react/no-array-index-key -- local-state list, items have no stable id; reorder is not supported in the UI
               key={idx}
               projectId={projectId}
               action={a}
@@ -709,16 +677,15 @@ function ActionRow(props: {
   const stateRoot = useProjectState();
   const memberRoot = useMember();
   const projectStates = stateRoot.getProjectStates(projectId) ?? [];
-  const projectMemberIds =
-    memberRoot.project?.getProjectMemberIds?.(projectId, false) ?? [];
+  const projectMemberIds = memberRoot.project?.getProjectMemberIds?.(projectId, false) ?? [];
 
   return (
-    <div className="rounded bg-custom-background-100 p-2">
+    <div className="bg-custom-background-100 rounded p-2">
       <div className="flex items-center gap-2">
         <select
           value={action.type}
           onChange={(e) => onUpdate({ type: e.target.value as AutomationActionType, config: {} })}
-          className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs"
+          className="border-custom-border-200 bg-custom-background-100 text-xs rounded border px-2 py-1"
         >
           {ACTION_TYPES.map((a) => (
             <option key={a.value} value={a.value}>
@@ -738,7 +705,7 @@ function ActionRow(props: {
         <button
           type="button"
           onClick={onRemove}
-          className="ml-auto rounded p-1 text-custom-text-300 hover:text-red-500"
+          className="text-custom-text-300 hover:text-red-500 ml-auto rounded p-1"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -765,7 +732,7 @@ function ActionConfigInput(props: {
         <select
           value={String((cfg as Record<string, string>).state_id ?? "")}
           onChange={(e) => onChange({ state_id: e.target.value })}
-          className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs"
+          className="border-custom-border-200 bg-custom-background-100 text-xs rounded border px-2 py-1"
         >
           <option value="">{t("automation.choose_state")}</option>
           {projectStates.map((s) => (
@@ -777,10 +744,8 @@ function ActionConfigInput(props: {
         <span className="text-xs text-custom-text-300">{t("automation.or_group")}:</span>
         <select
           value={String((cfg as Record<string, string>).state_group ?? "")}
-          onChange={(e) =>
-            onChange(e.target.value ? { state_group: e.target.value } : {})
-          }
-          className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs"
+          onChange={(e) => onChange(e.target.value ? { state_group: e.target.value } : {})}
+          className="border-custom-border-200 bg-custom-background-100 text-xs rounded border px-2 py-1"
         >
           <option value="">--</option>
           {STATE_GROUPS.map((g) => (
@@ -797,7 +762,7 @@ function ActionConfigInput(props: {
       <select
         value={String((cfg as Record<string, string>).priority ?? "")}
         onChange={(e) => onChange({ priority: e.target.value })}
-        className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs"
+        className="border-custom-border-200 bg-custom-background-100 text-xs rounded border px-2 py-1"
       >
         <option value="">--</option>
         {PRIORITY_VALUES.map((p) => (
@@ -813,7 +778,7 @@ function ActionConfigInput(props: {
       <select
         value={String((cfg as Record<string, string>).user_id ?? "")}
         onChange={(e) => onChange({ user_id: e.target.value })}
-        className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs"
+        className="border-custom-border-200 bg-custom-background-100 text-xs rounded border px-2 py-1"
       >
         <option value="">{t("automation.choose_user")}</option>
         {projectMemberIds.map((uid) => {
@@ -834,17 +799,15 @@ function ActionConfigInput(props: {
           type="date"
           value={String((cfg as Record<string, string>).target_date ?? "")}
           onChange={(e) => onChange({ target_date: e.target.value })}
-          className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs"
+          className="border-custom-border-200 bg-custom-background-100 text-xs rounded border px-2 py-1"
         />
         <span className="text-xs text-custom-text-300">{t("automation.or_days_from_now")}:</span>
         <input
           type="number"
           value={String((cfg as Record<string, number>).days_from_now ?? "")}
-          onChange={(e) =>
-            onChange(e.target.value ? { days_from_now: Number(e.target.value) } : {})
-          }
+          onChange={(e) => onChange(e.target.value ? { days_from_now: Number(e.target.value) } : {})}
           placeholder="7"
-          className="w-16 rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs"
+          className="border-custom-border-200 bg-custom-background-100 text-xs w-16 rounded border px-2 py-1"
         />
       </>
     );
@@ -856,7 +819,7 @@ function ActionConfigInput(props: {
         <select
           value={String((cfg as Record<string, string>).to ?? "assignees")}
           onChange={(e) => onChange({ ...cfg, to: e.target.value })}
-          className="rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 text-xs"
+          className="border-custom-border-200 bg-custom-background-100 text-xs rounded border px-2 py-1"
         >
           <option value="assignees">{t("automation.notify_assignees")}</option>
           <option value="creator">{t("automation.notify_creator")}</option>
@@ -876,7 +839,7 @@ function ActionConfigInput(props: {
         }
       }}
       placeholder='{"key": "value"}'
-      className="flex-1 rounded border border-custom-border-200 bg-custom-background-100 px-2 py-1 font-mono text-[11px]"
+      className="border-custom-border-200 bg-custom-background-100 font-mono flex-1 rounded border px-2 py-1 text-[11px]"
     />
   );
 }

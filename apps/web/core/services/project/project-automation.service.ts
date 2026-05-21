@@ -85,13 +85,7 @@ export interface AutomationRule {
 export type AutomationRulePayload = Partial<
   Pick<
     AutomationRule,
-    | "name"
-    | "description"
-    | "trigger_type"
-    | "trigger_config"
-    | "conditions"
-    | "actions"
-    | "is_active"
+    "name" | "description" | "trigger_type" | "trigger_config" | "conditions" | "actions" | "is_active"
   >
 >;
 
@@ -125,11 +119,7 @@ export class ProjectAutomationService extends APIService {
       });
   }
 
-  async create(
-    workspaceSlug: string,
-    projectId: string,
-    data: AutomationRulePayload,
-  ): Promise<AutomationRule> {
+  async create(workspaceSlug: string, projectId: string, data: AutomationRulePayload): Promise<AutomationRule> {
     return this.post(`/api/workspaces/${workspaceSlug}/projects/${projectId}/automation-rules/`, data)
       .then((r) => r?.data)
       .catch((e) => {
@@ -141,12 +131,9 @@ export class ProjectAutomationService extends APIService {
     workspaceSlug: string,
     projectId: string,
     ruleId: string,
-    data: AutomationRulePayload,
+    data: AutomationRulePayload
   ): Promise<AutomationRule> {
-    return this.patch(
-      `/api/workspaces/${workspaceSlug}/projects/${projectId}/automation-rules/${ruleId}/`,
-      data,
-    )
+    return this.patch(`/api/workspaces/${workspaceSlug}/projects/${projectId}/automation-rules/${ruleId}/`, data)
       .then((r) => r?.data)
       .catch((e) => {
         throw e?.response;
@@ -161,14 +148,8 @@ export class ProjectAutomationService extends APIService {
       });
   }
 
-  async listRuns(
-    workspaceSlug: string,
-    projectId: string,
-    ruleId: string,
-  ): Promise<AutomationRuleRun[]> {
-    return this.get(
-      `/api/workspaces/${workspaceSlug}/projects/${projectId}/automation-rules/${ruleId}/runs/`,
-    )
+  async listRuns(workspaceSlug: string, projectId: string, ruleId: string): Promise<AutomationRuleRun[]> {
+    return this.get(`/api/workspaces/${workspaceSlug}/projects/${projectId}/automation-rules/${ruleId}/runs/`)
       .then((r) => r?.data)
       .catch((e) => {
         throw e?.response?.data;
