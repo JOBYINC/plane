@@ -51,7 +51,6 @@ class Command(BaseCommand):
             sys.exit(1)
 
         from plane.utils.lark_bot_events import (
-            build_url_preview_card,
             lookup_issue_for_url,
         )
 

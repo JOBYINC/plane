@@ -9,7 +9,6 @@ import uuid
 
 import pytest
 from rest_framework import status
-from rest_framework.test import APIClient
 
 from plane.db.models import APIToken, Issue, User, Workspace, WorkspaceMember
 

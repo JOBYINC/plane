@@ -5,7 +5,6 @@
 """Contract tests for the assigned-work-items system-token endpoint
 (``/api/v1/workspaces/{slug}/assigned-work-items/``)."""
 
-import uuid
 
 import pytest
 from rest_framework import status
