@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Copy, FileText } from "lucide-react";
 import { Disclosure, Transition } from "@headlessui/react";
@@ -112,18 +113,30 @@ export const SidebarTemplatesList = observer(function SidebarTemplatesList() {
               return (
                 <div
                   key={projectId}
-                  className="group/template-row flex items-center gap-1.5 rounded-sm px-2 py-1.5 text-13 font-medium text-secondary hover:bg-layer-transparent-hover"
+                  className="group/template-row flex items-center gap-1.5 rounded-sm pr-1 text-13 font-medium text-secondary hover:bg-layer-transparent-hover"
                 >
-                  <FileText className="size-3.5 flex-shrink-0 text-placeholder" />
-                  <span className="flex-grow truncate" title={project.name}>
-                    {project.name}
-                  </span>
+                  {/* Template name is a real Link so click navigates into
+                      the template project (issues view) to edit. The
+                      hover-revealed clone button below sits OUTSIDE the
+                      Link so it doesn't navigate when clicked. */}
+                  <Link
+                    href={workspaceSlug ? `/${workspaceSlug}/projects/${projectId}/issues` : "#"}
+                    className="flex min-w-0 flex-grow items-center gap-1.5 truncate px-2 py-1.5"
+                    title={project.name}
+                  >
+                    <FileText className="size-3.5 flex-shrink-0 text-placeholder" />
+                    <span className="flex-grow truncate">{project.name}</span>
+                  </Link>
                   <Tooltip tooltipHeading={t("use_template", { defaultValue: "Use this template" })} tooltipContent="">
                     <IconButton
                       variant="ghost"
                       size="sm"
                       icon={Copy}
-                      onClick={() => setModalSourceId(projectId)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setModalSourceId(projectId);
+                      }}
                       className="hidden text-placeholder group-hover/template-row:inline-flex"
                       aria-label="Create project from this template"
                     />
