@@ -277,7 +277,10 @@ class WorkItemFieldOptionListAPIEndpoint(_SchemaPermissionMixin, BaseAPIView):
                 if existing:
                     return Response(
                         {
-                            "error": "Work item field option with the same external id and external source already exists",
+                            "error": (
+                                "Work item field option with the same external id "
+                                "and external source already exists"
+                            ),
                             "id": str(existing.id),
                         },
                         status=status.HTTP_409_CONFLICT,

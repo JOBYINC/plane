@@ -65,7 +65,8 @@ export class TranslationStore {
       return;
     }
 
-    const envDefault = (import.meta.env?.VITE_DEFAULT_LANGUAGE ?? "") as string;
+    const viteMeta = import.meta as { env?: { VITE_DEFAULT_LANGUAGE?: string } };
+    const envDefault = (viteMeta.env?.VITE_DEFAULT_LANGUAGE ?? "") as string;
     if (this.isValidLanguage(envDefault)) {
       this.setLanguage(envDefault as TLanguage);
       return;

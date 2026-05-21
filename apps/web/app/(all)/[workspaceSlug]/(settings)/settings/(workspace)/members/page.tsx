@@ -156,7 +156,7 @@ const WorkspaceMembersSettingsPage = observer(function WorkspaceMembersSettingsP
             <MembersActivityButton workspaceSlug={workspaceSlug} />
             {canPerformWorkspaceAdminActions && config?.is_lark_enabled && (
               <Button
-                variant="neutral-primary"
+                variant="secondary"
                 size="lg"
                 disabled={larkSyncing}
                 onClick={async () => {
@@ -172,9 +172,11 @@ const WorkspaceMembersSettingsPage = observer(function WorkspaceMembersSettingsP
                     });
                     if (!stats.error) fetchWorkspaceMembers(workspaceSlug);
                   } catch (err: unknown) {
-                    const message =
-                      (err && typeof err === "object" && "error" in err && (err as { error?: string }).error) ||
-                      "Sync failed";
+                    let message = "Sync failed";
+                    if (err && typeof err === "object" && "error" in err) {
+                      const e = (err as { error?: string }).error;
+                      if (typeof e === "string" && e) message = e;
+                    }
                     setToast({ type: TOAST_TYPE.ERROR, title: "Sync failed", message });
                   } finally {
                     setLarkSyncing(false);
@@ -185,7 +187,7 @@ const WorkspaceMembersSettingsPage = observer(function WorkspaceMembersSettingsP
               </Button>
             )}
             {canPerformWorkspaceAdminActions && config?.is_lark_enabled && (
-              <Button variant="neutral-primary" size="lg" onClick={() => setLarkInviteModal(true)}>
+              <Button variant="secondary" size="lg" onClick={() => setLarkInviteModal(true)}>
                 Invite from Lark
               </Button>
             )}

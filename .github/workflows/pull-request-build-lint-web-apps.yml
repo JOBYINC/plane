@@ -55,7 +55,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Check formatting
-        run: pnpm turbo run check:format --affected
+        # --continue: don't short-circuit on the first failing package, so
+        # all format issues across packages surface in a single CI run.
+        run: pnpm turbo run check:format --affected --continue
 
   # Build packages - required for lint and type checks
   build:
@@ -155,7 +157,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run check:lint
-        run: pnpm turbo run check:lint --affected
+        # --continue: don't short-circuit on the first failing package, so
+        # all lint issues across packages surface in a single CI run.
+        run: pnpm turbo run check:lint --affected --continue
 
   # Type check depends on build artifacts
   check-types:
@@ -202,4 +206,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run check:types
-        run: pnpm turbo run check:types --affected
+        # --continue: don't short-circuit when one package's tsc fails; we
+        # learned during the 2026-05-21 preview hygiene cleanup that a single
+        # failing package (e.g. @plane/i18n) was hiding 11 latent type errors
+        # in apps/web. Surface everything in one run.
+        run: pnpm turbo run check:types --affected --continue

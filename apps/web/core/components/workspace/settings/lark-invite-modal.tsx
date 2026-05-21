@@ -11,7 +11,8 @@ import { useTranslation } from "@plane/i18n";
 import { Button } from "@plane/propel/button";
 import { SearchIcon } from "@plane/propel/icons";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
-import { WorkspaceService, TLarkContact } from "@plane/services";
+import type { TLarkContact } from "@plane/services";
+import { WorkspaceService } from "@plane/services";
 import { EModalPosition, EModalWidth, ModalCore } from "@plane/ui";
 
 const workspaceService = new WorkspaceService();
@@ -55,6 +56,7 @@ export const LarkInviteModal = function LarkInviteModal({
       .listLarkContacts(workspaceSlug)
       .then((res) => {
         setContacts(res.contacts || []);
+        return;
       })
       .catch((err) => {
         const message = (err && (err.error || err.message)) || "Failed to load Lark contacts";
@@ -117,9 +119,11 @@ export const LarkInviteModal = function LarkInviteModal({
       onInvited?.();
       onClose();
     } catch (err: unknown) {
-      const message =
-        (err && typeof err === "object" && "error" in err && (err as { error?: string }).error) ||
-        "Failed to invite from Lark";
+      let message = "Failed to invite from Lark";
+      if (err && typeof err === "object" && "error" in err) {
+        const e = (err as { error?: string }).error;
+        if (typeof e === "string" && e) message = e;
+      }
       setToast({ type: TOAST_TYPE.ERROR, title: "Error!", message });
     } finally {
       setSubmitting(false);
@@ -131,7 +135,7 @@ export const LarkInviteModal = function LarkInviteModal({
       <div className="flex flex-col gap-4 p-5">
         <div>
           <h3 className="text-h3-medium">Invite from Lark / 飞书</h3>
-          <p className="mt-1 text-sm text-secondary">
+          <p className="text-sm mt-1 text-secondary">
             Pick teammates from your Feishu directory. They&apos;ll be added directly and can sign in with Lark SSO.
           </p>
         </div>
@@ -149,7 +153,7 @@ export const LarkInviteModal = function LarkInviteModal({
           />
         </div>
 
-        <div className="flex items-center justify-between text-xs text-secondary">
+        <div className="text-xs flex items-center justify-between text-secondary">
           <span>
             {selected.size} / {filtered.length} selected
             {filtered.length !== contacts.length ? ` (${contacts.length} total)` : ""}
@@ -176,11 +180,11 @@ export const LarkInviteModal = function LarkInviteModal({
 
         <div className="max-h-[400px] min-h-[200px] overflow-y-auto rounded-md border border-subtle">
           {loading ? (
-            <div className="p-8 text-center text-sm text-secondary">Loading Lark directory…</div>
+            <div className="text-sm p-8 text-center text-secondary">Loading Lark directory…</div>
           ) : loadError ? (
-            <div className="p-8 text-center text-sm text-red-500">{loadError}</div>
+            <div className="text-sm text-red-500 p-8 text-center">{loadError}</div>
           ) : filtered.length === 0 ? (
-            <div className="p-8 text-center text-sm text-secondary">
+            <div className="text-sm p-8 text-center text-secondary">
               {contacts.length === 0
                 ? "No contacts visible. Check the app's Range of Access in the Feishu developer console."
                 : "No matches for that search."}
@@ -190,8 +194,7 @@ export const LarkInviteModal = function LarkInviteModal({
               {filtered.map((c) => {
                 const key = c.union_id || c.open_id;
                 const isSelected = selected.has(key);
-                const displayEmail =
-                  c.enterprise_email || c.email || "(no email — synthetic identifier will be used)";
+                const displayEmail = c.enterprise_email || c.email || "(no email — synthetic identifier will be used)";
                 return (
                   <li key={key}>
                     <label className="flex cursor-pointer items-center gap-3 border-b border-subtle px-3 py-2 last:border-b-0 hover:bg-surface-2">
@@ -205,7 +208,7 @@ export const LarkInviteModal = function LarkInviteModal({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={c.avatar_url} alt={c.name} className="h-7 w-7 rounded-full" />
                       ) : (
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-2 text-xs">
+                        <div className="text-xs flex h-7 w-7 items-center justify-center rounded-full bg-surface-2">
                           {c.name?.[0] || "?"}
                         </div>
                       )}
@@ -222,10 +225,10 @@ export const LarkInviteModal = function LarkInviteModal({
         </div>
 
         <div className="flex items-center justify-between gap-4">
-          <label className="flex items-center gap-2 text-sm">
+          <label className="text-sm flex items-center gap-2">
             <span>Role</span>
             <select
-              className="rounded-md border border-subtle bg-surface-1 px-2 py-1 text-sm"
+              className="text-sm rounded-md border border-subtle bg-surface-1 px-2 py-1"
               value={role}
               onChange={(e) => setRole(Number(e.target.value))}
             >
@@ -237,12 +240,12 @@ export const LarkInviteModal = function LarkInviteModal({
             </select>
           </label>
           <div className="flex items-center gap-2">
-            <Button variant="neutral-primary" size="md" onClick={onClose} disabled={submitting}>
+            <Button variant="secondary" size="base" onClick={onClose} disabled={submitting}>
               Cancel
             </Button>
             <Button
               variant="primary"
-              size="md"
+              size="base"
               onClick={handleSubmit}
               disabled={selected.size === 0 || submitting || loading}
             >
