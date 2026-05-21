@@ -388,8 +388,11 @@ const LarkQuickCreatePage = observer(() => {
         if (primaryWorkspace?.slug) {
           try {
             const rawMembers = await memberRoot.workspace.fetchWorkspaceMembers(primaryWorkspace.slug);
-            const mapped: MemberOption[] = (rawMembers ?? [])
-              .map((m: Record<string, unknown>) => {
+            // fetchWorkspaceMembers returns IWorkspaceMember[], but the shape used here
+            // is duck-typed (member-object vs flat — depends on API shape evolution).
+            // Keep the defensive Record<string, unknown> handling and cast at the boundary.
+            const mapped: MemberOption[] = ((rawMembers ?? []) as unknown as Array<Record<string, unknown>>)
+              .map((m) => {
                 const memberObj = (m?.member as Record<string, unknown> | undefined) ?? null;
                 const id = String(memberObj?.id ?? m?.member_id ?? m?.id ?? "");
                 const name = String(
@@ -655,8 +658,8 @@ const LarkQuickCreatePage = observer(() => {
             {projectId ? (
               <MemberDropdown
                 memberIds={workspaceMemberIds}
-                value={assigneeId ? [assigneeId] : []}
-                onChange={(ids: string[]) => setAssigneeId(ids[0] ?? "")}
+                value={assigneeId || null}
+                onChange={(id: string | null) => setAssigneeId(id ?? "")}
                 buttonVariant="border-with-text"
                 placeholder={t("lark_quick_create.field_assignee")}
                 multiple={false}
@@ -677,7 +680,7 @@ const LarkQuickCreatePage = observer(() => {
         <Button variant="primary" onClick={handleSubmit} disabled={submitting || !title.trim() || !projectId}>
           {submitting ? t("lark_quick_create.creating") : t("lark_quick_create.create_task")}
         </Button>
-        <Button variant="neutral-primary" onClick={() => window.tt?.closeWindow?.()}>
+        <Button variant="secondary" onClick={() => window.tt?.closeWindow?.()}>
           {t("lark_quick_create.cancel")}
         </Button>
       </div>

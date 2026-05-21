@@ -11,7 +11,8 @@ import { useTranslation } from "@plane/i18n";
 import { Button } from "@plane/propel/button";
 import { SearchIcon } from "@plane/propel/icons";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
-import { WorkspaceService, TLarkContact } from "@plane/services";
+import type { TLarkContact } from "@plane/services";
+import { WorkspaceService } from "@plane/services";
 import { EModalPosition, EModalWidth, ModalCore } from "@plane/ui";
 
 const workspaceService = new WorkspaceService();
@@ -118,9 +119,11 @@ export const LarkInviteModal = function LarkInviteModal({
       onInvited?.();
       onClose();
     } catch (err: unknown) {
-      const message =
-        (err && typeof err === "object" && "error" in err && (err as { error?: string }).error) ||
-        "Failed to invite from Lark";
+      let message = "Failed to invite from Lark";
+      if (err && typeof err === "object" && "error" in err) {
+        const e = (err as { error?: string }).error;
+        if (typeof e === "string" && e) message = e;
+      }
       setToast({ type: TOAST_TYPE.ERROR, title: "Error!", message });
     } finally {
       setSubmitting(false);
@@ -237,12 +240,12 @@ export const LarkInviteModal = function LarkInviteModal({
             </select>
           </label>
           <div className="flex items-center gap-2">
-            <Button variant="neutral-primary" size="md" onClick={onClose} disabled={submitting}>
+            <Button variant="secondary" size="base" onClick={onClose} disabled={submitting}>
               Cancel
             </Button>
             <Button
               variant="primary"
-              size="md"
+              size="base"
               onClick={handleSubmit}
               disabled={selected.size === 0 || submitting || loading}
             >
