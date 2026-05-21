@@ -3,17 +3,23 @@
 # See the LICENSE file for details.
 
 """Isolated, unit-testable helpers for custom-field filter (§8) and sort
-(§9) on the issue list. Deliberately NOT wired into the issue-list hot
-path here -- that wiring is a gated edit (see design §7 rationale): a
-wrong predicate silently drops/duplicates issues and there is no runtime
-here to catch it. The issue-list view applies these via:
+(§9) on the issue list. The issue-list views apply these via:
 
     qs = qs.filter(build_custom_field_filter(request.query_params))
-    order = parse_custom_field_order_by(request.query_params.get("order_by"))
-    if order: qs = qs.order_by(*order)
+    qs, cf_param = apply_custom_field_order(qs, order_by_param)
+    if cf_param is not None: order_by_param = cf_param
+    else: qs, order_by_param = order_issue_queryset(qs, order_by_param)
+
+NOTE: ``parse_custom_field_order_by`` (kept for the string contract /
+unit tests) returns a bare ``field_values__value_*`` path. Applying that
+directly with ``.order_by()`` is WRONG on this model: ``field_values``
+is a reverse FK, so a bare join both fans rows out and sorts by an
+arbitrary field's value. ``apply_custom_field_order`` is the correct
+wiring -- it mirrors the labels/assignees ``Min``-annotate branch of
+``order_issue_queryset`` but filters the aggregate to the target field.
 """
 
-from django.db.models import Q
+from django.db.models import Min, Q
 
 from plane.db.models import WorkItemField
 
@@ -91,3 +97,49 @@ def parse_custom_field_order_by(order_by_param):
     column = _COLUMN_BY_TYPE.get(field.field_type, "value_text")
     key = f"field_values__{column}"
     return [f"-{key}" if desc else key]
+
+
+def apply_custom_field_order(issue_queryset, order_by_param):
+    """Order an issue queryset by a custom field's value.
+
+    ``?order_by=custom_field__<field_id>`` (optionally ``-`` for desc).
+    Mirrors the labels/assignees ``Min``-annotate branch of
+    ``order_issue_queryset``, but the aggregate is filtered to the
+    target ``field_id`` so the reverse-FK ``field_values`` join cannot
+    fan rows out or sort by an unrelated field's value. The
+    ``order_by_param`` is rewritten to the annotation name (exactly as
+    the built-in helper rewrites to ``min_values``/``max_values``) so
+    the downstream grouper/paginator keep working unchanged.
+
+    Returns ``(queryset, rewritten_order_by_param)`` when it handled a
+    custom-field sort, else ``(queryset, None)`` so the caller falls
+    back to ``order_issue_queryset``.
+
+    Note: number/date/text sort meaningfully; single_select sorts on the
+    option UUID (value_text) and multi_select/people on the value_multi
+    array -- mechanically applied but not semantically ordered by label.
+    """
+    if not order_by_param:
+        return issue_queryset, None
+
+    desc = order_by_param.startswith("-")
+    raw = order_by_param[1:] if desc else order_by_param
+    if not raw.startswith(_ORDER_BY_PREFIX):
+        return issue_queryset, None
+
+    field_id = raw[len(_ORDER_BY_PREFIX) :]
+    field = WorkItemField.objects.filter(pk=field_id).first()
+    if field is None:
+        return issue_queryset, None
+
+    column = _COLUMN_BY_TYPE.get(field.field_type, "value_text")
+    issue_queryset = issue_queryset.annotate(
+        custom_field_order=Min(
+            f"field_values__{column}",
+            filter=Q(field_values__field_id=field_id),
+        )
+    ).order_by(
+        "-custom_field_order" if desc else "custom_field_order",
+        "-created_at",
+    )
+    return issue_queryset, ("-custom_field_order" if desc else "custom_field_order")

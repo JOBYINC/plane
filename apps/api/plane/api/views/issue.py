@@ -64,6 +64,7 @@ from plane.app.permissions import (
     ProjectLitePermission,
     ProjectMemberPermission,
 )
+from plane.app.views.work_item_field.filters import apply_custom_field_order
 from plane.bgtasks.issue_activities_task import issue_activity
 from plane.db.models import (
     Issue,
@@ -392,7 +393,13 @@ class IssueListCreateAPIEndpoint(BaseAPIView):
                 max_values=Max(order_by_param[1::] if order_by_param.startswith("-") else order_by_param)
             ).order_by("-max_values" if order_by_param.startswith("-") else "max_values")
         else:
-            issue_queryset = issue_queryset.order_by(order_by_param)
+            # custom-field sort (?order_by=custom_field__<id>) takes
+            # precedence here, else fall back to the raw field order_by
+            issue_queryset, cf_param = apply_custom_field_order(issue_queryset, order_by_param)
+            if cf_param is not None:
+                order_by_param = cf_param
+            else:
+                issue_queryset = issue_queryset.order_by(order_by_param)
 
         return self.paginate(
             request=request,

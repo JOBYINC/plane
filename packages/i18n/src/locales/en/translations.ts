@@ -668,6 +668,8 @@ export default {
       subscribe: "Subscribe",
       unsubscribe: "Unsubscribe",
       clear_sorting: "Clear sorting",
+      sort_ascending: "Sort ascending",
+      sort_descending: "Sort descending",
       hide_field: "Hide field",
       show_field: "Show field",
       show_weekends: "Show weekends",
