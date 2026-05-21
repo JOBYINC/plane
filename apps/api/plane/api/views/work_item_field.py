@@ -71,6 +71,24 @@ class WorkItemFieldListAPIEndpoint(_SchemaPermissionMixin, BaseAPIView):
         )
 
     def get(self, request, slug, project_id):
+        # External-id single lookup (mirrors the Issue list endpoint) so an
+        # agent's GET-then-create ensure_* can resolve a field by its own key.
+        external_id = request.GET.get("external_id")
+        external_source = request.GET.get("external_source")
+        if external_id and external_source:
+            field = (
+                self.get_queryset()
+                .filter(external_id=external_id, external_source=external_source)
+                .first()
+            )
+            if not field:
+                return Response(
+                    {"error": "Field not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            return Response(
+                WorkItemFieldSerializer(field).data, status=status.HTTP_200_OK
+            )
         fields = self.get_queryset().order_by("sort_order")
         return Response(
             WorkItemFieldSerializer(fields, many=True).data,
@@ -84,6 +102,26 @@ class WorkItemFieldListAPIEndpoint(_SchemaPermissionMixin, BaseAPIView):
                 return Response(
                     serializer.errors, status=status.HTTP_400_BAD_REQUEST
                 )
+            # Idempotency on (project, external_source, external_id) — mirrors
+            # the Issue create endpoint: a repeat with the same external keys
+            # returns 409 + the existing id instead of erroring/duplicating.
+            external_id = request.data.get("external_id")
+            external_source = request.data.get("external_source")
+            if external_id and external_source:
+                existing = WorkItemField.objects.filter(
+                    project_id=project_id,
+                    workspace__slug=slug,
+                    external_source=external_source,
+                    external_id=external_id,
+                ).first()
+                if existing:
+                    return Response(
+                        {
+                            "error": "Work item field with the same external id and external source already exists",
+                            "id": str(existing.id),
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
             serializer.save(project_id=project_id)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except IntegrityError:
@@ -186,6 +224,26 @@ class WorkItemFieldOptionListAPIEndpoint(_SchemaPermissionMixin, BaseAPIView):
         ).exists()
 
     def get(self, request, slug, project_id, field_id):
+        # External-id single lookup (scoped to the field) so an agent's
+        # GET-then-create ensure_option is idempotent — mirrors the field
+        # list endpoint / the Issue list endpoint.
+        external_id = request.GET.get("external_id")
+        external_source = request.GET.get("external_source")
+        if external_id and external_source:
+            option = (
+                self.get_queryset()
+                .filter(external_id=external_id, external_source=external_source)
+                .first()
+            )
+            if not option:
+                return Response(
+                    {"error": "Option not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            return Response(
+                WorkItemFieldOptionSerializer(option).data,
+                status=status.HTTP_200_OK,
+            )
         options = self.get_queryset().order_by("sort_order")
         return Response(
             WorkItemFieldOptionSerializer(options, many=True).data,
@@ -203,6 +261,30 @@ class WorkItemFieldOptionListAPIEndpoint(_SchemaPermissionMixin, BaseAPIView):
                 return Response(
                     serializer.errors, status=status.HTTP_400_BAD_REQUEST
                 )
+            # Idempotency on (field, external_source, external_id) — mirrors
+            # the field create endpoint / Issue create: a repeat with the same
+            # external keys returns 409 + the existing id, no duplicate.
+            external_id = request.data.get("external_id")
+            external_source = request.data.get("external_source")
+            if external_id and external_source:
+                existing = WorkItemFieldOption.objects.filter(
+                    field_id=field_id,
+                    project_id=project_id,
+                    workspace__slug=slug,
+                    external_source=external_source,
+                    external_id=external_id,
+                ).first()
+                if existing:
+                    return Response(
+                        {
+                            "error": (
+                                "Work item field option with the same external id "
+                                "and external source already exists"
+                            ),
+                            "id": str(existing.id),
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
             serializer.save(project_id=project_id, field_id=field_id)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except IntegrityError:
