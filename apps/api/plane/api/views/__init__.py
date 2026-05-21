@@ -9,6 +9,8 @@ from .project import (
     ProjectSummaryAPIEndpoint,
 )
 
+from .project_duplicate import ProjectDuplicateEndpoint
+
 from .state import (
     StateListCreateAPIEndpoint,
     StateDetailAPIEndpoint,
