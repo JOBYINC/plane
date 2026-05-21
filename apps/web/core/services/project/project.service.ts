@@ -82,6 +82,50 @@ export class ProjectService extends APIService {
       });
   }
 
+  /**
+   * Returns workspace-canonical template projects (``is_template=True``).
+   * Server filters by the same permission shape as ``getProjects`` —
+   * guests see only templates they're a member of, members additionally
+   * see public ones. Templates are excluded from ``getProjects`` so the
+   * two lists are disjoint and can be rendered as separate sidebar groups.
+   */
+  async getTemplateProjects(workspaceSlug: string): Promise<TProject[]> {
+    return this.get(`/api/workspaces/${workspaceSlug}/projects/templates/`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  /**
+   * Deep-clones a project via the server-side duplicate endpoint. See
+   * ``ProjectDuplicateEndpoint`` for the full clone matrix (cycles,
+   * modules, custom fields, issues, blocked_by relations, etc.). All
+   * body fields are optional; ``rebump_target_dates_by_days`` shifts
+   * issue dates, ``rebump_cycle_windows_by_days`` shifts cycle windows,
+   * and ``override_custom_field_values`` lets the caller override a
+   * specific field's value on every cloned issue.
+   */
+  async duplicateProject(
+    workspaceSlug: string,
+    projectId: string,
+    body: {
+      name?: string;
+      identifier?: string;
+      external_source?: string | null;
+      external_id?: string | null;
+      rebump_target_dates_by_days?: number;
+      rebump_cycle_windows_by_days?: number;
+      override_custom_field_values?: Record<string, unknown>;
+    }
+  ): Promise<TProject> {
+    return this.post(`/api/v1/workspaces/${workspaceSlug}/projects/${projectId}/duplicate/`, body)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
   async getProjectAnalyticsCount(
     workspaceSlug: string,
     params?: TProjectAnalyticsCountParams

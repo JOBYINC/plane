@@ -35,6 +35,7 @@ export interface IProjectStore {
   totalProjectIds: string[] | undefined;
   joinedProjectIds: string[];
   favoriteProjectIds: string[];
+  templateProjectIds: string[];
   currentProjectDetails: TProject | undefined;
   currentProjectNextSequenceId: number | undefined;
   // actions
@@ -57,6 +58,20 @@ export interface IProjectStore {
   // fetch actions
   fetchPartialProjects: (workspaceSlug: string) => Promise<TPartialProject[]>;
   fetchProjects: (workspaceSlug: string) => Promise<TProject[]>;
+  fetchTemplateProjects: (workspaceSlug: string) => Promise<TProject[]>;
+  duplicateProject: (
+    workspaceSlug: string,
+    projectId: string,
+    body: {
+      name?: string;
+      identifier?: string;
+      external_source?: string | null;
+      external_id?: string | null;
+      rebump_target_dates_by_days?: number;
+      rebump_cycle_windows_by_days?: number;
+      override_custom_field_values?: Record<string, unknown>;
+    }
+  ) => Promise<TProject>;
   fetchProjectDetails: (workspaceSlug: string, projectId: string) => Promise<TProject>;
   fetchProjectAnalyticsCount: (
     workspaceSlug: string,
@@ -114,12 +129,15 @@ export class ProjectStore implements IProjectStore {
       currentProjectDetails: computed,
       joinedProjectIds: computed,
       favoriteProjectIds: computed,
+      templateProjectIds: computed,
       currentProjectNextSequenceId: computed,
       // helper actions
       processProjectAfterCreation: action,
       // fetch actions
       fetchPartialProjects: action,
       fetchProjects: action,
+      fetchTemplateProjects: action,
+      duplicateProject: action,
       fetchProjectDetails: action,
       fetchProjectAnalyticsCount: action,
       // favorites actions
@@ -244,9 +262,35 @@ export class ProjectStore implements IProjectStore {
     projects = sortBy(projects, "sort_order");
 
     const projectIds = projects
-      .filter((project) => project.workspace === currentWorkspace.id && !!project.member_role && !project.archived_at)
+      .filter(
+        (project) =>
+          project.workspace === currentWorkspace.id &&
+          !!project.member_role &&
+          !project.archived_at &&
+          // Templates render in a dedicated sidebar group. Backend already
+          // excludes them from /projects/details/, but defensive: if the
+          // template fetch lands first they'd otherwise leak into here too.
+          !project.is_template
+      )
       .map((project) => project.id);
     return projectIds;
+  }
+
+  /**
+   * Returns workspace-canonical template project IDs (``is_template=true``)
+   * for the current workspace. Disjoint from ``joinedProjectIds`` — the
+   * sidebar renders them in their own group above the main project list.
+   * Backend already excludes templates from /projects/details/, so the
+   * client-side ``!project.is_template`` filter below is defensive.
+   */
+  get templateProjectIds() {
+    const currentWorkspace = this.rootStore.workspaceRoot.currentWorkspace;
+    if (!currentWorkspace) return [];
+    let projects = Object.values(this.projectMap ?? {});
+    projects = sortBy(projects, "sort_order");
+    return projects
+      .filter((project) => project.workspace === currentWorkspace.id && !!project.is_template && !project.archived_at)
+      .map((project) => project.id);
   }
 
   /**
@@ -324,6 +368,53 @@ export class ProjectStore implements IProjectStore {
       this.loader = "loaded";
       throw error;
     }
+  };
+
+  /**
+   * Fetches workspace template projects (``is_template=true``) and merges
+   * them into ``projectMap``. The dedicated endpoint is separate so the
+   * main project list can stay focused; templates are filtered out of
+   * ``joinedProjectIds`` and surfaced via ``templateProjectIds``.
+   */
+  fetchTemplateProjects = async (workspaceSlug: string) => {
+    try {
+      const templates = await this.projectService.getTemplateProjects(workspaceSlug);
+      runInAction(() => {
+        templates.forEach((project) => {
+          update(this.projectMap, [project.id], (p) => ({ ...p, ...project }));
+        });
+      });
+      return templates;
+    } catch (error) {
+      console.log("Failed to fetch template projects from workspace store");
+      throw error;
+    }
+  };
+
+  /**
+   * Server-side deep clone of a project. The clone lands in
+   * ``projectMap`` so the sidebar's main project list updates without a
+   * follow-up refetch; ``is_template`` is reset to false by the server,
+   * so a duplicated template appears under "Projects", not "Templates".
+   */
+  duplicateProject = async (
+    workspaceSlug: string,
+    projectId: string,
+    body: {
+      name?: string;
+      identifier?: string;
+      external_source?: string | null;
+      external_id?: string | null;
+      rebump_target_dates_by_days?: number;
+      rebump_cycle_windows_by_days?: number;
+      override_custom_field_values?: Record<string, unknown>;
+    }
+  ) => {
+    const clone = await this.projectService.duplicateProject(workspaceSlug, projectId, body);
+    runInAction(() => {
+      update(this.projectMap, [clone.id], (p) => ({ ...p, ...clone }));
+    });
+    return clone;
   };
 
   /**
@@ -607,6 +698,7 @@ export class ProjectStore implements IProjectStore {
           set(this.projectMap, [projectId, "archived_at"], response.archived_at);
           this.rootStore.favorite.removeFavoriteFromStore(projectId);
         });
+        return undefined;
       })
       .catch((error) => {
         console.log("Failed to archive project from project store");
@@ -627,6 +719,7 @@ export class ProjectStore implements IProjectStore {
         runInAction(() => {
           set(this.projectMap, [projectId, "archived_at"], null);
         });
+        return undefined;
       })
       .catch((error) => {
         console.log("Failed to restore project from project store");

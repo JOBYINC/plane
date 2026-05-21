@@ -122,6 +122,12 @@ class Project(BaseModel):
         null=True,
         blank=True,
     )
+    # template project: workspace-canonical source used by
+    # ProjectDuplicateEndpoint. Hidden from the normal project list (same
+    # rule as ``is_personal``) and surfaced in a dedicated sidebar group
+    # with a "create launch from this template" action. db_index because
+    # the templates list view filters on this column.
+    is_template = models.BooleanField(default=False, db_index=True)
     # timezone
     TIMEZONE_CHOICES = tuple(zip(pytz.common_timezones, pytz.common_timezones))
     timezone = models.CharField(max_length=255, default="UTC", choices=TIMEZONE_CHOICES)

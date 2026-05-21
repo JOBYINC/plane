@@ -195,6 +195,10 @@ class ProjectDuplicateEndpoint(BaseAPIView):
         if "external_source" in body:
             clone.external_source = body["external_source"]
         clone.external_id = body.get("external_id")
+        # A clone of a template is a normal launch project, not another
+        # template — otherwise duplicating a template would multiply the
+        # templates sidebar group.
+        clone.is_template = False
         clone.created_by = actor
         clone.updated_by = actor
         clone.archived_at = None

@@ -38,6 +38,11 @@ urlpatterns = [
         name="project-personal",
     ),
     path(
+        "workspaces/<str:slug>/projects/templates/",
+        ProjectViewSet.as_view({"get": "templates"}),
+        name="project-templates",
+    ),
+    path(
         "workspaces/<str:slug>/projects/<uuid:pk>/",
         ProjectViewSet.as_view(
             {
