@@ -6,10 +6,35 @@
 
 import { sortBy } from "lodash-es";
 // plane imports
-import type { TProject, TProjectDisplayFilters, TProjectFilters, TProjectOrderByOptions } from "@plane/types";
+import type {
+  IPartialProject,
+  TProject,
+  TProjectDisplayFilters,
+  TProjectFilters,
+  TProjectOrderByOptions,
+} from "@plane/types";
 // local imports
 import { getDate } from "./datetime";
 import { satisfiesDateFilter } from "./filter";
+
+/**
+ * Returns the display name for a project. A personal ("Personal Tasks")
+ * bucket is stored with an internal collision-suffixed name (e.g.
+ * "My Tasks 92B059D7"); this surfaces a clean localized label instead.
+ * Each user only ever sees their own personal project, so a fixed label
+ * is unambiguous.
+ * @param project - the project (or partial project) to name
+ * @param t - the translation function from `useTranslation`
+ * @returns {string}
+ */
+export const getProjectName = (
+  project: Pick<IPartialProject, "name" | "is_personal"> | null | undefined,
+  t: (key: string) => string
+): string => {
+  if (!project) return "";
+  if (project.is_personal) return t("personal_project_name");
+  return project.name;
+};
 
 /**
  * Updates the sort order of the project.
@@ -100,11 +125,11 @@ export const orderProjects = (projects: TProject[], orderByKey: TProjectOrderByO
 
   if (orderByKey === "sort_order") orderedProjects = sortBy(projects, [(p) => p.sort_order]);
   if (orderByKey === "name") orderedProjects = sortBy(projects, [(p) => p.name.toLowerCase()]);
-  if (orderByKey === "-name") orderedProjects = sortBy(projects, [(p) => p.name.toLowerCase()]).reverse();
+  if (orderByKey === "-name") orderedProjects = sortBy(projects, [(p) => p.name.toLowerCase()]).toReversed();
   if (orderByKey === "created_at") orderedProjects = sortBy(projects, [(p) => p.created_at]);
   if (orderByKey === "-created_at") orderedProjects = sortBy(projects, [(p) => !p.created_at]);
   if (orderByKey === "members_length") orderedProjects = sortBy(projects, [(p) => p.members?.length]);
-  if (orderByKey === "-members_length") orderedProjects = sortBy(projects, [(p) => p.members?.length]).reverse();
+  if (orderByKey === "-members_length") orderedProjects = sortBy(projects, [(p) => p.members?.length]).toReversed();
 
   return orderedProjects;
 };

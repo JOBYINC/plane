@@ -33,6 +33,9 @@ export interface IPartialProject {
   guest_view_all_features?: boolean;
   project_lead?: IUserLite | string | null;
   network?: number;
+  // personal ("Personal Tasks") bucket: a per-user private project for
+  // project-less tasks. Each user only ever sees their own.
+  is_personal?: boolean;
   // Timestamps
   created_at?: Date;
   updated_at?: Date;

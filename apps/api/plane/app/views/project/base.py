@@ -101,9 +101,14 @@ class ProjectViewSet(BaseViewSet):
     @allow_permission(allowed_roles=[ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], level="WORKSPACE")
     def list_detail(self, request, slug):
         fields = [field for field in request.GET.get("fields", "").split(",") if field]
-        # personal ("My Tasks") buckets are hidden from the normal project
-        # list; they remain reachable by pk for the My Tasks view + issue CRUD
-        projects = self.get_queryset().exclude(is_personal=True).order_by("sort_order", "name")
+        # other users' personal ("Personal Tasks") buckets stay hidden; the
+        # caller's own personal project is kept so it shows alongside their
+        # normal projects (the dedicated "My Tasks" sidebar entry was removed)
+        projects = (
+            self.get_queryset()
+            .exclude(Q(is_personal=True) & ~Q(personal_owner=request.user))
+            .order_by("sort_order", "name")
+        )
         if WorkspaceMember.objects.filter(
             member=request.user,
             workspace__slug=slug,
@@ -142,6 +147,20 @@ class ProjectViewSet(BaseViewSet):
 
     @allow_permission(allowed_roles=[ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], level="WORKSPACE")
     def list(self, request, slug):
+        # Ensure the caller's personal ("Personal Tasks") project exists so it
+        # always appears in their project list. The dedicated "My Tasks"
+        # sidebar entry was removed; the personal bucket now lives in the
+        # normal project list. Guests are skipped — personal projects remain
+        # an ADMIN/MEMBER feature.
+        if WorkspaceMember.objects.filter(
+            member=request.user,
+            workspace__slug=slug,
+            is_active=True,
+            role__in=[ROLE.ADMIN.value, ROLE.MEMBER.value],
+        ).exists():
+            workspace = Workspace.objects.get(slug=slug)
+            get_or_create_personal_project(workspace, request.user)
+
         sort_order = ProjectUserProperty.objects.filter(
             user=self.request.user,
             project_id=OuterRef("pk"),
@@ -150,7 +169,7 @@ class ProjectViewSet(BaseViewSet):
 
         projects = (
             Project.objects.filter(workspace__slug=self.kwargs.get("slug"))
-            .exclude(is_personal=True)
+            .exclude(Q(is_personal=True) & ~Q(personal_owner=request.user))
             .select_related("workspace", "workspace__owner", "default_assignee", "project_lead")
             .annotate(
                 member_role=ProjectMember.objects.filter(
@@ -189,6 +208,7 @@ class ProjectViewSet(BaseViewSet):
             "guest_view_all_features",
             "project_lead",
             "network",
+            "is_personal",
             "created_at",
             "updated_at",
             "created_by",

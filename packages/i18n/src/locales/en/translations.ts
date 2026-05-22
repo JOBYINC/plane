@@ -143,6 +143,7 @@ export default {
   new_issue: "New work item",
   your_work: "Your work",
   my_tasks: "My Tasks",
+  personal_project_name: "Personal Tasks",
   drafts: "Drafts",
   projects: "Projects",
   views: "Views",

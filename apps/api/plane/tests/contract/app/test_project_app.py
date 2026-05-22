@@ -247,9 +247,13 @@ class TestProjectAPIGet(TestProjectBase):
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert len(data) == 1
-        assert data[0]["name"] == "Test Project"
-        assert data[0]["identifier"] == "TP"
+        # listing as an admin/member auto-creates the caller's personal
+        # ("Personal Tasks") project, which surfaces alongside normal projects
+        non_personal = [p for p in data if not p.get("is_personal")]
+        assert len(non_personal) == 1
+        assert non_personal[0]["name"] == "Test Project"
+        assert non_personal[0]["identifier"] == "TP"
+        assert any(p.get("is_personal") for p in data)
 
     @pytest.mark.django_db
     def test_list_projects_authenticated_guest(self, session_client, workspace):

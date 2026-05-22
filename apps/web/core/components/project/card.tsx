@@ -12,6 +12,7 @@ import { ArchiveRestoreIcon, Settings, UserPlus } from "lucide-react";
 // plane imports
 import { EUserPermissions, EUserPermissionsLevel, IS_FAVORITE_MENU_OPEN } from "@plane/constants";
 import { useLocalStorage } from "@plane/hooks";
+import { useTranslation } from "@plane/i18n";
 import { Button } from "@plane/propel/button";
 import { Logo } from "@plane/propel/emoji-icon-picker";
 import { LinkIcon, LockIcon, NewTabIcon, TrashIcon, CheckIcon } from "@plane/propel/icons";
@@ -20,7 +21,7 @@ import { Tooltip } from "@plane/propel/tooltip";
 import type { IProject } from "@plane/types";
 import type { TContextMenuItem } from "@plane/ui";
 import { Avatar, AvatarGroup, ContextMenu, FavoriteStar } from "@plane/ui";
-import { copyUrlToClipboard, cn, getFileURL, renderFormattedDate } from "@plane/utils";
+import { copyUrlToClipboard, cn, getFileURL, getProjectName, renderFormattedDate } from "@plane/utils";
 // components
 // hooks
 import { useMember } from "@/hooks/store/use-member";
@@ -55,7 +56,9 @@ export const ProjectCard = observer(function ProjectCard(props: Props) {
   const { allowPermissions } = useUserPermissions();
   // hooks
   const { isMobile } = usePlatformOS();
+  const { t } = useTranslation();
   // derived values
+  const projectName = getProjectName(project, t);
   const projectMembersIds = project.members;
   const shouldRenderFavorite = allowPermissions(
     [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
@@ -215,7 +218,7 @@ export const ProjectCard = observer(function ProjectCard(props: Props) {
 
           <CoverImage
             src={project.cover_image_url}
-            alt={project.name}
+            alt={projectName}
             className="absolute top-0 left-0 h-full w-full rounded-t"
           />
 
@@ -226,7 +229,7 @@ export const ProjectCard = observer(function ProjectCard(props: Props) {
               </div>
 
               <div className="flex w-full flex-col justify-between gap-0.5 truncate">
-                <h3 className="truncate font-semibold text-on-color">{project.name}</h3>
+                <h3 className="truncate font-semibold text-on-color">{projectName}</h3>
                 <span className="flex items-center gap-1.5">
                   <p className="text-11 font-medium text-on-color">{project.identifier} </p>
                   {project.network === 0 && <LockIcon className="h-2.5 w-2.5 text-on-color" />}

@@ -6,7 +6,9 @@
 
 import React from "react";
 // components
+import { useTranslation } from "@plane/i18n";
 import { Logo } from "@plane/propel/emoji-icon-picker";
+import { getProjectName } from "@plane/utils";
 // plane imports
 import type { TPartialProject } from "@/plane-web/types";
 // local imports
@@ -18,6 +20,8 @@ type Props = {
 };
 
 export function PowerKProjectsMenu({ projects, onSelect }: Props) {
+  const { t } = useTranslation();
+
   return (
     <PowerKMenuBuilder
       items={projects}
@@ -27,8 +31,8 @@ export function PowerKProjectsMenu({ projects, onSelect }: Props) {
           <Logo logo={project.logo_props} size={14} />
         </span>
       )}
-      getValue={(project) => project.name}
-      getLabel={(project) => project.name}
+      getValue={(project) => getProjectName(project, t)}
+      getLabel={(project) => getProjectName(project, t)}
       onSelect={onSelect}
       emptyText="No projects found"
     />

@@ -7,9 +7,11 @@
 import { useCallback, useMemo } from "react";
 import { observer } from "mobx-react";
 // plane imports
+import { useTranslation } from "@plane/i18n";
 import { ProjectIcon } from "@plane/propel/icons";
 import type { ICustomSearchSelectOption } from "@plane/types";
 import { CustomSearchSelect } from "@plane/ui";
+import { getProjectName } from "@plane/utils";
 // hooks
 import { useProject } from "@/hooks/store/use-project";
 import { useUserPermissions } from "@/hooks/store/user";
@@ -34,6 +36,8 @@ export const ProjectHeader = observer(function ProjectHeader(props: TProjectHead
   // store hooks
   const { joinedProjectIds, getPartialProjectById } = useProject();
   const { allowPermissions } = useUserPermissions();
+  // translation
+  const { t } = useTranslation();
 
   // Get current project details
   const currentProjectDetails = getPartialProjectById(projectId);
@@ -69,12 +73,13 @@ export const ProjectHeader = observer(function ProjectHeader(props: TProjectHead
           const project = getPartialProjectById(id);
           if (!project) return null;
 
+          const projectName = getProjectName(project, t);
           return {
             value: id,
-            query: project.name,
+            query: projectName,
             content: (
               <SwitcherLabel
-                name={project.name}
+                name={projectName}
                 logo_props={project.logo_props}
                 LabelIcon={ProjectIcon}
                 type="material"
@@ -83,7 +88,7 @@ export const ProjectHeader = observer(function ProjectHeader(props: TProjectHead
           };
         })
         .filter((option): option is ICustomSearchSelectOption => option !== null),
-    [joinedProjectIds, getPartialProjectById]
+    [joinedProjectIds, getPartialProjectById, t]
   );
 
   // Memoize onChange handler

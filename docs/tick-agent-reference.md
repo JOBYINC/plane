@@ -410,9 +410,13 @@ bucket — find and reuse it.
 
 Shipped 2026-05-18 (`feat(projects): Asana-style project-less tasks
 via private personal project`), migration `0126_project_personal`
-applied, verified end-to-end. In the Tick web UI it is the **"My
-Tasks"** sidebar entry (zh-CN **"我的任务"**) → route `/my-tasks` →
-the normal issues page of that user's personal project. It reuses
+applied, verified end-to-end. In the Tick web UI it appears in the
+**Projects list** as **"Personal Tasks"** (zh-CN **"个人任务"**) — a
+normal project entry. (The dedicated "My Tasks" sidebar entry was
+removed 2026-05-21; the `/my-tasks/` route still resolves to the bucket
+as a deep link.) That "Personal Tasks" label is **display-only** — the
+API still returns `name` = `My Tasks {SHORT}` (see §12.1), so the
+token-side `name`-prefix cross-check below is unchanged. It reuses
 100% of the standard issue UI, create flow, states, custom fields,
 cycles, layouts — **there is no issue-schema difference** from a
 normal project.
@@ -435,21 +439,24 @@ on first use:
 So for issue/comment/custom-field CRUD it behaves **exactly** like any
 project addressed by `project_id`.
 
-### 12.2 Creating it — session API only
+### 12.2 Creating it — session API, now automatic
 
-`GET /api/workspaces/{slug}/projects/personal/` (note: `/api/…`, **no
-`v1`** — the cookie+CSRF web/session API; runs as `WORKSPACE`
-ADMIN/MEMBER). Get-or-create + idempotent. There is **no `/api/v1`
-token-API route** that creates the bucket. A token-only agent cannot
-trigger creation; creation happens when a logged-in human opens "My
-Tasks" in the web UI (or a session-capable integration calls the path
-above).
+The session API get-or-creates the bucket. As of 2026-05-21 the
+project-list endpoints (`GET /api/workspaces/{slug}/projects/` and
+`…/projects/details/`) **auto-ensure** it for every ADMIN/MEMBER caller
+— so the bucket is created the first time the owner loads the Tick web
+app at all (any workspace view lists projects). `GET
+/api/workspaces/{slug}/projects/personal/` (note: `/api/…`, **no `v1`**
+— the cookie+CSRF web/session API) remains as an explicit get-or-create.
+There is still **no `/api/v1` token-API route** that creates the bucket
+— a token-only agent cannot trigger creation.
 
 ### 12.3 Finding & using it from the token API (the part to actually do)
 
-The `is_personal` exclusion lives **only** on the session API
-(`list` / `list_detail`). The token API project queryset does **not**
-exclude it, and the owner is an active ADMIN member — so:
+On the session API, `list` / `list_detail` now hide only **other**
+users' personal buckets — the caller's own is included (changed
+2026-05-21). The token API project queryset hides **nothing**, and the
+owner is an active ADMIN member — so:
 
 1. `GET /api/v1/users/me/` → note your user `id`.
 2. `GET /api/v1/workspaces/{slug}/projects/?per_page=1000` → in
@@ -475,13 +482,14 @@ curl -s "${H[@]}" -X POST "$B/workspaces/$SLUG/projects/$PID/work-items/" \
 
 ### 12.4 Edge cases / hard limits
 
-- **Bucket may not exist yet.** If the owning user has never opened
-  "My Tasks" in the web UI and no session call ever hit
-  `projects/personal/`, the bucket is absent → step 2 returns no
-  match. A token-only agent **cannot create it**. Resolution: ask a
-  human to open "My Tasks" once (or a session-capable integration
-  calls the session path), then it is permanent and discoverable.
-  **Do not substitute a freshly-created normal project for it.**
+- **Bucket may not exist yet.** The bucket is auto-created the first
+  time its owner loads the Tick web app (any project-list fetch — see
+  §12.2), so for any user who has ever signed in to the web app it
+  exists. Only if the owner has **never** used the web app is it absent
+  → step 2 returns no match, and a token-only agent **cannot create
+  it**. Resolution: have the owner sign in to Tick once (or a
+  session-capable integration hits `projects/personal/`). **Do not
+  substitute a freshly-created normal project for it.**
 - **One per user, owner-only.** A token reaches only _its own owner's_
   personal bucket. You **cannot** write into another person's "My
   Tasks" (network SECRET, owner-only membership, no token route to

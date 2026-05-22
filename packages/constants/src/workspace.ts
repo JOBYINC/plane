@@ -280,9 +280,11 @@ export const WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS: Record<string, IWorkspac
   },
 };
 
+// "My Tasks" was removed from the sidebar — it overlapped with the stock
+// "Your Work" entry. The personal ("Personal Tasks") project now lives in
+// the normal project list; its /my-tasks/ route is kept as a deep link.
 export const WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS_LINKS: IWorkspaceSidebarNavigationItem[] = [
   WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS["home"],
-  WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS["my-tasks"],
 ];
 
 export const WORKSPACE_SIDEBAR_STATIC_PINNED_NAVIGATION_ITEMS_LINKS: IWorkspaceSidebarNavigationItem[] = [

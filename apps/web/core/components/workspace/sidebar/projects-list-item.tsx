@@ -26,7 +26,7 @@ import { IconButton } from "@plane/propel/icon-button";
 import { setPromiseToast } from "@plane/propel/toast";
 import { Tooltip } from "@plane/propel/tooltip";
 import { CustomMenu, DropIndicator, DragHandle, ControlLink } from "@plane/ui";
-import { cn } from "@plane/utils";
+import { cn, getProjectName } from "@plane/utils";
 // components
 import { DEFAULT_TAB_KEY, getTabUrl } from "@/components/navigation/tab-navigation-utils";
 import { useTabPreferences } from "@/components/navigation/use-tab-preferences";
@@ -192,7 +192,7 @@ export const SidebarProjectsListItem = observer(function SidebarProjectsListItem
                   <div className="grid size-4 flex-shrink-0 place-items-center">
                     {project && <Logo logo={project?.logo_props} />}
                   </div>
-                  <p className="truncate text-secondary">{project?.name}</p>
+                  <p className="truncate text-secondary">{getProjectName(project, t)}</p>
                 </div>
               );
               return () => root.unmount();
@@ -372,14 +372,14 @@ export const SidebarProjectsListItem = observer(function SidebarProjectsListItem
                     <div className="grid size-4 flex-shrink-0 place-items-center">
                       <Logo logo={project.logo_props} size={16} />
                     </div>
-                    <p className="truncate text-13 font-medium text-secondary">{project.name}</p>
+                    <p className="truncate text-13 font-medium text-secondary">{getProjectName(project, t)}</p>
                   </Disclosure.Button>
                 ) : (
                   <div className="flex w-full flex-grow items-center gap-1.5 text-left select-none">
                     <div className="grid size-4 flex-shrink-0 place-items-center">
                       <Logo logo={project.logo_props} size={16} />
                     </div>
-                    <p className="truncate text-13 font-medium text-secondary">{project.name}</p>
+                    <p className="truncate text-13 font-medium text-secondary">{getProjectName(project, t)}</p>
                   </div>
                 )}
               </ControlLink>
