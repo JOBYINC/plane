@@ -20,7 +20,10 @@ from plane.db.models import (
     DraftIssueLabel,
     DraftIssueCycle,
     DraftIssueModule,
+    Project,
     ProjectMember,
+    ProjectUserProperty,
+    WorkspaceMember,
     EstimatePoint,
 )
 from plane.utils.content_validator import (
@@ -90,14 +93,90 @@ class DraftIssueCreateSerializer(BaseSerializer):
             if not is_valid:
                 raise serializers.ValidationError({"description_binary": "Invalid binary data"})
 
-        # Validate assignees are from project
+        # Asana-style assignment — see IssueCreateSerializer.validate()
+        # for the full rationale. Identical policy here: workspace guests
+        # never auto-promoted; existing project guests get upgraded; new
+        # rows created at role=Member; inactive rows reactivated.
         if attrs.get("assignee_ids", []):
-            attrs["assignee_ids"] = ProjectMember.objects.filter(
-                project_id=self.context["project_id"],
-                role__gte=ROLE.MEMBER.value,
-                is_active=True,
-                member_id__in=attrs["assignee_ids"],
-            ).values_list("member_id", flat=True)
+            # See IssueCreateSerializer.validate() for the resolution chain
+            # rationale — context → instance → Project lookup.
+            project_id = self.context.get("project_id")
+            if project_id is None and self.instance is not None:
+                project_id = self.instance.project_id
+            workspace_id = self.context.get("workspace_id")
+            if workspace_id is None and self.instance is not None:
+                workspace_id = self.instance.workspace_id
+            if workspace_id is None and project_id is not None:
+                workspace_id = (
+                    Project.objects.filter(pk=project_id)
+                    .values_list("workspace_id", flat=True)
+                    .first()
+                )
+            requested_ids = list(attrs["assignee_ids"])
+
+            valid_member_ids = list(
+                WorkspaceMember.objects.filter(
+                    workspace_id=workspace_id,
+                    member_id__in=requested_ids,
+                    is_active=True,
+                    role__gte=ROLE.MEMBER.value,
+                ).values_list("member_id", flat=True)
+            )
+
+            existing_rows = ProjectMember.objects.filter(
+                project_id=project_id,
+                member_id__in=valid_member_ids,
+            ).values_list("member_id", "is_active", "role")
+            seen_ids = set()
+            inactive_ids = set()
+            upgrade_ids = set()
+            for mid, active, role in existing_rows:
+                seen_ids.add(mid)
+                if not active:
+                    inactive_ids.add(mid)
+                elif role < ROLE.MEMBER.value:
+                    upgrade_ids.add(mid)
+
+            if inactive_ids:
+                ProjectMember.objects.filter(
+                    project_id=project_id,
+                    member_id__in=inactive_ids,
+                ).update(is_active=True, role=ROLE.MEMBER.value)
+            if upgrade_ids:
+                ProjectMember.objects.filter(
+                    project_id=project_id,
+                    member_id__in=upgrade_ids,
+                ).update(role=ROLE.MEMBER.value)
+
+            to_create_ids = [mid for mid in valid_member_ids if mid not in seen_ids]
+            if to_create_ids:
+                ProjectMember.objects.bulk_create(
+                    [
+                        ProjectMember(
+                            member_id=mid,
+                            project_id=project_id,
+                            workspace_id=workspace_id,
+                            role=ROLE.MEMBER.value,
+                            is_active=True,
+                        )
+                        for mid in to_create_ids
+                    ],
+                    ignore_conflicts=True,
+                )
+                ProjectUserProperty.objects.bulk_create(
+                    [
+                        ProjectUserProperty(
+                            user_id=mid,
+                            project_id=project_id,
+                            workspace_id=workspace_id,
+                            sort_order=65535,
+                        )
+                        for mid in to_create_ids
+                    ],
+                    ignore_conflicts=True,
+                )
+
+            attrs["assignee_ids"] = valid_member_ids
 
         # Validate labels are from project
         if attrs.get("label_ids"):

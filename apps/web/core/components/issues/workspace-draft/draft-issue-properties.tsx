@@ -212,6 +212,7 @@ export const DraftIssueProperties = observer(function DraftIssueProperties(props
       <div className="h-5" onClick={handleEventPropagation}>
         <MemberDropdown
           projectId={issue?.project_id}
+          expandToWorkspace
           value={issue?.assignee_ids}
           onChange={handleAssignee}
           multiple

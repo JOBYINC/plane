@@ -81,6 +81,7 @@ export const InboxIssueProperties = observer(function InboxIssueProperties(props
       <div className="h-7">
         <MemberDropdown
           projectId={projectId}
+          expandToWorkspace
           value={data?.assignee_ids || []}
           onChange={(assigneeIds) => handleData("assignee_ids", assigneeIds)}
           buttonVariant={(data?.assignee_ids || [])?.length > 0 ? "transparent-without-text" : "border-with-text"}

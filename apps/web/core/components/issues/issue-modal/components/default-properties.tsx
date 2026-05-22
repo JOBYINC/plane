@@ -130,6 +130,7 @@ export const IssueDefaultProperties = observer(function IssueDefaultProperties(p
           <div className="h-7">
             <MemberDropdown
               projectId={projectId ?? undefined}
+              expandToWorkspace
               value={value}
               onChange={(assigneeIds) => {
                 onChange(assigneeIds);

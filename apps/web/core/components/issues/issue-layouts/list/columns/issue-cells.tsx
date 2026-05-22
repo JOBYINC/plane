@@ -175,6 +175,7 @@ export const AssigneeCell = observer(function AssigneeCell(props: TIssueCellProp
     <Wrap>
       <MemberDropdown
         projectId={issue.project_id}
+        expandToWorkspace
         value={issue?.assignee_ids}
         onChange={handleAssignee}
         disabled={isReadOnly}

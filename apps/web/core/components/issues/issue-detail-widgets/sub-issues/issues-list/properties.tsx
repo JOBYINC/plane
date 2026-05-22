@@ -209,6 +209,7 @@ export const SubIssuesListItemProperties = observer(function SubIssuesListItemPr
           <MemberDropdown
             value={issue.assignee_ids}
             projectId={issue.project_id ?? undefined}
+            expandToWorkspace
             onChange={(val) =>
               issue.project_id &&
               updateSubIssue(workspaceSlug, issue.project_id, parentIssueId, issueId, {

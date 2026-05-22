@@ -2952,7 +2952,5 @@ export default {
     error_create_failed: "Failed to create",
     sdk_init_failed: "Lark SDK initialization failed",
     debug_panel: "🔧 Debug (dev only)",
-    warning_assignee_not_member:
-      "This assignee is not a member of the selected project; they won't be able to see the task. Switch to a shared project (e.g. Team Inbox) or add them to this one first.",
   },
 } as const;

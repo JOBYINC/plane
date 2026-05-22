@@ -76,6 +76,7 @@ export const ListQuickAddIssueForm = observer(function ListQuickAddIssueForm(pro
             />
             <MemberDropdown
               projectId={projectId}
+              expandToWorkspace
               value={currentAssignees}
               onChange={(val) => setValue?.("assignee_ids", val, { shouldDirty: true })}
               multiple

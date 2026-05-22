@@ -314,6 +314,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
         <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
           <MemberDropdown
             projectId={issue?.project_id}
+            expandToWorkspace
             value={issue?.assignee_ids}
             onChange={handleAssignee}
             disabled={isReadOnly}

@@ -83,6 +83,7 @@ export const RelationIssueProperty = observer(function RelationIssueProperty(pro
         <MemberDropdown
           value={issue.assignee_ids}
           projectId={issue.project_id ?? undefined}
+          expandToWorkspace
           onChange={handleAssigneeChange}
           disabled={disabled}
           multiple

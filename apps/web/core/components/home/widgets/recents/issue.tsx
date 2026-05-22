@@ -119,6 +119,7 @@ export const RecentIssue = observer(function RecentIssue(props: BlockProps) {
             <div className="h-5">
               <MemberDropdown
                 projectId={issueDetails?.project_id}
+                expandToWorkspace
                 value={issueDetails?.assignees}
                 onChange={() => {}}
                 disabled

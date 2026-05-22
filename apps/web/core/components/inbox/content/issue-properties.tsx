@@ -100,6 +100,7 @@ export const InboxIssueContentProperties = observer(function InboxIssueContentPr
                 }
                 disabled={!isEditable}
                 projectId={projectId?.toString() ?? ""}
+                expandToWorkspace
                 placeholder="Add assignees"
                 multiple
                 buttonVariant={

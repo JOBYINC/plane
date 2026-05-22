@@ -162,6 +162,7 @@ export const WorkItemFieldCell = observer(function WorkItemFieldCell(props: Work
     inner = (
       <MemberDropdown
         projectId={projectId}
+        expandToWorkspace
         value={ids}
         onChange={(next: string[]) => commit(next.length > 0 ? next : null)}
         multiple

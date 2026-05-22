@@ -22,9 +22,12 @@ from plane.db.models import (
     IssueLink,
     IssueRelation,
     Label,
+    Project,
     ProjectMember,
+    ProjectUserProperty,
     State,
     User,
+    WorkspaceMember,
     EstimatePoint,
 )
 from plane.utils.content_validator import (
@@ -103,14 +106,93 @@ class IssueSerializer(BaseSerializer):
             if not is_valid:
                 raise serializers.ValidationError({"description_binary": "Invalid binary data"})
 
-        # Validate assignees are from project
+        # Asana-style assignment — mirrors
+        # plane.app.serializers.issue.IssueCreateSerializer so the public
+        # API behaves the same as the app UI. Workspace guests are NOT
+        # auto-promoted; existing project guests get upgraded to Member.
         if data.get("assignees", []):
-            data["assignees"] = ProjectMember.objects.filter(
-                project_id=self.context.get("project_id"),
-                is_active=True,
-                role__gte=15,
-                member_id__in=data["assignees"],
-            ).values_list("member_id", flat=True)
+            # See plane/app/serializers/issue.py IssueCreateSerializer for
+            # the context → instance → Project resolution chain rationale.
+            # Public API intake update (api/views/intake.py) constructs
+            # this serializer without context, so instance fallback is
+            # what keeps assignees from being silently wiped on PATCH.
+            project_id = self.context.get("project_id")
+            if project_id is None and self.instance is not None:
+                project_id = self.instance.project_id
+            workspace_id = self.context.get("workspace_id")
+            if workspace_id is None and self.instance is not None:
+                workspace_id = self.instance.workspace_id
+            if workspace_id is None and project_id is not None:
+                workspace_id = (
+                    Project.objects.filter(pk=project_id)
+                    .values_list("workspace_id", flat=True)
+                    .first()
+                )
+            requested_ids = list(data["assignees"])
+
+            valid_member_ids = list(
+                WorkspaceMember.objects.filter(
+                    workspace_id=workspace_id,
+                    member_id__in=requested_ids,
+                    is_active=True,
+                    role__gte=15,
+                ).values_list("member_id", flat=True)
+            )
+
+            existing_rows = ProjectMember.objects.filter(
+                project_id=project_id,
+                member_id__in=valid_member_ids,
+            ).values_list("member_id", "is_active", "role")
+            seen_ids = set()
+            inactive_ids = set()
+            upgrade_ids = set()
+            for mid, active, role in existing_rows:
+                seen_ids.add(mid)
+                if not active:
+                    inactive_ids.add(mid)
+                elif role < 15:
+                    upgrade_ids.add(mid)
+
+            if inactive_ids:
+                ProjectMember.objects.filter(
+                    project_id=project_id,
+                    member_id__in=inactive_ids,
+                ).update(is_active=True, role=15)
+            if upgrade_ids:
+                ProjectMember.objects.filter(
+                    project_id=project_id,
+                    member_id__in=upgrade_ids,
+                ).update(role=15)
+
+            to_create_ids = [mid for mid in valid_member_ids if mid not in seen_ids]
+            if to_create_ids:
+                ProjectMember.objects.bulk_create(
+                    [
+                        ProjectMember(
+                            member_id=mid,
+                            project_id=project_id,
+                            workspace_id=workspace_id,
+                            role=15,
+                            is_active=True,
+                        )
+                        for mid in to_create_ids
+                    ],
+                    ignore_conflicts=True,
+                )
+                ProjectUserProperty.objects.bulk_create(
+                    [
+                        ProjectUserProperty(
+                            user_id=mid,
+                            project_id=project_id,
+                            workspace_id=workspace_id,
+                            sort_order=65535,
+                        )
+                        for mid in to_create_ids
+                    ],
+                    ignore_conflicts=True,
+                )
+
+            data["assignees"] = valid_member_ids
 
         # Validate labels are from project
         if data.get("labels", []):

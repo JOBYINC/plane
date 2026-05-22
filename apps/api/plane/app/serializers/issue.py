@@ -40,7 +40,9 @@ from plane.db.models import (
     State,
     IssueVersion,
     IssueDescriptionVersion,
+    Project,
     ProjectMember,
+    WorkspaceMember,
     EstimatePoint,
 )
 from plane.utils.content_validator import (
@@ -145,14 +147,107 @@ class IssueCreateSerializer(BaseSerializer):
             if not is_valid:
                 raise serializers.ValidationError({"description_binary": "Invalid binary data"})
 
-        # Validate assignees are from project
+        # Asana-style assignment: assignees must be workspace members at
+        # role>=Member, but need NOT already be project members. Anyone
+        # qualifying can be picked; if they aren't a project member yet,
+        # we auto-add them (role=Member, is_active=True) so they gain
+        # project access. Existing project Guests get promoted on assign
+        # (otherwise guest visibility filters might hide the very task
+        # they were just assigned). This mirrors how Asana grants project
+        # visibility on task assignment.
         if attrs.get("assignee_ids", []):
-            attrs["assignee_ids"] = ProjectMember.objects.filter(
-                project_id=self.context["project_id"],
-                role__gte=15,
-                is_active=True,
-                member_id__in=attrs["assignee_ids"],
-            ).values_list("member_id", flat=True)
+            # Resolve project_id / workspace_id with a robust fallback
+            # chain: context first (always populated on create), then the
+            # serializer instance (populated on any update/PATCH), then a
+            # Project lookup as the last resort. This guards against
+            # update paths that forget to pass context — eg. the public
+            # API intake update wraps IssueSerializer with no context at
+            # all and would otherwise silently wipe assignees.
+            project_id = self.context.get("project_id")
+            if project_id is None and self.instance is not None:
+                project_id = self.instance.project_id
+            workspace_id = self.context.get("workspace_id")
+            if workspace_id is None and self.instance is not None:
+                workspace_id = self.instance.workspace_id
+            if workspace_id is None and project_id is not None:
+                workspace_id = (
+                    Project.objects.filter(pk=project_id)
+                    .values_list("workspace_id", flat=True)
+                    .first()
+                )
+            requested_ids = list(attrs["assignee_ids"])
+
+            # Accept only active workspace members at role>=Member.
+            # Workspace Guests are NOT auto-added (mirrors the explicit
+            # project-member endpoint at project/member.py which blocks
+            # workspace guests from project-member promotion).
+            valid_member_ids = list(
+                WorkspaceMember.objects.filter(
+                    workspace_id=workspace_id,
+                    member_id__in=requested_ids,
+                    is_active=True,
+                    role__gte=15,
+                ).values_list("member_id", flat=True)
+            )
+
+            # Partition existing project rows:
+            #   - inactive (any role) → reactivate at role=Member
+            #   - active at role<15   → upgrade to Member (visibility fix)
+            #   - active at role>=15  → leave alone
+            existing_rows = ProjectMember.objects.filter(
+                project_id=project_id,
+                member_id__in=valid_member_ids,
+            ).values_list("member_id", "is_active", "role")
+            seen_ids = set()
+            inactive_ids = set()
+            upgrade_ids = set()
+            for mid, active, role in existing_rows:
+                seen_ids.add(mid)
+                if not active:
+                    inactive_ids.add(mid)
+                elif role < 15:
+                    upgrade_ids.add(mid)
+
+            if inactive_ids:
+                ProjectMember.objects.filter(
+                    project_id=project_id,
+                    member_id__in=inactive_ids,
+                ).update(is_active=True, role=15)
+            if upgrade_ids:
+                ProjectMember.objects.filter(
+                    project_id=project_id,
+                    member_id__in=upgrade_ids,
+                ).update(role=15)
+
+            to_create_ids = [mid for mid in valid_member_ids if mid not in seen_ids]
+            if to_create_ids:
+                ProjectMember.objects.bulk_create(
+                    [
+                        ProjectMember(
+                            member_id=mid,
+                            project_id=project_id,
+                            workspace_id=workspace_id,
+                            role=15,
+                            is_active=True,
+                        )
+                        for mid in to_create_ids
+                    ],
+                    ignore_conflicts=True,
+                )
+                ProjectUserProperty.objects.bulk_create(
+                    [
+                        ProjectUserProperty(
+                            user_id=mid,
+                            project_id=project_id,
+                            workspace_id=workspace_id,
+                            sort_order=65535,
+                        )
+                        for mid in to_create_ids
+                    ],
+                    ignore_conflicts=True,
+                )
+
+            attrs["assignee_ids"] = valid_member_ids
 
         # Validate labels are from project
         if attrs.get("label_ids"):

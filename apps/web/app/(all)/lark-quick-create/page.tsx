@@ -32,7 +32,6 @@ import { useUser } from "@/hooks/store/user";
 import { useMember } from "@/hooks/store/use-member";
 import { IssueService } from "@/services/issue/issue.service";
 import { WorkspaceService } from "@/services/workspace.service";
-import { ProjectMemberService } from "@/services/project/project-member.service";
 import { PriorityDropdown } from "@/components/dropdowns/priority";
 import { DateDropdown } from "@/components/dropdowns/date";
 import { MemberDropdown } from "@/components/dropdowns/member/dropdown";
@@ -84,7 +83,6 @@ type LarkSourceDetail = {
 
 const issueService = new IssueService();
 const _workspaceService = new WorkspaceService();
-const projectMemberService = new ProjectMemberService();
 
 type MemberOption = { id: string; name: string; avatar: string };
 
@@ -208,9 +206,6 @@ const LarkQuickCreatePage = observer(() => {
   const [assigneeId, setAssigneeId] = useState<string>("");
   const [_assigneeQuery, _setAssigneeQuery] = useState<string>("");
   const [_assigneeOpen, _setAssigneeOpen] = useState<boolean>(false);
-  // Project-member check: warn when the chosen assignee isn't a member of
-  // the chosen project (they'd be assigned an issue they can't see).
-  const [projectMemberIds, setProjectMemberIds] = useState<Set<string>>(new Set());
 
   // Default to the user's first joined workspace. The shortcut doesn't carry
   // workspace context; multi-workspace switching can come later.
@@ -457,37 +452,6 @@ const LarkQuickCreatePage = observer(() => {
     if (!assigneeId && currentUser?.id) setAssigneeId(String(currentUser.id));
   }, [currentUser, assigneeId]);
 
-  // Fetch the chosen project's members whenever the project changes, so we
-  // can warn when the assignee isn't a member (they'd be assigned a task
-  // they can't see in any project / kanban view).
-  useEffect(() => {
-    if (!workspace?.slug || !projectId) {
-      setProjectMemberIds(new Set());
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const rows = await projectMemberService.fetchProjectMembers(workspace.slug, projectId);
-        if (cancelled) return;
-        const ids = new Set<string>();
-        (rows ?? []).forEach((row: Record<string, unknown>) => {
-          const memberObj = (row?.member as Record<string, unknown> | undefined) ?? null;
-          const id = String(memberObj?.id ?? row?.member_id ?? "");
-          if (id) ids.add(id);
-        });
-        setProjectMemberIds(ids);
-      } catch {
-        if (!cancelled) setProjectMemberIds(new Set());
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [workspace?.slug, projectId]);
-
-  const assigneeIsMember = !assigneeId || projectMemberIds.size === 0 || projectMemberIds.has(assigneeId);
-
   // Search pool for the assignee dropdown = the workspace members we already
   // fetched into local state above. Going through `memberRoot.workspace.
   // getWorkspaceMemberIds(slug)` would also work in theory, but its sort step
@@ -667,11 +631,6 @@ const LarkQuickCreatePage = observer(() => {
               />
             ) : null}
           </div>
-          {!assigneeIsMember ? (
-            <span className="text-amber-600 pl-[4.75rem] text-[11px]">
-              {t("lark_quick_create.warning_assignee_not_member")}
-            </span>
-          ) : null}
         </div>
       </div>
 

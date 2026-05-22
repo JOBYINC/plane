@@ -20,10 +20,15 @@ type TMemberDropdownProps = {
   optionsClassName?: string;
   projectId?: string;
   renderByDefault?: boolean;
+  // Asana-style task-assignee mode: even when a projectId is supplied, show
+  // every workspace member instead of restricting to project members.
+  // Non-members get auto-added to the project on assignment (handled by
+  // IssueCreateSerializer.validate() on the backend).
+  expandToWorkspace?: boolean;
 } & MemberDropdownProps;
 
 export const MemberDropdown = observer(function MemberDropdown(props: TMemberDropdownProps) {
-  const { memberIds: propsMemberIds, projectId } = props;
+  const { memberIds: propsMemberIds, projectId, expandToWorkspace } = props;
   // router params
   const { workspaceSlug } = useParams();
   // store hooks
@@ -35,11 +40,17 @@ export const MemberDropdown = observer(function MemberDropdown(props: TMemberDro
 
   const memberIds = propsMemberIds
     ? propsMemberIds
-    : projectId
-      ? getProjectMemberIds(projectId, false)
-      : workspaceMemberIds;
+    : expandToWorkspace
+      ? workspaceMemberIds
+      : projectId
+        ? getProjectMemberIds(projectId, false)
+        : workspaceMemberIds;
 
   const onDropdownOpen = () => {
+    // Lazy project-member fetch only fires in the project-scoped path
+    // (no propsMemberIds, no expandToWorkspace). In expandToWorkspace
+    // mode memberIds is workspaceMemberIds, which is hydrated by the
+    // auth layout, so we deliberately don't touch project members here.
     if (!memberIds && projectId && workspaceSlug) fetchProjectMembers(workspaceSlug.toString(), projectId);
   };
 
