@@ -22,19 +22,22 @@ interface Props {
   onClose: () => void;
 }
 
+// A launch project created from a template shouldn't inherit the
+// template's "(Template)" suffix — e.g. "Q3 Launch (Template)" seeds the
+// new project's name as "Q3 Launch", not "Q3 Launch (Template) (Copy)".
+const stripTemplateSuffix = (name: string): string => name.replace(/\s*\(Template\)\s*$/i, "").trim();
+
 /**
  * Minimal modal that drives the server-side project duplicate. Captures
  * just the things you'd change per-launch:
- *  - name (defaults to "<source> (Copy)")
- *  - rebump_target_dates_by_days (shifts every issue's target_date)
- *  - rebump_cycle_windows_by_days (shifts every cycle's start/end)
+ *  - name (defaults to the template name minus its "(Template)" suffix)
+ *  - start date — re-anchors the cloned timeline so the template's
+ *    earliest date lands on this date and every other date shifts with
+ *    it, preserving the project's overall span. Defaults to today.
  *
  * On success, navigates to the new project. Custom field overrides
- * (e.g. Tier) aren't surfaced here yet — that's a v1.5 nice-to-have
- * since the API supports it but a UI for arbitrary {field: value}
- * needs the clone's field schema fetched first. Workaround for now:
- * after the clone lands, bulk-PATCH the field via the existing
- * work-item-fields token API.
+ * (e.g. Tier) aren't surfaced here yet — the API supports it but a UI
+ * for arbitrary {field: value} needs the clone's field schema first.
  */
 export const UseTemplateModal = observer(function UseTemplateModal(props: Props) {
   const { isOpen, sourceProjectId, onClose } = props;
@@ -46,38 +49,25 @@ export const UseTemplateModal = observer(function UseTemplateModal(props: Props)
   const source = sourceProjectId ? getPartialProjectById(sourceProjectId) : undefined;
 
   const [name, setName] = useState("");
-  const [rebumpIssueDays, setRebumpIssueDays] = useState("0");
-  const [rebumpCycleDays, setRebumpCycleDays] = useState("0");
+  const [startDate, setStartDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Reset form whenever a new template is opened so the previous launch's
-  // rebump values don't bleed into the next one.
+  // Reset the form whenever a new template is opened: name from the
+  // template, start date back to today.
   useEffect(() => {
     if (!isOpen || !source) return;
-    setName(`${source.name} (Copy)`);
-    setRebumpIssueDays("0");
-    setRebumpCycleDays("0");
+    setName(stripTemplateSuffix(source.name));
+    setStartDate(new Date().toISOString().slice(0, 10));
   }, [isOpen, source]);
 
   const handleSubmit = async () => {
     if (!workspaceSlug || !sourceProjectId || isSubmitting) return;
-    const parsedIssueDays = Number.parseInt(rebumpIssueDays, 10);
-    const parsedCycleDays = Number.parseInt(rebumpCycleDays, 10);
-    if (Number.isNaN(parsedIssueDays) || Number.isNaN(parsedCycleDays)) {
-      setToast({
-        type: TOAST_TYPE.ERROR,
-        title: t("error"),
-        message: "Rebump days must be integers",
-      });
-      return;
-    }
 
     setIsSubmitting(true);
     try {
       const clone = await duplicateProject(workspaceSlug.toString(), sourceProjectId, {
         name: name.trim() || undefined,
-        rebump_target_dates_by_days: parsedIssueDays,
-        rebump_cycle_windows_by_days: parsedCycleDays,
+        anchor_start_date: startDate || undefined,
       });
       setToast({
         type: TOAST_TYPE.SUCCESS,
@@ -122,32 +112,13 @@ export const UseTemplateModal = observer(function UseTemplateModal(props: Props)
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={source ? `${source.name} (Copy)` : "New project name"}
+              placeholder={source ? stripTemplateSuffix(source.name) : "New project name"}
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-13 font-medium text-secondary">
-                {t("rebump_issue_days", { defaultValue: "Shift issue dates (days)" })}
-              </label>
-              <Input
-                type="number"
-                value={rebumpIssueDays}
-                onChange={(e) => setRebumpIssueDays(e.target.value)}
-                placeholder="0"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-13 font-medium text-secondary">
-                {t("rebump_cycle_days", { defaultValue: "Shift cycle windows (days)" })}
-              </label>
-              <Input
-                type="number"
-                value={rebumpCycleDays}
-                onChange={(e) => setRebumpCycleDays(e.target.value)}
-                placeholder="0"
-              />
-            </div>
+          <div className="space-y-1">
+            <label className="text-13 font-medium text-secondary">{t("template_start_date")}</label>
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <p className="text-11 text-tertiary">{t("template_start_date_hint")}</p>
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">

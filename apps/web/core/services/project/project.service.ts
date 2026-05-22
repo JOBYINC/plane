@@ -116,7 +116,15 @@ export class ProjectService extends APIService {
       external_id?: string | null;
       rebump_target_dates_by_days?: number;
       rebump_cycle_windows_by_days?: number;
+      // ISO date (YYYY-MM-DD) — re-anchors the clone's timeline so the
+      // source's earliest date lands here, preserving the overall span.
+      // Overrides the rebump_* deltas when set.
+      anchor_start_date?: string;
       override_custom_field_values?: Record<string, unknown>;
+      // when true the clone is created as a workspace template ("Save as
+      // template"); default false keeps create-from-template producing a
+      // normal project
+      is_template?: boolean;
     }
   ): Promise<TProject> {
     return this.post(`/api/v1/workspaces/${workspaceSlug}/projects/${projectId}/duplicate/`, body)

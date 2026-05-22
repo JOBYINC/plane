@@ -24,16 +24,19 @@ failure rolls back the whole project (the §5 "no orphan project" rule
 that the client-side workaround can't guarantee).
 """
 
-from datetime import timedelta
-from typing import Dict, Tuple
+from datetime import date, timedelta
+from typing import Dict, Optional, Tuple
 from uuid import UUID
 
 from django.db import transaction
+from django.db.models import Min
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 
+from plane.api.middleware.api_authentication import APIKeyAuthentication
 from plane.app.permissions import ProjectBasePermission
+from plane.authentication.session import BaseSessionAuthentication
 from plane.db.models import (
     Cycle,
     CycleIssue,
@@ -88,6 +91,15 @@ def _coerce_int(value, default=0) -> int:
 
 
 class ProjectDuplicateEndpoint(BaseAPIView):
+    # Used from BOTH the token API (GTM agents with X-Api-Key) and the web
+    # UI (the "Save as template" quick action + the create-from-template
+    # modal). BaseAPIView is token-only, so also accept the app's session
+    # auth — without it the session-authenticated web gets a 401.
+    # BaseSessionAuthentication (not DRF's stock SessionAuthentication) is
+    # what every /api/ app endpoint uses; it skips CSRF the same way, so
+    # the web's session POST works. Token callers are unaffected
+    # (APIKeyAuthentication still runs first).
+    authentication_classes = [APIKeyAuthentication, BaseSessionAuthentication]
     permission_classes = [ProjectBasePermission]
     webhook_event = "project"
 
@@ -118,6 +130,25 @@ class ProjectDuplicateEndpoint(BaseAPIView):
             cycle_delta = timedelta(days=_coerce_int(body.get("rebump_cycle_windows_by_days")))
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # anchor_start_date re-anchors the whole timeline: the source's
+        # earliest date is moved onto anchor_start_date and every other date
+        # shifts by the same delta, so relative gaps (the project's overall
+        # span) are preserved. One delta drives BOTH issues and cycles. It
+        # overrides the rebump_* deltas when given; agents that still pass
+        # rebump_* keep working unchanged.
+        anchor_raw = body.get("anchor_start_date")
+        if anchor_raw:
+            try:
+                anchor = date.fromisoformat(str(anchor_raw))
+            except ValueError:
+                return Response(
+                    {"error": "`anchor_start_date` must be an ISO date (YYYY-MM-DD)."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            earliest = self._earliest_timeline_date(source)
+            if earliest is not None:
+                date_delta = cycle_delta = timedelta(days=(anchor - earliest).days)
 
         override_field_values = body.get("override_custom_field_values") or {}
         if not isinstance(override_field_values, dict):
@@ -174,6 +205,29 @@ class ProjectDuplicateEndpoint(BaseAPIView):
 
         return Response(self._serialize(clone), status=status.HTTP_201_CREATED)
 
+    def _earliest_timeline_date(self, source: Project) -> Optional[date]:
+        """Earliest date anywhere in the source project's timeline — across
+        issue start/target dates and cycle start/end dates. Used to
+        re-anchor a clone via ``anchor_start_date``. Returns None when the
+        project has no dated rows; datetimes are normalised to dates."""
+        issue_dates = Issue.objects.filter(project=source).aggregate(
+            s=Min("start_date"), t=Min("target_date")
+        )
+        cycle_dates = Cycle.objects.filter(project=source).aggregate(
+            s=Min("start_date"), e=Min("end_date")
+        )
+        candidates = [
+            v.date() if hasattr(v, "date") else v
+            for v in (
+                issue_dates["s"],
+                issue_dates["t"],
+                cycle_dates["s"],
+                cycle_dates["e"],
+            )
+            if v is not None
+        ]
+        return min(candidates) if candidates else None
+
     # ------------------------------------------------------------------
     # Per-entity cloners. Each follows the ``obj.pk = None`` pattern from
     # PageDuplicateEndpoint, remaps the project FK, then ``save()``.
@@ -195,10 +249,12 @@ class ProjectDuplicateEndpoint(BaseAPIView):
         if "external_source" in body:
             clone.external_source = body["external_source"]
         clone.external_id = body.get("external_id")
-        # A clone of a template is a normal launch project, not another
-        # template — otherwise duplicating a template would multiply the
-        # templates sidebar group.
-        clone.is_template = False
+        # Default: a clone is a normal launch project, not another template,
+        # so duplicating a template doesn't multiply the templates group.
+        # Callers can opt the clone into being a template by passing
+        # ``is_template: true`` — this is how "Save as template" duplicates a
+        # normal project into the workspace template library.
+        clone.is_template = bool(body.get("is_template", False))
         clone.created_by = actor
         clone.updated_by = actor
         clone.archived_at = None
@@ -766,6 +822,7 @@ class ProjectDuplicateEndpoint(BaseAPIView):
             "workspace_id": str(clone.workspace_id),
             "external_source": clone.external_source,
             "external_id": clone.external_id,
+            "is_template": clone.is_template,
         }
 
 

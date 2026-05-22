@@ -14,7 +14,7 @@ import { observer } from "mobx-react";
 import { useParams, useRouter } from "next/navigation";
 import { createRoot } from "react-dom/client";
 import scrollIntoView from "smooth-scroll-into-view-if-needed";
-import { Settings, Share2, LogOut, MoreHorizontal, Star } from "lucide-react";
+import { Settings, Share2, LogOut, MoreHorizontal, Star, Copy } from "lucide-react";
 import { Disclosure, Transition } from "@headlessui/react";
 // plane imports
 import { EUserPermissions, EUserPermissionsLevel, MEMBER_TRACKER_ELEMENTS } from "@plane/constants";
@@ -74,7 +74,13 @@ export const SidebarProjectsListItem = observer(function SidebarProjectsListItem
   } = props;
   // store hooks
   const { t } = useTranslation();
-  const { getPartialProjectById, addProjectToFavorites, removeProjectFromFavorites } = useProject();
+  const {
+    getPartialProjectById,
+    addProjectToFavorites,
+    removeProjectFromFavorites,
+    duplicateProject,
+    fetchTemplateProjects,
+  } = useProject();
   const { entityMap: favoriteEntityMap } = useFavorite();
   const { isMobile } = usePlatformOS();
   const { allowPermissions } = useUserPermissions();
@@ -121,6 +127,26 @@ export const SidebarProjectsListItem = observer(function SidebarProjectsListItem
       loading: "Removing project from favorites...",
       success: { title: "Success!", message: () => "Project removed from favorites." },
       error: { title: "Error!", message: () => "Couldn't remove the project from favorites. Please try again." },
+    });
+  };
+
+  // "Save as template" — deep-clones this project into a workspace template
+  // (is_template=true). The original project is left untouched; the clone
+  // surfaces in the sidebar Templates group.
+  const handleSaveAsTemplate = () => {
+    if (!workspaceSlug || !project) return;
+    const slug = workspaceSlug.toString();
+    const promise = duplicateProject(slug, projectId, {
+      name: `${project.name} (Template)`,
+      is_template: true,
+    });
+    // the duplicate response is lightweight — refetch templates so the new
+    // one shows in the sidebar Templates group
+    promise.then(() => fetchTemplateProjects(slug)).catch(() => {});
+    setPromiseToast(promise, {
+      loading: "Saving project as template...",
+      success: { title: "Success!", message: () => "Template created — see the Templates group in the sidebar." },
+      error: { title: "Error!", message: () => "Couldn't save the project as a template. Please try again." },
     });
   };
 
@@ -432,6 +458,16 @@ export const SidebarProjectsListItem = observer(function SidebarProjectsListItem
                         </div>
                         <div>{t("publish_project")}</div>
                       </div>
+                    </CustomMenu.MenuItem>
+                  )}
+
+                  {/* save the project as a workspace template (deep clone) */}
+                  {isAdmin && !project.is_personal && (
+                    <CustomMenu.MenuItem onClick={handleSaveAsTemplate}>
+                      <span className="flex items-center justify-start gap-2">
+                        <Copy className="h-3.5 w-3.5 stroke-[1.5]" />
+                        <span>{t("save_as_template")}</span>
+                      </span>
                     </CustomMenu.MenuItem>
                   )}
                   <CustomMenu.MenuItem onClick={handleCopyText}>

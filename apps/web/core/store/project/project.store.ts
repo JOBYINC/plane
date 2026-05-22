@@ -69,7 +69,9 @@ export interface IProjectStore {
       external_id?: string | null;
       rebump_target_dates_by_days?: number;
       rebump_cycle_windows_by_days?: number;
+      anchor_start_date?: string;
       override_custom_field_values?: Record<string, unknown>;
+      is_template?: boolean;
     }
   ) => Promise<TProject>;
   fetchProjectDetails: (workspaceSlug: string, projectId: string) => Promise<TProject>;
@@ -392,10 +394,12 @@ export class ProjectStore implements IProjectStore {
   };
 
   /**
-   * Server-side deep clone of a project. The clone lands in
-   * ``projectMap`` so the sidebar's main project list updates without a
-   * follow-up refetch; ``is_template`` is reset to false by the server,
-   * so a duplicated template appears under "Projects", not "Templates".
+   * Server-side deep clone of a project. Pass ``is_template: true`` to
+   * create the clone as a workspace template ("Save as template").
+   * Returns the lightweight clone record and merges it into
+   * ``projectMap``; the duplicate response is intentionally minimal, so
+   * callers that need the clone to show in a sidebar group should
+   * refetch (``fetchTemplateProjects`` / ``fetchProjects``).
    */
   duplicateProject = async (
     workspaceSlug: string,
@@ -407,7 +411,9 @@ export class ProjectStore implements IProjectStore {
       external_id?: string | null;
       rebump_target_dates_by_days?: number;
       rebump_cycle_windows_by_days?: number;
+      anchor_start_date?: string;
       override_custom_field_values?: Record<string, unknown>;
+      is_template?: boolean;
     }
   ) => {
     const clone = await this.projectService.duplicateProject(workspaceSlug, projectId, body);
