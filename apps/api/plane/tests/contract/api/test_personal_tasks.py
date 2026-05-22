@@ -5,6 +5,7 @@
 """Contract tests for the personal-tasks token endpoint
 (``/api/v1/workspaces/{slug}/personal-tasks/``)."""
 
+import json
 import uuid
 
 import pytest
@@ -20,6 +21,7 @@ def _no_celery(mocker):
     activity-stream side-effect, so mock the .delay() entry points.
     """
     mocker.patch("plane.api.views.personal_task.issue_activity.delay")
+    mocker.patch("plane.api.views.personal_task.model_activity.delay")
 
 
 @pytest.fixture
@@ -321,6 +323,143 @@ class TestPersonalTasksPatch:
             format="json",
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.contract
+class TestPersonalTasksWebhookFanOut:
+    """The personal-tasks endpoint must trigger ``model_activity.delay``
+    so the Lark bot (and any other webhook subscriber) receives the
+    ``issue.created`` / ``issue.updated`` event and can DM the assignee.
+
+    Regression guard: the original endpoint only fired ``issue_activity``
+    and silently dropped the webhook fan-out, breaking Lark notifications
+    for tasks created via the new system-token path.
+    """
+
+    @pytest.mark.django_db
+    def test_post_triggers_model_activity_for_webhook_fanout(
+        self, system_api_client, workspace_with_owner, owner_user, mocker
+    ):
+        spy = mocker.patch("plane.api.views.personal_task.model_activity.delay")
+        response = system_api_client.post(
+            _personal_tasks_url(workspace_with_owner.slug),
+            data={
+                "owner": str(owner_user.id),
+                "name": "Fanout me",
+                "external_source": "task-manager-v1",
+                "external_id": "fanout-post-1",
+            },
+            format="json",
+            HTTP_HOST="task.example.com",
+        )
+        assert response.status_code == status.HTTP_201_CREATED, response.content
+        assert spy.called, "model_activity.delay was not invoked for POST"
+        kwargs = spy.call_args.kwargs
+        assert kwargs["model_name"] == "issue"
+        assert kwargs["model_id"] == response.json()["id"]
+        assert kwargs["current_instance"] is None
+        assert kwargs["slug"] == workspace_with_owner.slug
+        assert kwargs["actor_id"] is not None
+
+    @pytest.mark.django_db
+    def test_patch_triggers_model_activity_for_webhook_fanout(
+        self, system_api_client, workspace_with_owner, owner_user, mocker
+    ):
+        created = system_api_client.post(
+            _personal_tasks_url(workspace_with_owner.slug),
+            data={
+                "owner": str(owner_user.id),
+                "name": "Pre-patch name",
+                "external_source": "source-a",
+                "external_id": "fanout-patch-1",
+            },
+            format="json",
+            HTTP_HOST="task.example.com",
+        )
+        assert created.status_code == status.HTTP_201_CREATED
+        work_item_id = created.json()["id"]
+
+        # Spy AFTER the create so we only capture the PATCH call.
+        spy = mocker.patch("plane.api.views.personal_task.model_activity.delay")
+        response = system_api_client.patch(
+            _personal_task_detail_url(workspace_with_owner.slug, work_item_id),
+            data={"name": "Patched name", "external_source": "source-a"},
+            format="json",
+            HTTP_HOST="task.example.com",
+        )
+        assert response.status_code == status.HTTP_200_OK, response.content
+        assert spy.called, "model_activity.delay was not invoked for PATCH"
+        kwargs = spy.call_args.kwargs
+        assert kwargs["model_name"] == "issue"
+        assert kwargs["model_id"] == work_item_id
+        # PATCH must pass the pre-update serialized issue so the webhook
+        # task can diff old vs new and emit per-field updated events.
+        assert kwargs["current_instance"] is not None
+        assert kwargs["slug"] == workspace_with_owner.slug
+
+    @pytest.mark.django_db
+    def test_post_requested_data_includes_assignee_ids_for_lark_gate(
+        self, system_api_client, workspace_with_owner, owner_user, mocker
+    ):
+        """The real Lark fan-out path: ``create_issue_activity``
+        (issue_activities_task.py:581) only calls ``track_assignees``
+        when ``requested_data.get('assignee_ids') is not None``. Our
+        API serializer uses the ``assignees`` key, so the issue_activity
+        payload MUST mirror it under ``assignee_ids`` or the assignee
+        IssueActivity row is never emitted and dispatch_lark_for_activities
+        sees nothing to DM.
+        """
+        spy = mocker.patch("plane.api.views.personal_task.issue_activity.delay")
+        response = system_api_client.post(
+            _personal_tasks_url(workspace_with_owner.slug),
+            data={
+                "owner": str(owner_user.id),
+                "name": "Notify me on Lark",
+                "external_source": "task-manager-v1",
+                "external_id": "lark-gate-1",
+            },
+            format="json",
+            HTTP_HOST="task.example.com",
+        )
+        assert response.status_code == status.HTTP_201_CREATED, response.content
+        assert spy.called, "issue_activity.delay was not invoked"
+        requested_data = json.loads(spy.call_args.kwargs["requested_data"])
+        assert "assignee_ids" in requested_data, (
+            "issue_activity.requested_data is missing 'assignee_ids' — "
+            "create_issue_activity will skip track_assignees and no Lark "
+            "DM will fire."
+        )
+        assert requested_data["assignee_ids"] == [str(owner_user.id)]
+
+    @pytest.mark.django_db
+    def test_idempotent_409_reuse_does_not_trigger_model_activity(
+        self, system_api_client, workspace_with_owner, owner_user, mocker
+    ):
+        """Spec §"顺手注意": the 409 idempotent-reuse path MUST NOT fire
+        the webhook — nothing was actually created."""
+        payload = {
+            "owner": str(owner_user.id),
+            "name": "First create",
+            "external_source": "task-manager-v1",
+            "external_id": "no-double-fire",
+        }
+        first = system_api_client.post(
+            _personal_tasks_url(workspace_with_owner.slug),
+            data=payload,
+            format="json",
+            HTTP_HOST="task.example.com",
+        )
+        assert first.status_code == status.HTTP_201_CREATED
+
+        spy = mocker.patch("plane.api.views.personal_task.model_activity.delay")
+        second = system_api_client.post(
+            _personal_tasks_url(workspace_with_owner.slug),
+            data=payload,
+            format="json",
+            HTTP_HOST="task.example.com",
+        )
+        assert second.status_code == status.HTTP_409_CONFLICT
+        assert not spy.called, "409 idempotent reuse must not refire webhook"
 
 
 @pytest.mark.contract

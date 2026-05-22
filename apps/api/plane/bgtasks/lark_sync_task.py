@@ -20,11 +20,24 @@ from plane.app.views.workspace.lark_invite import (
     _crawl_directory,
     _tenant_access_token,
 )
-from plane.db.models import User, Workspace, WorkspaceMember
+from plane.db.models import Profile, User, Workspace, WorkspaceMember
 
 logger = logging.getLogger("plane.bgtasks.lark_sync_task")
 
 DEFAULT_ROLE = 15  # 15 = Member on WorkspaceMember.ROLE_CHOICES
+
+# Lark-sync-created users come from a directory crawl, NOT an interactive
+# OAuth signup — they should never see the "Create your profile" onboarding
+# UI, because every step it would walk them through (profile name,
+# workspace join) is already satisfied by the sync. Default Profile.is_onboarded
+# is False, which routes the web app into onboarding on first login; we
+# pre-mark these accounts as fully onboarded.
+_ALL_ONBOARDING_STEPS_COMPLETE = {
+    "profile_complete": True,
+    "workspace_create": True,
+    "workspace_invite": True,
+    "workspace_join": True,
+}
 
 
 def sync_lark_directory(workspace_slug, role=DEFAULT_ROLE, force_refresh=False):
@@ -102,6 +115,25 @@ def sync_lark_directory(workspace_slug, role=DEFAULT_ROLE, force_refresh=False):
                         update_fields.append("display_name")
                     if update_fields:
                         user.save(update_fields=update_fields)
+
+                # Ensure the Profile row exists. Without it:
+                #   * /api/users/me/profile/ 404s → web app bootstrap hangs
+                #     (Profile.objects.get → DoesNotExist → 404 via the
+                #     project's exception middleware).
+                #   * /api/users/me/settings/ same, via
+                #     UserMeSettingsSerializer.get_workspace.
+                # The OAuth-only login path creates Profile at signup, but
+                # directory-sync runs BEFORE first login so users existed
+                # without a Profile until they hit a re-sign — this is the
+                # 447-user backlog we backfilled by hand.
+                Profile.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        "is_onboarded": True,
+                        "is_tour_completed": True,
+                        "onboarding_step": _ALL_ONBOARDING_STEPS_COMPLETE,
+                    },
+                )
 
                 wm, wm_created = WorkspaceMember.objects.get_or_create(
                     workspace=workspace,

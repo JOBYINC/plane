@@ -103,10 +103,12 @@ class ProjectViewSet(BaseViewSet):
         fields = [field for field in request.GET.get("fields", "").split(",") if field]
         # other users' personal ("Personal Tasks") buckets stay hidden; the
         # caller's own personal project is kept so it shows alongside their
-        # normal projects (the dedicated "My Tasks" sidebar entry was removed)
+        # normal projects (the dedicated "My Tasks" sidebar entry was removed).
+        # Templates are hidden too — they have their own sidebar group.
         projects = (
             self.get_queryset()
             .exclude(Q(is_personal=True) & ~Q(personal_owner=request.user))
+            .exclude(is_template=True)
             .order_by("sort_order", "name")
         )
         if WorkspaceMember.objects.filter(
@@ -170,6 +172,7 @@ class ProjectViewSet(BaseViewSet):
         projects = (
             Project.objects.filter(workspace__slug=self.kwargs.get("slug"))
             .exclude(Q(is_personal=True) & ~Q(personal_owner=request.user))
+            .exclude(is_template=True)
             .select_related("workspace", "workspace__owner", "default_assignee", "project_lead")
             .annotate(
                 member_role=ProjectMember.objects.filter(
@@ -342,6 +345,52 @@ class ProjectViewSet(BaseViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER], level="WORKSPACE")
+    @allow_permission(allowed_roles=[ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], level="WORKSPACE")
+    def templates(self, request, slug):
+        """Return the workspace's template projects (``is_template=True``).
+
+        Templates are workspace-wide canonical sources used by
+        ``ProjectDuplicateEndpoint`` and surfaced in the sidebar as their
+        own group; they're excluded from the normal ``list`` /
+        ``list_detail`` outputs to keep the active-projects view focused.
+        Permission shape mirrors ``list_detail``: GUESTs only see
+        templates they're a member of; MEMBERs additionally see public
+        ones (``network=2``); ADMINs see everything.
+        """
+        templates = (
+            self.get_queryset()
+            .filter(is_template=True)
+            .exclude(is_personal=True)
+            .order_by("sort_order", "name")
+        )
+        if WorkspaceMember.objects.filter(
+            member=request.user,
+            workspace__slug=slug,
+            is_active=True,
+            role=ROLE.GUEST.value,
+        ).exists():
+            templates = templates.filter(
+                project_projectmember__member=self.request.user,
+                project_projectmember__is_active=True,
+            )
+        elif WorkspaceMember.objects.filter(
+            member=request.user,
+            workspace__slug=slug,
+            is_active=True,
+            role=ROLE.MEMBER.value,
+        ).exists():
+            templates = templates.filter(
+                Q(
+                    project_projectmember__member=self.request.user,
+                    project_projectmember__is_active=True,
+                )
+                | Q(network=2)
+            )
+        return Response(
+            ProjectListSerializer(templates, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
     def personal(self, request, slug):
         """Return the requesting user's private personal ("My Tasks")
         project for this workspace, lazily creating it on first use.

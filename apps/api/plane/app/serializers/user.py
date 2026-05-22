@@ -98,8 +98,10 @@ class UserMeSettingsSerializer(BaseSerializer):
     def get_workspace(self, obj):
         workspace_invites = WorkspaceMemberInvite.objects.filter(email=obj.email).count()
 
-        # profile
-        profile = Profile.objects.get(user=obj)
+        # profile — get_or_create (not get) so a User row that bypassed the
+        # OAuth signup Profile-create path (lark_sync_task) doesn't 404 the
+        # whole /users/me/settings/ endpoint and stall the web bootstrap.
+        profile, _ = Profile.objects.get_or_create(user=obj)
         if (
             profile.last_workspace_id is not None
             and Workspace.objects.filter(

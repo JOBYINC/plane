@@ -62,6 +62,10 @@ export interface IProject extends IPartialProject {
   members?: string[];
   timezone?: string;
   next_work_item_sequence?: number;
+  // Workspace-canonical template source used by ProjectDuplicateEndpoint.
+  // Templates are hidden from the main /projects/ list and surfaced under
+  // a dedicated sidebar "Templates" group.
+  is_template?: boolean;
 }
 
 export type TProjectAnalyticsCountParams = {

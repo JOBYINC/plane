@@ -215,6 +215,8 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
   useOutsideClickDetector(menuActionRef, () => setIsMenuActive(false));
 
   const customActionButton = (
+    // pre-existing a11y (not introduced by this change)
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       ref={menuActionRef}
       className={`flex h-full w-full cursor-pointer items-center rounded-sm p-1 text-placeholder hover:bg-layer-1 ${
@@ -260,11 +262,13 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
   return (
     <>
       {/* Single sticky column containing both identifier and workitem */}
+      {/* First-column width box MUST match the header <th> in
+          spreadsheet-header.tsx exactly, or header/rows desync. */}
       <td
         id={`issue-${issueId}`}
         ref={cellRef}
         tabIndex={0}
-        className="group/list-block relative left-0 z-10 max-w-lg bg-surface-1 md:sticky"
+        className="group/list-block relative left-0 z-10 w-[360px] max-w-[360px] min-w-[360px] bg-surface-1 md:sticky"
       >
         <ControlLink
           href={workItemLink}
@@ -300,13 +304,10 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
               </div>
             )}
 
-            {/* Workitem section */}
-            <div
-              className={cn("flex flex-grow items-center gap-0.5 py-2", {
-                "min-w-[360px]": !displayProperties?.key,
-                "min-w-60": displayProperties?.key,
-              })}
-            >
+            {/* Workitem section. min-w-0 lets it shrink inside the fixed
+                first-column box so the title truncates instead of
+                overflowing past the header width (Asana-style). */}
+            <div className="flex min-w-0 flex-grow items-center gap-0.5 py-2">
               {/* select checkbox */}
               {projectId && canSelectIssues && (
                 <Tooltip
@@ -357,12 +358,17 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
                 )}
               </div>
 
-              <div className="my-auto flex h-full w-full items-center justify-between gap-2 truncate">
-                <div className="line-clamp-1 w-full text-14 text-primary">
-                  <div className="w-full overflow-hidden">
+              <div className="my-auto flex h-full w-full min-w-0 items-center justify-between gap-2">
+                {/* Title slot: relative + min-w-0 + flex-1. The name is an
+                    absolute overlay so its nowrap text never contributes to
+                    the auto-table column width — the first column stays at the
+                    shared header width box and the name truncates to it
+                    instead of overflowing past the header (Asana-style). */}
+                <div className="relative h-full min-w-0 flex-1">
+                  <div className="absolute inset-0 flex items-center">
                     <Tooltip tooltipContent={issueDetail.name} isMobile={isMobile}>
                       <div
-                        className="h-full w-full cursor-pointer truncate pr-4 text-left text-13 text-primary focus:outline-none"
+                        className="w-full cursor-pointer truncate pr-4 text-left text-13 text-primary focus:outline-none"
                         tabIndex={-1}
                       >
                         {issueDetail.name}
@@ -370,6 +376,8 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
                     </Tooltip>
                   </div>
                 </div>
+                {/* pre-existing a11y (not introduced by this change) */}
+                {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
                 <div
                   className={`opacity-0 transition-opacity group-hover:opacity-100 ${isMenuActive ? "!opacity-100" : ""}`}
                   onClick={(e) => e.stopPropagation()}

@@ -10,7 +10,7 @@ import { PlaneLockup, ChevronLeftIcon } from "@plane/propel/icons";
 import { Tooltip } from "@plane/propel/tooltip";
 import type { TOnboardingStep } from "@plane/types";
 import { EOnboardingSteps } from "@plane/types";
-import { cn } from "@plane/utils";
+import { cn, getDisplayableUserEmail } from "@plane/utils";
 // hooks
 import { useInstance } from "@/hooks/store/use-instance";
 import { useUser } from "@/hooks/store/user";
@@ -60,11 +60,13 @@ export const OnboardingHeader = observer(function OnboardingHeader(props: Onboar
   // derived values
   const currentStepNumber = stepOrder.indexOf(currentStep) + 1;
   const totalSteps = stepOrder.length;
+  // Fall back to a real email only — synthetic Lark placeholders would leak
+  // an internal union_id where the user expects to see their own name.
   const userName = user?.display_name
     ? user?.display_name
     : user?.first_name
       ? `${user?.first_name} ${user?.last_name ?? ""}`
-      : user?.email;
+      : getDisplayableUserEmail(user?.email);
 
   return (
     <div className="sticky top-0 z-10 flex flex-col gap-4">

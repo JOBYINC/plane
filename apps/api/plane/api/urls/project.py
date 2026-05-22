@@ -9,6 +9,7 @@ from plane.api.views import (
     ProjectDetailAPIEndpoint,
     ProjectArchiveUnarchiveAPIEndpoint,
     ProjectSummaryAPIEndpoint,
+    ProjectDuplicateEndpoint,
 )
 
 urlpatterns = [
@@ -31,5 +32,10 @@ urlpatterns = [
         "workspaces/<str:slug>/projects/<uuid:project_id>/summary/",
         ProjectSummaryAPIEndpoint.as_view(http_method_names=["get"]),
         name="project-summary",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/duplicate/",
+        ProjectDuplicateEndpoint.as_view(http_method_names=["post"]),
+        name="project-duplicate",
     ),
 ]
