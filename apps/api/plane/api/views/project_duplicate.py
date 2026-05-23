@@ -38,6 +38,7 @@ from plane.api.middleware.api_authentication import APIKeyAuthentication
 from plane.app.permissions import ProjectBasePermission, ROLE
 from plane.authentication.session import BaseSessionAuthentication
 from plane.db.models import (
+    AutomationRule,
     Cycle,
     CycleIssue,
     Issue,
@@ -57,6 +58,7 @@ from plane.db.models import (
     WorkspaceMember,
 )
 from plane.db.models.project import ProjectNetwork
+from plane.utils.automation_templates import create_default_automation_rules_for_project
 
 from .base import BaseAPIView
 
@@ -77,6 +79,105 @@ except Exception:  # pragma: no cover - defensive
 
 # A UUID-to-UUID remap from a source-project row to its clone.
 RemapDict = Dict[UUID, UUID]
+
+
+def _remap_uuid(value, mapping: "RemapDict"):
+    """Map a single UUID string through ``mapping``. Returns the mapped
+    string if present; pass-through when value isn't a UUID we know
+    about (unknown / null / non-string)."""
+    if not value or not isinstance(value, str):
+        return value
+    try:
+        mapped = mapping.get(UUID(value))
+    except ValueError:
+        return value
+    return str(mapped) if mapped is not None else value
+
+
+def _remap_uuid_list(values, mapping: "RemapDict"):
+    if not isinstance(values, list):
+        return values
+    return [_remap_uuid(v, mapping) for v in values]
+
+
+def _remap_automation_trigger_config(
+    trigger_type: str, config: dict, state_map: "RemapDict"
+) -> dict:
+    """``state_changed`` trigger carries ``from_state_ids`` /
+    ``to_state_ids`` as project-scoped state UUIDs (per
+    plane/db/models/automation.py docstring); other trigger types use
+    only primitives (``days_before``, cron string, etc.)."""
+    if not isinstance(config, dict):
+        return config
+    if trigger_type != "state_changed":
+        return dict(config)
+    out = dict(config)
+    if "from_state_ids" in out:
+        out["from_state_ids"] = _remap_uuid_list(out["from_state_ids"], state_map)
+    if "to_state_ids" in out:
+        out["to_state_ids"] = _remap_uuid_list(out["to_state_ids"], state_map)
+    return out
+
+
+def _remap_automation_conditions(
+    conditions: list, state_map: "RemapDict", label_map: "RemapDict"
+) -> list:
+    """``conditions[].field == "state"`` carries a state UUID (str or
+    list-of-str depending on op); ``"label_ids"`` carries a list of
+    label UUIDs. Everything else is primitive."""
+    if not isinstance(conditions, list):
+        return conditions
+    out = []
+    for pred in conditions:
+        if not isinstance(pred, dict):
+            out.append(pred)
+            continue
+        new_pred = dict(pred)
+        field = new_pred.get("field")
+        value = new_pred.get("value")
+        if field == "state":
+            new_pred["value"] = (
+                _remap_uuid_list(value, state_map)
+                if isinstance(value, list)
+                else _remap_uuid(value, state_map)
+            )
+        elif field == "label_ids":
+            new_pred["value"] = (
+                _remap_uuid_list(value, label_map)
+                if isinstance(value, list)
+                else _remap_uuid(value, label_map)
+            )
+        out.append(new_pred)
+    return out
+
+
+def _remap_automation_actions(
+    actions: list, state_map: "RemapDict", label_map: "RemapDict"
+) -> list:
+    """``set_state.config.state_id`` and ``add_label.config.label_id`` are
+    project-scoped (per AutomationRule.actions docstring). User IDs and
+    workspace-scoped fields pass through unchanged."""
+    if not isinstance(actions, list):
+        return actions
+    out = []
+    for action in actions:
+        if not isinstance(action, dict):
+            out.append(action)
+            continue
+        new_action = dict(action)
+        cfg = new_action.get("config")
+        if not isinstance(cfg, dict):
+            out.append(new_action)
+            continue
+        new_cfg = dict(cfg)
+        action_type = new_action.get("type")
+        if action_type == "set_state" and "state_id" in new_cfg:
+            new_cfg["state_id"] = _remap_uuid(new_cfg["state_id"], state_map)
+        elif action_type == "add_label" and "label_id" in new_cfg:
+            new_cfg["label_id"] = _remap_uuid(new_cfg["label_id"], label_map)
+        new_action["config"] = new_cfg
+        out.append(new_action)
+    return out
 
 
 def _coerce_int(value, default=0) -> int:
@@ -230,6 +331,9 @@ class ProjectDuplicateEndpoint(BaseAPIView):
                 source, clone, request.user, external_id_remap
             )
             self._clone_project_members(source, clone, request.user)
+            self._clone_automation_rules(
+                source, clone, request.user, state_map, label_map
+            )
 
             issue_map = self._clone_issues(
                 source=source,
@@ -522,6 +626,57 @@ class ProjectDuplicateEndpoint(BaseAPIView):
                 created_by=actor,
                 updated_by=actor,
             )
+
+    def _clone_automation_rules(
+        self,
+        source: Project,
+        clone: Project,
+        actor,
+        state_map: RemapDict,
+        label_map: RemapDict,
+    ) -> None:
+        """Carry source's automation rules onto the clone, then ensure the
+        4 default workspace rules exist. last_fired_at / fire_count reset
+        — the clone is a new universe so the "remind each issue once"
+        gate (see automation_engine_task.py) starts fresh per issue here.
+        run history (``AutomationRuleRun``) does NOT carry — it's per-rule
+        audit and would mis-attribute past fires to the new project.
+
+        UUID remapping: rules embed project-scoped IDs (state_id /
+        label_id) inside JSON blobs. Without remapping, the engine's
+        ``_resolve_state`` (scoped to ``issue.project_id``) would fail
+        ``state_not_found`` on every set_state action. We rewrite the
+        known UUID-carrying keys through state_map / label_map; unknown
+        keys pass through untouched. Workspace-scoped IDs (user_id on
+        add_assignee, etc.) are intentionally NOT remapped — project
+        members are cloned as the same users in the same workspace.
+
+        Two-step (copy source, then ensure defaults) so that:
+         - User-customized rules on a template propagate to launches.
+         - Any default rule missing from the source (e.g. a launch cloned
+           from a template that predates the 4-default rollout) gets
+           backfilled on the clone. The bootstrap helper is idempotent,
+           so name collisions with source rules are skipped silently.
+        """
+        for rule in AutomationRule.objects.filter(project=source):
+            AutomationRule.objects.create(
+                project=clone,
+                workspace=clone.workspace,
+                name=rule.name,
+                description=rule.description,
+                trigger_type=rule.trigger_type,
+                trigger_config=_remap_automation_trigger_config(
+                    rule.trigger_type, rule.trigger_config or {}, state_map
+                ),
+                conditions=_remap_automation_conditions(
+                    rule.conditions or [], state_map, label_map
+                ),
+                actions=_remap_automation_actions(rule.actions or [], state_map, label_map),
+                is_active=rule.is_active,
+                created_by=actor,
+                updated_by=actor,
+            )
+        create_default_automation_rules_for_project(clone, created_by=actor)
 
     def _clone_issues(
         self,

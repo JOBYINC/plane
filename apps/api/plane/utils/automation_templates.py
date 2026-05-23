@@ -93,33 +93,50 @@ DEFAULT_AUTOMATION_RULES = [
 
 
 def create_default_automation_rules_for_project(project, created_by=None):
-    """Bootstrap a freshly-created project with the standard rule set.
+    """Bootstrap a project with the standard rule set, idempotently.
 
-    Best-effort: a bug in this code path must not stop project creation.
-    Failures are logged; users can always add rules later from the UI.
+    Skips any rule whose name already exists on the project, so this
+    function is safe to call:
+      * on a freshly-created project (installs all 4),
+      * on a project being duplicated (fills in defaults that weren't
+        on the source),
+      * during backfill across the workspace (no double-install).
+
+    Best-effort: a bug in this code path must not stop the calling
+    flow (project creation, duplicate, backfill). Failures are logged
+    and the function returns the count of rules actually inserted.
     """
     from plane.db.models import AutomationRule
 
     try:
-        rules = [
-            AutomationRule(
-                project=project,
-                workspace=project.workspace,
-                name=tpl["name"],
-                description=tpl["description"],
-                trigger_type=tpl["trigger_type"],
-                trigger_config=tpl["trigger_config"],
-                conditions=tpl["conditions"],
-                actions=tpl["actions"],
-                is_active=tpl.get("is_active", True),
-                created_by=created_by,
-            )
-            for tpl in DEFAULT_AUTOMATION_RULES
-        ]
-        AutomationRule.objects.bulk_create(rules)
+        existing_names = set(
+            AutomationRule.objects.filter(project=project).values_list("name", flat=True)
+        )
+        to_create = [tpl for tpl in DEFAULT_AUTOMATION_RULES if tpl["name"] not in existing_names]
+        if not to_create:
+            return 0
+        AutomationRule.objects.bulk_create(
+            [
+                AutomationRule(
+                    project=project,
+                    workspace=project.workspace,
+                    name=tpl["name"],
+                    description=tpl["description"],
+                    trigger_type=tpl["trigger_type"],
+                    trigger_config=tpl["trigger_config"],
+                    conditions=tpl["conditions"],
+                    actions=tpl["actions"],
+                    is_active=tpl.get("is_active", True),
+                    created_by=created_by,
+                )
+                for tpl in to_create
+            ]
+        )
+        return len(to_create)
     except Exception as exc:
         logger.exception(
             "automation_templates: failed to bootstrap project %s",
             project.id,
             exc_info=exc,
         )
+        return 0
