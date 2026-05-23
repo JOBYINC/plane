@@ -5,9 +5,10 @@
  */
 
 // plane imports
+import { useTranslation } from "@plane/i18n";
 import type { IFavorite } from "@plane/types";
 // components
-import { getPageName } from "@plane/utils";
+import { getPageName, getProjectName } from "@plane/utils";
 import {
   generateFavoriteItemLink,
   getFavoriteItemIcon,
@@ -29,6 +30,8 @@ export const useFavoriteItemDetails = (workspaceSlug: string, favorite: IFavorit
     entity_type: favoriteItemEntityType,
   } = favorite;
   const favoriteItemName = favorite?.entity_data?.name || favorite?.name;
+  // i18n
+  const { t } = useTranslation();
   // store hooks
   const { getViewById } = useProjectView();
   const { getProjectById } = useProject();
@@ -52,7 +55,18 @@ export const useFavoriteItemDetails = (workspaceSlug: string, favorite: IFavorit
 
   switch (favoriteItemEntityType) {
     case "project":
-      itemTitle = currentProjectDetails?.name ?? favoriteItemName;
+      // Personal ("Personal Tasks") buckets are stored under collision-
+      // suffixed names like "My Tasks 92B059D7". Route through
+      // getProjectName so the sidebar Favorites group shows the same
+      // localized label as the Projects list. If the project store
+      // hasn't hydrated yet (currentProjectDetails undefined), fall back
+      // to a heuristic on the cached entity_data name — favorites are
+      // long-lived so a snapshot value is plausible.
+      itemTitle = currentProjectDetails
+        ? getProjectName(currentProjectDetails, t)
+        : favoriteItemName?.startsWith("My Tasks ")
+          ? t("personal_project_name")
+          : favoriteItemName;
       itemIcon = getFavoriteItemIcon("project", currentProjectDetails?.logo_props || favoriteItemLogoProps);
       break;
     case "page":
