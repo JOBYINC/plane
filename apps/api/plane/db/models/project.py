@@ -160,7 +160,16 @@ class Project(BaseModel):
         """Return name of the project"""
         return f"{self.name} <{self.workspace.name}>"
 
+    # Identifiers feed URL paths and short prefixes — keep them strict
+    # (alphanum + underscore, effectively). Upstream WEB-5878 introduced
+    # this exact set; we kept the same chars to avoid divergence.
     FORBIDDEN_IDENTIFIER_CHARS_PATTERN = r"^.*[&+,:;$^}{*=?@#|'<>.()%!-].*$"
+    # Names are display strings, so the ban set is narrower — only chars
+    # that are dangerous in HTML/shell/template contexts. Parens, dots,
+    # commas, hyphens, exclamation marks, apostrophes etc. all appear in
+    # normal project titles ("Q4 — Pilot (PS Tier)", "Marcus's draft",
+    # "v1.0 launch") and were previously rejected by the shared regex.
+    FORBIDDEN_NAME_CHARS_PATTERN = r"^.*[<>&{}|$;].*$"
 
     class Meta:
         unique_together = [

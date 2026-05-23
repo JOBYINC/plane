@@ -368,6 +368,20 @@ class TestProjectAPIGet(TestProjectBase):
 class TestProjectAPIPatchDelete(TestProjectBase):
     """Test project PATCH, and DELETE operations"""
 
+    @pytest.fixture(autouse=True)
+    def _no_celery(self, mocker):
+        # ProjectViewSet.partial_update / destroy enqueue model_activity +
+        # webhook_activity to the broker; tests don't have one. Same
+        # shape as test_project_templates.py's _no_celery fixture.
+        for path in (
+            "plane.app.views.project.base.model_activity.delay",
+            "plane.app.views.project.base.webhook_activity.delay",
+        ):
+            try:
+                mocker.patch(path)
+            except (AttributeError, ModuleNotFoundError):
+                pass
+
     @pytest.mark.django_db
     def test_partial_update_project_success(self, session_client, workspace, create_user):
         """Test successful partial update of project"""
@@ -452,6 +466,92 @@ class TestProjectAPIPatchDelete(TestProjectBase):
         response = session_client.patch(url, update_data, format="json")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    @pytest.mark.django_db
+    def test_partial_update_unchanged_name_with_legacy_special_chars(
+        self, session_client, workspace, create_user
+    ):
+        """Names predating any character-set tightening must remain
+        editable (eg. flipping `network` Public→Private). The validator
+        skips the special-char check when the name field is unchanged."""
+        project = Project.objects.create(
+            name="A/B Tier GTM Template (Template)",  # ( ) / not in current strict set
+            identifier="ABTEM",
+            workspace=workspace,
+            network=2,
+        )
+        ProjectMember.objects.create(project=project, member=create_user, role=20, is_active=True)
+
+        url = self.get_project_url(workspace.slug, pk=project.id)
+        # Only `network` changes; name stays the same (this is what the
+        # web form actually posts when you click Save in project settings).
+        update_data = {
+            "name": "A/B Tier GTM Template (Template)",
+            "network": 0,
+        }
+
+        response = session_client.patch(url, update_data, format="json")
+
+        assert response.status_code == status.HTTP_200_OK, response.content
+        project.refresh_from_db()
+        assert project.network == 0
+
+    @pytest.mark.django_db
+    def test_partial_update_allows_parens_dots_in_name(
+        self, session_client, workspace, create_user
+    ):
+        """Display-name characters like `(`, `)`, `.`, `,`, `-`, `'`
+        are common in titles and must be allowed. The legacy regex banned
+        them; the new FORBIDDEN_NAME_CHARS_PATTERN only blocks XSS/shell
+        risks (< > & { } | $ ;)."""
+        project = Project.objects.create(
+            name="Vanilla Name",
+            identifier="VAN",
+            workspace=workspace,
+        )
+        ProjectMember.objects.create(project=project, member=create_user, role=20, is_active=True)
+
+        url = self.get_project_url(workspace.slug, pk=project.id)
+        for new_name in [
+            "Q4 — Pilot (PS Tier)",
+            "Marcus's draft",
+            "v1.0 launch",
+            "Tokyo, JP",
+            "follow-up: next steps",
+            "What if?",
+            "Top 5%",
+        ]:
+            response = session_client.patch(url, {"name": new_name}, format="json")
+            assert response.status_code == status.HTTP_200_OK, (
+                f"Expected 200 for name={new_name!r}, got {response.status_code}: {response.content!r}"
+            )
+
+    @pytest.mark.django_db
+    def test_partial_update_rejects_dangerous_name_chars(
+        self, session_client, workspace, create_user
+    ):
+        """The relaxed regex still must block characters that are
+        dangerous in HTML/shell/template contexts."""
+        project = Project.objects.create(
+            name="Safe Name",
+            identifier="SAFE",
+            workspace=workspace,
+        )
+        ProjectMember.objects.create(project=project, member=create_user, role=20, is_active=True)
+
+        url = self.get_project_url(workspace.slug, pk=project.id)
+        for bad_name in [
+            "Inject <script>alert(1)</script>",
+            "Pipe | exploit",
+            "Subshell $ trick",
+            "Template {{var}} attack",
+            "Bool & flag",
+            "Statement; rm -rf",
+        ]:
+            response = session_client.patch(url, {"name": bad_name}, format="json")
+            assert response.status_code == status.HTTP_400_BAD_REQUEST, (
+                f"Expected 400 for name={bad_name!r}, got {response.status_code}"
+            )
 
     @pytest.mark.django_db
     def test_partial_update_invalid_data(self, session_client, workspace, create_user):
