@@ -208,7 +208,8 @@ export default {
   publish_project: "Publish project",
   publish: "Publish",
   copy_link: "Copy link",
-  save_as_template: "Save as template",
+  save_as_template_private: "Save as template (Private)",
+  save_as_template_public: "Save as template (Public)",
   templates: "Templates",
   use_template: "Use template",
   use_template_subtitle:

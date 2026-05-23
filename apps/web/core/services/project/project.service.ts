@@ -125,6 +125,11 @@ export class ProjectService extends APIService {
       // template"); default false keeps create-from-template producing a
       // normal project
       is_template?: boolean;
+      // 0 = Secret (private — only members see it), 2 = Public (whole
+      // workspace sees it). If omitted, the server defaults a template
+      // clone to 0 (Private); a non-template clone inherits the source's
+      // network. See api/views/project_duplicate.py _clone_project_record.
+      network?: 0 | 2;
     }
   ): Promise<TProject> {
     return this.post(`/api/v1/workspaces/${workspaceSlug}/projects/${projectId}/duplicate/`, body)

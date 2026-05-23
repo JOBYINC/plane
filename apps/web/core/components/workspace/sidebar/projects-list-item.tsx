@@ -14,7 +14,7 @@ import { observer } from "mobx-react";
 import { useParams, useRouter } from "next/navigation";
 import { createRoot } from "react-dom/client";
 import scrollIntoView from "smooth-scroll-into-view-if-needed";
-import { Settings, Share2, LogOut, MoreHorizontal, Star, Copy } from "lucide-react";
+import { Settings, Share2, LogOut, MoreHorizontal, Star, Lock, Globe2 } from "lucide-react";
 import { Disclosure, Transition } from "@headlessui/react";
 // plane imports
 import { EUserPermissions, EUserPermissionsLevel, MEMBER_TRACKER_ELEMENTS } from "@plane/constants";
@@ -132,13 +132,18 @@ export const SidebarProjectsListItem = observer(function SidebarProjectsListItem
 
   // "Save as template" — deep-clones this project into a workspace template
   // (is_template=true). The original project is left untouched; the clone
-  // surfaces in the sidebar Templates group.
-  const handleSaveAsTemplate = () => {
+  // surfaces in the sidebar Templates group. `network` picks the template's
+  // visibility: 0 = Secret (only members see it — typical for drafts),
+  // 2 = Public (whole workspace sees it — typical for canonical templates
+  // intended to be reused). The duplicate endpoint honours the body value
+  // (see api/views/project_duplicate.py _clone_project_record).
+  const handleSaveAsTemplate = (network: 0 | 2) => {
     if (!workspaceSlug || !project) return;
     const slug = workspaceSlug.toString();
     const promise = duplicateProject(slug, projectId, {
       name: `${project.name} (Template)`,
       is_template: true,
+      network,
     });
     // the duplicate response is lightweight — refetch templates so the new
     // one shows in the sidebar Templates group
@@ -461,14 +466,27 @@ export const SidebarProjectsListItem = observer(function SidebarProjectsListItem
                     </CustomMenu.MenuItem>
                   )}
 
-                  {/* save the project as a workspace template (deep clone) */}
+                  {/* save the project as a workspace template (deep clone).
+                      Split into Private/Public — picks the template's
+                      visibility upfront so the author doesn't have to dive
+                      into project settings to flip it later. Private hides
+                      the template draft from non-members; Public surfaces
+                      it to the whole workspace for reuse. */}
                   {isAdmin && !project.is_personal && (
-                    <CustomMenu.MenuItem onClick={handleSaveAsTemplate}>
-                      <span className="flex items-center justify-start gap-2">
-                        <Copy className="h-3.5 w-3.5 stroke-[1.5]" />
-                        <span>{t("save_as_template")}</span>
-                      </span>
-                    </CustomMenu.MenuItem>
+                    <>
+                      <CustomMenu.MenuItem onClick={() => handleSaveAsTemplate(0)}>
+                        <span className="flex items-center justify-start gap-2">
+                          <Lock className="h-3.5 w-3.5 stroke-[1.5]" />
+                          <span>{t("save_as_template_private")}</span>
+                        </span>
+                      </CustomMenu.MenuItem>
+                      <CustomMenu.MenuItem onClick={() => handleSaveAsTemplate(2)}>
+                        <span className="flex items-center justify-start gap-2">
+                          <Globe2 className="h-3.5 w-3.5 stroke-[1.5]" />
+                          <span>{t("save_as_template_public")}</span>
+                        </span>
+                      </CustomMenu.MenuItem>
+                    </>
                   )}
                   <CustomMenu.MenuItem onClick={handleCopyText}>
                     <span className="flex items-center justify-start gap-2">

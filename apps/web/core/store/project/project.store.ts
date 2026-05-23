@@ -72,6 +72,7 @@ export interface IProjectStore {
       anchor_start_date?: string;
       override_custom_field_values?: Record<string, unknown>;
       is_template?: boolean;
+      network?: 0 | 2;
     }
   ) => Promise<TProject>;
   fetchProjectDetails: (workspaceSlug: string, projectId: string) => Promise<TProject>;
@@ -414,6 +415,7 @@ export class ProjectStore implements IProjectStore {
       anchor_start_date?: string;
       override_custom_field_values?: Record<string, unknown>;
       is_template?: boolean;
+      network?: 0 | 2;
     }
   ) => {
     const clone = await this.projectService.duplicateProject(workspaceSlug, projectId, body);

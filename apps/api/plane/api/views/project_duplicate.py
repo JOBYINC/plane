@@ -35,7 +35,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from plane.api.middleware.api_authentication import APIKeyAuthentication
-from plane.app.permissions import ProjectBasePermission
+from plane.app.permissions import ProjectBasePermission, ROLE
 from plane.authentication.session import BaseSessionAuthentication
 from plane.db.models import (
     Cycle,
@@ -54,7 +54,9 @@ from plane.db.models import (
     WorkItemField,
     WorkItemFieldOption,
     WorkItemFieldValue,
+    WorkspaceMember,
 )
+from plane.db.models.project import ProjectNetwork
 
 from .base import BaseAPIView
 
@@ -124,7 +126,57 @@ class ProjectDuplicateEndpoint(BaseAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        # Visibility gate for Secret/private sources. ProjectBasePermission is
+        # workspace-scoped, so without this check any workspace MEMBER who
+        # learns a private project's UUID could duplicate it — bypassing the
+        # whole privacy model shipped in migration 0130. Workspace ADMINs
+        # still see everything (matches the project list view's filter at
+        # apps/api/plane/app/views/project/base.py:101). For Public sources
+        # the previous workspace-level check is sufficient.
+        if source.network == ProjectNetwork.SECRET.value:
+            is_workspace_admin = WorkspaceMember.objects.filter(
+                workspace=source.workspace,
+                member=request.user,
+                is_active=True,
+                role=ROLE.ADMIN.value,
+            ).exists()
+            is_project_member = ProjectMember.objects.filter(
+                project=source,
+                member=request.user,
+                is_active=True,
+            ).exists()
+            if not (is_workspace_admin or is_project_member):
+                return Response(
+                    {"error": "You do not have permission to duplicate this project."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
         body = request.data or {}
+
+        # `network` body validation: only Secret (0) and Public (2) are
+        # legal; Django `choices` are not enforced on raw `model.save()`,
+        # so without this check `network=1` / `network=3` / `"private"`
+        # silently save garbage or 500. _clone_project_record reads
+        # body["network"] later — validate here so the error is a clean
+        # 400 instead of dying inside transaction.atomic().
+        if "network" in body and body["network"] is not None:
+            allowed = {ProjectNetwork.SECRET.value, ProjectNetwork.PUBLIC.value}
+            try:
+                network_value = int(body["network"])
+            except (TypeError, ValueError):
+                return Response(
+                    {"error": "`network` must be 0 (Secret) or 2 (Public)."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if network_value not in allowed:
+                return Response(
+                    {"error": "`network` must be 0 (Secret) or 2 (Public)."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # Normalize so _clone_project_record sees a pre-validated int
+            # rather than the raw body value.
+            body = {**body, "network": network_value}
+
         try:
             date_delta = timedelta(days=_coerce_int(body.get("rebump_target_dates_by_days")))
             cycle_delta = timedelta(days=_coerce_int(body.get("rebump_cycle_windows_by_days")))
@@ -255,6 +307,20 @@ class ProjectDuplicateEndpoint(BaseAPIView):
         # ``is_template: true`` — this is how "Save as template" duplicates a
         # normal project into the workspace template library.
         clone.is_template = bool(body.get("is_template", False))
+        # Visibility (``network``) resolution:
+        #   1. body explicit  → caller wins (lets "Save as template (Public)"
+        #      vs "Save as template (Private)" pick directly).
+        #   2. is_template clone with no explicit value → default Private (0).
+        #      Templates are typically authored privately and promoted to
+        #      Public when ready; this matches the project default flipped
+        #      in migration 0130.
+        #   3. otherwise → inherit source's network (legacy duplicate
+        #      behavior; e.g. "Create launch from template" still inherits
+        #      the template's chosen visibility unless overridden).
+        if "network" in body:
+            clone.network = int(body["network"])
+        elif clone.is_template:
+            clone.network = 0
         clone.created_by = actor
         clone.updated_by = actor
         clone.archived_at = None
