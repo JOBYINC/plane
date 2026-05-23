@@ -140,10 +140,14 @@ class WorkspaceUserProfileIssuesEndpoint(BaseAPIView):
             id__in=Issue.issue_objects.filter(
                 Q(assignees__in=[user_id]) | Q(created_by_id=user_id) | Q(issue_subscribers__subscriber_id=user_id),
                 workspace__slug=slug,
+                # Template projects are scaffolding for new projects; their
+                # work items shouldn't surface in any user's Your Work view.
+                project__is_template=False,
             ).values_list("id", flat=True),
             workspace__slug=slug,
             project__project_projectmember__member=request.user,
             project__project_projectmember__is_active=True,
+            project__is_template=False,
         )
 
         # Apply filtering from filterset
@@ -297,6 +301,10 @@ class WorkspaceUserProfileEndpoint(BaseAPIView):
                     project_projectmember__member=request.user,
                     project_projectmember__is_active=True,
                     archived_at__isnull=True,
+                    # Template projects are scaffolding, not real workstreams,
+                    # so they shouldn't appear in a user's per-project count
+                    # breakdown on the profile sidebar.
+                    is_template=False,
                 )
                 .annotate(
                     created_issues=Count(
@@ -384,6 +392,8 @@ class WorkspaceUserActivityEndpoint(BaseAPIView):
             project__project_projectmember__member=request.user,
             project__project_projectmember__is_active=True,
             project__archived_at__isnull=True,
+            # Hide template-project activity from the personal activity feed.
+            project__is_template=False,
             actor=user_id,
         ).select_related("actor", "workspace", "issue", "project")
 
@@ -408,6 +418,9 @@ class WorkspaceUserProfileStatsEndpoint(BaseAPIView):
                 workspace__slug=slug,
                 project__project_projectmember__member=request.user,
                 project__project_projectmember__is_active=True,
+                # Exclude template projects from the profile summary stats;
+                # see WorkspaceUserProfileIssuesEndpoint for rationale.
+                project__is_template=False,
             )
             .filter(**filters)
             .annotate(state_group=F("state__group"))
@@ -424,6 +437,7 @@ class WorkspaceUserProfileStatsEndpoint(BaseAPIView):
                 workspace__slug=slug,
                 project__project_projectmember__member=request.user,
                 project__project_projectmember__is_active=True,
+                project__is_template=False,
             )
             .filter(**filters)
             .values("priority")
@@ -444,6 +458,7 @@ class WorkspaceUserProfileStatsEndpoint(BaseAPIView):
                 workspace__slug=slug,
                 project__project_projectmember__member=request.user,
                 project__project_projectmember__is_active=True,
+                project__is_template=False,
                 created_by_id=user_id,
             )
             .filter(**filters)
@@ -456,6 +471,7 @@ class WorkspaceUserProfileStatsEndpoint(BaseAPIView):
                 workspace__slug=slug,
                 project__project_projectmember__member=request.user,
                 project__project_projectmember__is_active=True,
+                project__is_template=False,
             )
             .filter(**filters)
             .count()
@@ -468,6 +484,7 @@ class WorkspaceUserProfileStatsEndpoint(BaseAPIView):
                 workspace__slug=slug,
                 project__project_projectmember__member=request.user,
                 project__project_projectmember__is_active=True,
+                project__is_template=False,
             )
             .filter(**filters)
             .count()
@@ -480,6 +497,7 @@ class WorkspaceUserProfileStatsEndpoint(BaseAPIView):
                 state__group="completed",
                 project__project_projectmember__member=request.user,
                 project__project_projectmember__is_active=True,
+                project__is_template=False,
             )
             .filter(**filters)
             .count()
@@ -492,6 +510,7 @@ class WorkspaceUserProfileStatsEndpoint(BaseAPIView):
                 project__project_projectmember__member=request.user,
                 project__project_projectmember__is_active=True,
                 project__archived_at__isnull=True,
+                project__is_template=False,
             )
             .filter(**filters)
             .count()
@@ -501,6 +520,7 @@ class WorkspaceUserProfileStatsEndpoint(BaseAPIView):
             workspace__slug=slug,
             cycle__start_date__gt=timezone.now(),
             issue__assignees__in=[user_id],
+            cycle__project__is_template=False,
         ).values("cycle__name", "cycle__id", "cycle__project_id")
 
         present_cycle = CycleIssue.objects.filter(
@@ -508,6 +528,7 @@ class WorkspaceUserProfileStatsEndpoint(BaseAPIView):
             cycle__start_date__lt=timezone.now(),
             cycle__end_date__gt=timezone.now(),
             issue__assignees__in=[user_id],
+            cycle__project__is_template=False,
         ).values("cycle__name", "cycle__id", "cycle__project_id")
 
         return Response(
@@ -532,6 +553,7 @@ class UserActivityGraphEndpoint(BaseAPIView):
                 actor=request.user,
                 workspace__slug=slug,
                 created_at__date__gte=date.today() + relativedelta(months=-6),
+                project__is_template=False,
             )
             .annotate(created_date=Cast("created_at", DateField()))
             .values("created_date")
@@ -552,6 +574,7 @@ class UserIssueCompletedGraphEndpoint(BaseAPIView):
                 workspace__slug=slug,
                 completed_at__month=month,
                 completed_at__isnull=False,
+                project__is_template=False,
             )
             .annotate(completed_week=ExtractWeek("completed_at"))
             .annotate(week=F("completed_week") % 4)
