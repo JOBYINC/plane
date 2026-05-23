@@ -15,6 +15,7 @@ import { EIssuesStoreType } from "@plane/types";
 import { ProfileIssuesKanBanLayout } from "@/components/issues/issue-layouts/kanban/roots/profile-issues-root";
 import { ProfileIssuesListLayout } from "@/components/issues/issue-layouts/list/roots/profile-issues-root";
 import { IssuePeekOverview } from "@/components/issues/peek-overview";
+import { ProfileAssignedQuickAdd } from "@/components/profile/assigned-quick-add";
 import { WorkspaceLevelWorkItemFiltersHOC } from "@/components/work-item-filters/filters-hoc/workspace-level";
 import { WorkItemFiltersRow } from "@/components/work-item-filters/filters-row";
 // hooks
@@ -63,6 +64,7 @@ export const ProfileIssuesPage = observer(function ProfileIssuesPage(props: Prop
         {({ filter: profileWorkItemsFilter }) => (
           <>
             <div className="flex h-full w-full flex-col">
+              {type === "assigned" && <ProfileAssignedQuickAdd />}
               {profileWorkItemsFilter && <WorkItemFiltersRow filter={profileWorkItemsFilter} />}
               <div className="relative h-full w-full overflow-auto">
                 {activeLayout === "list" ? (

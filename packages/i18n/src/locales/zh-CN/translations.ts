@@ -691,6 +691,9 @@ export default {
     work_items: "任务",
     sub_work_item: "子任务",
     add: "添加",
+    add_task: "添加任务",
+    task_name_placeholder: "输入任务名称后按 Enter",
+    due_date: "截止日期",
     warning: "警告",
     updating: "更新中",
     adding: "添加中",
@@ -1792,6 +1795,9 @@ export default {
       created: "已创建",
       subscribed: "已订阅",
       activity: "活动",
+    },
+    assigned: {
+      no_state_in_group: "该任务所属项目没有「{group}」状态。请在项目设置中添加，或将卡片拖到该项目支持的列。",
     },
     empty_state: {
       activity: {

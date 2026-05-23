@@ -543,6 +543,9 @@ export default {
     work_items: "Work items",
     sub_work_item: "Sub-work item",
     add: "Add",
+    add_task: "Add task",
+    task_name_placeholder: "Type a task name and press Enter",
+    due_date: "Due date",
     warning: "Warning",
     updating: "Updating",
     adding: "Adding",
@@ -1676,6 +1679,10 @@ export default {
       created: "Created",
       subscribed: "Subscribed",
       activity: "Activity",
+    },
+    assigned: {
+      no_state_in_group:
+        "This work item's project has no {group} state. Add one in the project settings, or drag the card to a column its project supports.",
     },
     empty_state: {
       activity: {

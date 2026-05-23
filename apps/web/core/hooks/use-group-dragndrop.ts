@@ -5,6 +5,7 @@
  */
 
 import { useParams } from "next/navigation";
+import { useTranslation } from "@plane/i18n";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { EIssuesStoreType, TIssue, TIssueGroupByOptions, TIssueOrderByOptions } from "@plane/types";
 import type { GroupDropLocation } from "@/components/issues/issue-layouts/utils";
@@ -12,6 +13,7 @@ import { handleGroupDragDrop } from "@/components/issues/issue-layouts/utils";
 import { ISSUE_FILTER_DEFAULT_DATA } from "@/store/issue/helpers/base-issues.store";
 import { useIssueDetail } from "./store/use-issue-detail";
 import { useIssues } from "./store/use-issues";
+import { useProjectState } from "./store/use-project-state";
 import { useIssuesActions } from "./use-issues-actions";
 
 type DNDStoreType =
@@ -34,6 +36,7 @@ export const useGroupIssuesDragNDrop = (
   subGroupBy?: TIssueGroupByOptions
 ) => {
   const { workspaceSlug } = useParams();
+  const { t } = useTranslation();
 
   const {
     issue: { getIssueById },
@@ -42,6 +45,10 @@ export const useGroupIssuesDragNDrop = (
   const {
     issues: { getIssueIds, addCycleToIssue, removeCycleFromIssue, changeModulesInIssue },
   } = useIssues(storeType);
+  // Needed only to translate state-group columns ("backlog", "started", …)
+  // into a concrete state_id within the dragged issue's project. See
+  // `handleOnDrop` below.
+  const { getProjectStates } = useProjectState();
 
   /**
    * update Issue on Drop, checks if modules or cycles are changed and then calls appropriate functions
@@ -66,6 +73,31 @@ export const useGroupIssuesDragNDrop = (
       title: "Error!",
       message: "Error while updating work item",
     };
+
+    // Workspace-level boards group by `state_detail.group`, so the base
+    // handler emits a `state__group` write — which is a server-computed read
+    // field, not a writable column. Translate it to a concrete `state_id`
+    // within the dragged issue's project so the backend accepts the update.
+    const stateGroupKey = ISSUE_FILTER_DEFAULT_DATA["state_detail.group"];
+    if (stateGroupKey in data) {
+      const targetGroup = data[stateGroupKey];
+      delete data[stateGroupKey];
+      if (typeof targetGroup === "string") {
+        const projectStates = getProjectStates(projectId) ?? [];
+        const inGroup = projectStates.filter((state) => state.group === targetGroup);
+        const targetState = inGroup.find((state) => state.default) ?? inGroup[0];
+        if (!targetState) {
+          setToast({
+            type: TOAST_TYPE.ERROR,
+            title: t("common.error.label"),
+            message: t("profile.assigned.no_state_in_group", { group: targetGroup }),
+          });
+          return;
+        }
+        data.state_id = targetState.id;
+      }
+    }
+
     const moduleKey = ISSUE_FILTER_DEFAULT_DATA["module"];
     const cycleKey = ISSUE_FILTER_DEFAULT_DATA["cycle"];
 

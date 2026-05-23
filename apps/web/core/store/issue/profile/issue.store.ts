@@ -150,6 +150,13 @@ export class ProfileIssues extends BaseIssuesStore implements IProfileIssues {
       else if (this.currentView === "created") params = { ...params, created_by: userId };
       else if (this.currentView === "subscribed") params = { ...params, subscriber: userId };
 
+      // Exclude cancelled work items from the Assigned board. Cancelled is not
+      // a column in this view (see getProfileAssignedStateGroupColumns), so
+      // surfacing those items here would orphan them with no kanban home.
+      if (this.currentView === "assigned") {
+        params = { ...params, state_group: "backlog,unstarted,started,completed" };
+      }
+
       // call the fetch issues API with the params
       const response = await this.userService.getUserProfileIssues(workspaceSlug, userId, params, {
         signal: this.controller.signal,
@@ -200,6 +207,12 @@ export class ProfileIssues extends BaseIssuesStore implements IProfileIssues {
       if (this.currentView === "assigned") params = { ...params, assignees: userId };
       else if (this.currentView === "created") params = { ...params, created_by: userId };
       else if (this.currentView === "subscribed") params = { ...params, subscriber: userId };
+
+      // Mirror the cancelled-exclusion applied in fetchIssues so paginated
+      // pages stay consistent with the initial page.
+      if (this.currentView === "assigned") {
+        params = { ...params, state_group: "backlog,unstarted,started,completed" };
+      }
 
       // call the fetch issues API with the params for next page in issues
       const response = await this.userService.getUserProfileIssues(workspaceSlug, userId, params);

@@ -105,6 +105,13 @@ export const coreRoutes: RouteConfigEntry[] = [
             ":workspaceSlug/profile/:userId/activity",
             "./(all)/[workspaceSlug]/(projects)/profile/[userId]/activity/page.tsx"
           ),
+          // Summary used to live at the profile index. Now that the index
+          // redirects to /assigned, the overview page has its own route so
+          // it can still be reached via the Summary tab.
+          route(
+            ":workspaceSlug/profile/:userId/summary",
+            "./(all)/[workspaceSlug]/(projects)/profile/[userId]/summary/page.tsx"
+          ),
         ]),
 
         // Stickies

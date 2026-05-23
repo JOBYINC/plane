@@ -92,6 +92,11 @@ export const ISSUE_PRIORITIES: {
 
 export const DRAG_ALLOWED_GROUPS: TIssueGroupByOptions[] = [
   "state",
+  // "state_detail.group" is the workspace-level abstraction over per-project
+  // states (Backlog/Unstarted/Started/Completed/Cancelled). The kanban drop
+  // handler translates the destination group → a concrete state_id in the
+  // dragged issue's project. See handleGroupDragDrop for the mapping.
+  "state_detail.group",
   "priority",
   "assignees",
   "labels",

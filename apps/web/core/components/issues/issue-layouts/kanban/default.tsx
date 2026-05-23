@@ -19,6 +19,7 @@ import type {
   TIssueOrderByOptions,
 } from "@plane/types";
 // constants
+import { EIssuesStoreType } from "@plane/types";
 import { ContentWrapper } from "@plane/ui";
 // components
 import RenderIfVisible from "@/components/core/render-if-visible-HOC";
@@ -106,12 +107,23 @@ export const KanBan = observer(function KanBan(props: IKanBan) {
 
   const { getIsWorkflowWorkItemCreationDisabled } = useWorkFlowFDragNDrop(group_by, sub_group_by);
 
-  const list = getGroupByColumns({
+  const allColumns = getGroupByColumns({
     groupBy: group_by as GroupByColumnTypes,
     includeNone: true,
     isWorkspaceLevel: isWorkspaceLevel(storeType),
     isEpic: isEpic,
   });
+
+  // The Profile / Assigned board intentionally hides the Cancelled state
+  // group: the underlying fetch (see ProfileIssues.fetchIssues) also drops
+  // cancelled items, so showing the column would always render an empty
+  // dead-end and tempt users to drag cards into a state that's about to
+  // disappear from the list. Keep the column elsewhere — projects and
+  // other workspace boards still need it.
+  const list =
+    storeType === EIssuesStoreType.PROFILE && group_by === "state_detail.group"
+      ? allColumns?.filter((column) => column.id !== "cancelled")
+      : allColumns;
 
   if (!list) return null;
 

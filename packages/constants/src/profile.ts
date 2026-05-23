@@ -7,22 +7,32 @@
 // plane imports
 import { EStartOfTheWeek } from "@plane/types";
 
+// Tabs visible to every viewer (admins + members + guests).
+// "summary" used to live at the route index (""), but Assigned is now the
+// primary entry point for authorized users, so Summary has its own
+// explicit route to coexist with the redirecting index page.
 export const PROFILE_VIEWER_TAB = [
   {
     key: "summary",
-    route: "",
+    route: "summary",
     i18n_label: "profile.tabs.summary",
-    selected: "/",
+    selected: "/summary/",
   },
 ];
 
-export const PROFILE_ADMINS_TAB = [
+// Tabs that only show to workspace admins/members. Order matters: this
+// list is rendered AFTER the assigned tab below to keep Assigned visually
+// first on the Your Work navbar.
+export const PROFILE_ASSIGNED_TAB = [
   {
     key: "assigned",
     route: "assigned",
     i18n_label: "profile.tabs.assigned",
     selected: "/assigned/",
   },
+];
+
+export const PROFILE_ADMINS_TAB = [
   {
     key: "created",
     route: "created",

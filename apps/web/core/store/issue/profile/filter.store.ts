@@ -20,7 +20,7 @@ import type {
   TWorkItemFilterExpression,
   TSupportedFilterForUpdate,
 } from "@plane/types";
-import { EIssuesStoreType } from "@plane/types";
+import { EIssueLayoutTypes, EIssuesStoreType } from "@plane/types";
 import { handleIssueQueryParamsByLayout } from "@plane/utils";
 import { IssueFiltersService } from "@/services/issue_filter.service";
 import type { IBaseIssueFilterStore } from "../helpers/issue-filter-helper.store";
@@ -140,8 +140,26 @@ export class ProfileIssuesFilter extends IssueFilterHelperStore implements IProf
     this.userId = userId;
     const _filters = this.handleIssuesLocalFilters.get(EIssuesStoreType.PROFILE, workspaceSlug, userId, undefined);
 
+    // The Profile / Your Work / Assigned board defaults to a kanban grouped
+    // by state group so a user lands on an actionable view, not an empty list.
+    // Empty state-group columns are shown so Backlog/Started/Done are always
+    // visible even before there are any work items in them.
+    const profileDisplayDefaults: IIssueDisplayFilterOptions = {
+      layout: EIssueLayoutTypes.KANBAN,
+      group_by: "state_detail.group",
+      show_empty_groups: true,
+    };
+    // Treat the historical defaults (layout=list, no group_by) as "untouched"
+    // so we migrate those users to the new defaults exactly once. Anyone who
+    // explicitly picked list view or a different group_by keeps their choice.
+    const persistedDF = _filters?.display_filters;
+    const persistedLooksUntouched =
+      !persistedDF || isEmpty(persistedDF) || (persistedDF.layout === EIssueLayoutTypes.LIST && !persistedDF.group_by);
+
     const richFilters: TWorkItemFilterExpression = _filters?.rich_filters;
-    const displayFilters: IIssueDisplayFilterOptions = this.computedDisplayFilters(_filters?.display_filters);
+    const displayFilters: IIssueDisplayFilterOptions = persistedLooksUntouched
+      ? this.computedDisplayFilters(undefined, profileDisplayDefaults)
+      : this.computedDisplayFilters(persistedDF);
     const displayProperties: IIssueDisplayProperties = this.computedDisplayProperties(_filters?.display_properties);
     const kanbanFilters = {
       group_by: _filters?.kanban_filters?.group_by || [],
@@ -154,6 +172,18 @@ export class ProfileIssuesFilter extends IssueFilterHelperStore implements IProf
       set(this.filters, [userId, "displayProperties"], displayProperties);
       set(this.filters, [userId, "kanbanFilters"], kanbanFilters);
     });
+
+    // Persist the migration so this branch only fires once per user.
+    if (persistedLooksUntouched) {
+      this.handleIssuesLocalFilters.set(
+        EIssuesStoreType.PROFILE,
+        EIssueFilterType.DISPLAY_FILTERS,
+        workspaceSlug,
+        userId,
+        undefined,
+        { display_filters: displayFilters }
+      );
+    }
   };
 
   /**
