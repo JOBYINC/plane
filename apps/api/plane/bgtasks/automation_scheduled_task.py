@@ -55,10 +55,14 @@ def evaluate_scheduled_automations_task(rule_id=None, bypass_dedup=False):
 
     today = date.today()
 
+    # Template projects are blueprints — rules living on them must never
+    # evaluate (their issues exist to be cloned, not worked). Filtering
+    # at the rule query is earliest + cheapest: no rule, no issue scan.
     qs = AutomationRule.objects.select_related("project", "workspace").filter(
         trigger_type="due_soon",
         is_active=True,
         deleted_at__isnull=True,
+        project__is_template=False,
     )
     if rule_id:
         qs = qs.filter(id=rule_id)

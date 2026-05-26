@@ -100,3 +100,52 @@ class TestLarkDueReminderDedup:
             result = remind_due_dates_task()
         assert "skipped" in result
         assert LarkDueReminderLog.objects.count() == 0
+
+
+@pytest.mark.unit
+class TestLarkDueReminderSkipsTemplates:
+    """Regression: template projects are blueprints — issues inside them
+    must never trigger due-date DMs even when target_date is today/soon.
+    Filed after a user reported template tasks DM'ing on the 'Due in 3 days'
+    reminder; the dispatcher had no is_template filter."""
+
+    @pytest.fixture
+    def template_project(self, workspace):
+        return Project.objects.create(
+            name="Template Project",
+            identifier="tmpl-project",
+            workspace=workspace,
+            is_template=True,
+        )
+
+    @pytest.fixture
+    def template_issue(self, workspace, template_project, create_user):
+        issue = Issue.objects.create(
+            name="Due today (template)",
+            workspace=workspace,
+            project=template_project,
+            target_date=date.today(),
+        )
+        IssueAssignee.objects.create(
+            issue=issue,
+            assignee=create_user,
+            project=template_project,
+            workspace=workspace,
+        )
+        return issue
+
+    @pytest.mark.django_db
+    def test_template_issues_never_send(self, template_issue, create_user):
+        with (
+            patch.dict(os.environ, {"LARK_NOTIFICATIONS_ENABLED": "1"}),
+            patch(f"{LARK_NOTIFY}.send_interactive_card", return_value=True) as mock_send,
+            patch(f"{LARK_NOTIFY}.get_union_id", return_value="union-123"),
+            patch(f"{LARK_NOTIFY}.card_issue_due_reminder", return_value={}),
+            patch(f"{LARK_I18N}.user_lang", return_value="en"),
+        ):
+            result = remind_due_dates_task()
+
+        assert mock_send.call_count == 0
+        assert result["sent"] == 0
+        assert result["candidates"] == 0
+        assert LarkDueReminderLog.objects.count() == 0

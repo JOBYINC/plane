@@ -199,6 +199,13 @@ def notifications(
     current_instance,
 ):
     try:
+        # Template projects are blueprints — issue activity inside them
+        # must not create in-app Notification rows (bell-icon unread)
+        # nor enqueue EmailNotificationLog. Single id-only existence
+        # check is cheap and keeps the rest of the task uncluttered.
+        if Project.objects.filter(id=project_id, is_template=True).exists():
+            return
+
         issue_activities_created = (
             json.loads(issue_activities_created) if issue_activities_created is not None else None
         )

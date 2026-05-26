@@ -88,6 +88,29 @@ def _activity_to_trigger_type(activity):
 # ---------------------------------------------------------------------------
 
 
+def _drop_template_activities(activities):
+    """Return `activities` minus any whose project belongs to a template.
+    Template projects are blueprints — automation rules living on them
+    (or on issues inside them) must never evaluate. One bulk query keyed
+    by the distinct project_ids in the batch."""
+    from plane.db.models import Project
+
+    project_ids = {getattr(a, "project_id", None) for a in activities}
+    project_ids.discard(None)
+    if not project_ids:
+        return activities
+
+    template_ids = set(
+        Project.objects.filter(id__in=project_ids, is_template=True).values_list(
+            "id", flat=True
+        )
+    )
+    if not template_ids:
+        return activities
+
+    return [a for a in activities if getattr(a, "project_id", None) not in template_ids]
+
+
 def dispatch_automation_for_activities(activities):
     """Fan out rule evaluations based on freshly-created activity rows.
 
@@ -95,6 +118,13 @@ def dispatch_automation_for_activities(activities):
     exceptions swallowed. Called from `issue_activities_task.issue_activity`
     immediately after `IssueActivity.objects.bulk_create`.
     """
+    if not activities:
+        return
+
+    # Strip template activities up-front so neither the event-driven
+    # grouping below nor the _kick_due_soon_for_target_date_changes
+    # second pass will see them.
+    activities = _drop_template_activities(activities)
     if not activities:
         return
 
@@ -663,15 +693,21 @@ def evaluate_and_execute_rule_task(rule_id, issue_id, ctx=None, bypass_dedup=Fal
     """
     from plane.db.models import AutomationRule, Issue
 
+    # project__is_template=False on both lookups mirrors the dispatcher
+    # filter — defense-in-depth so a direct .delay() (or a future
+    # dispatcher) can't silently re-introduce template-driven runs.
     rule = AutomationRule.objects.filter(
-        id=rule_id, is_active=True, deleted_at__isnull=True
+        id=rule_id,
+        is_active=True,
+        deleted_at__isnull=True,
+        project__is_template=False,
     ).first()
     if not rule:
         return  # rule deleted or deactivated between dispatch and task run
 
     issue = (
         Issue.issue_objects.select_related("state", "workspace", "project")
-        .filter(id=issue_id)
+        .filter(id=issue_id, project__is_template=False)
         .first()
     )
     if not issue:

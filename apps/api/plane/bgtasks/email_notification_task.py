@@ -45,8 +45,22 @@ def release_lock(lock_id):
 
 @shared_task
 def stack_email_notification():
+    # Sweep legacy template-issue rows first so they don't accumulate
+    # forever as processed_at=NULL ghosts. After this they'll be skipped
+    # by the unprocessed filter on every subsequent run.
+    EmailNotificationLog.objects.filter(
+        processed_at__isnull=True,
+        entity_identifier__in=Issue.objects.filter(
+            project__is_template=True
+        ).values("id"),
+    ).update(processed_at=timezone.now())
+
     # get all email notifications
-    email_notifications = EmailNotificationLog.objects.filter(processed_at__isnull=True).order_by("receiver").values()
+    email_notifications = (
+        EmailNotificationLog.objects.filter(processed_at__isnull=True)
+        .order_by("receiver")
+        .values()
+    )
 
     # Create the below format for each of the issues
     # {"issue_id" : { "actor_id1": [ { data }, { data } ], "actor_id2": [ { data }, { data } ] }}
@@ -181,7 +195,18 @@ def send_email_notification(issue_id, notification_data, receiver_id, email_noti
             ) = get_email_configuration()
 
             receiver = User.objects.get(pk=receiver_id)
-            issue = Issue.objects.get(pk=issue_id)
+            # Template projects are blueprints — never send digest mail
+            # about them. project__is_template=False here drops both new
+            # leaks (defense-in-depth against the upstream filter) and
+            # any pre-existing EmailNotificationLog rows queued before
+            # the template-skip rollout. We still consume the lock and
+            # mark the log rows processed below so they don't loop.
+            issue = Issue.objects.filter(pk=issue_id, project__is_template=False).first()
+            if issue is None:
+                EmailNotificationLog.objects.filter(pk__in=email_notification_ids).update(
+                    processed_at=timezone.now()
+                )
+                return
             template_data = []
             total_changes = 0
             comments = []

@@ -41,6 +41,29 @@ def _lark_notifications_enabled():
     )
 
 
+def _drop_template_activities(activities):
+    """Return `activities` minus any whose project_id belongs to a
+    template project. Single bulk query keyed by the distinct project_ids
+    in the batch; returns the original list unchanged when no template
+    overlap is found (the common case)."""
+    from plane.db.models import Project
+
+    project_ids = {getattr(a, "project_id", None) for a in activities}
+    project_ids.discard(None)
+    if not project_ids:
+        return activities
+
+    template_ids = set(
+        Project.objects.filter(id__in=project_ids, is_template=True).values_list(
+            "id", flat=True
+        )
+    )
+    if not template_ids:
+        return activities
+
+    return [a for a in activities if getattr(a, "project_id", None) not in template_ids]
+
+
 def dispatch_lark_for_activities(activities):
     """Fan out Feishu Bot DMs based on freshly-created IssueActivity rows.
 
@@ -52,6 +75,14 @@ def dispatch_lark_for_activities(activities):
     a Lark integration glitch can never break Plane's issue write paths.
     """
     if not activities or not _lark_notifications_enabled():
+        return
+
+    # Strip out template projects up-front. Template issues exist only to
+    # be cloned by `project_duplicate`; assigning, commenting, or moving
+    # state inside them is editing the blueprint, not real work, and must
+    # never DM anyone. One bulk query covers the whole batch.
+    activities = _drop_template_activities(activities)
+    if not activities:
         return
 
     for activity in activities:
@@ -116,8 +147,13 @@ def notify_issue_assigned_task(issue_id, assignee_id, by_user_id):
     from plane.db.models import Issue, User
 
     try:
+        # project__is_template=False mirrors the dispatcher-level filter
+        # so direct .delay() callers (or a future dispatcher) can't
+        # silently regress template suppression.
         issue = (
-            Issue.objects.select_related("project", "workspace").filter(id=issue_id).first()
+            Issue.objects.select_related("project", "workspace")
+            .filter(id=issue_id, project__is_template=False)
+            .first()
         )
         if issue is None:
             return
@@ -149,10 +185,11 @@ def notify_issue_state_changed_task(issue_id, old_state_id, new_state_id, by_use
     from plane.db.models import Issue, State, User
 
     try:
+        # See notify_issue_assigned_task: defense-in-depth template skip.
         issue = (
             Issue.objects.select_related("project", "workspace")
             .prefetch_related("assignees")
-            .filter(id=issue_id)
+            .filter(id=issue_id, project__is_template=False)
             .first()
         )
         if issue is None:
@@ -189,10 +226,11 @@ def notify_issue_comment_task(issue_id, comment_id, by_user_id):
     from plane.db.models import Issue, IssueComment, User
 
     try:
+        # See notify_issue_assigned_task: defense-in-depth template skip.
         issue = (
             Issue.objects.select_related("project", "workspace")
             .prefetch_related("assignees")
-            .filter(id=issue_id)
+            .filter(id=issue_id, project__is_template=False)
             .first()
         )
         comment = IssueComment.objects.filter(id=comment_id).first()

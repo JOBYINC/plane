@@ -65,13 +65,16 @@ def remind_due_dates_task():
     earliest_overdue = today - timedelta(days=OVERDUE_WINDOW_DAYS)
 
     # Build the candidate set in one query. Excluding completed/cancelled
-    # group states up front saves us per-row checks later.
+    # group states up front saves us per-row checks later. Template
+    # projects are blueprints — their issues exist to be cloned, not
+    # worked, so they must never trigger due-date DMs.
     candidates = list(
         Issue.objects.select_related("workspace", "project", "state")
         .prefetch_related("assignees")
         .filter(
             target_date__gte=earliest_overdue,
             target_date__lte=tomorrow,
+            project__is_template=False,
         )
         .exclude(state__group__in=("completed", "cancelled"))
     )
