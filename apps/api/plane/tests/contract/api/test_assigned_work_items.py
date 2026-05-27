@@ -317,6 +317,72 @@ class TestAssignedWorkItemsListing:
         assert len(ids) == 1
 
     @pytest.mark.django_db
+    def test_excludes_template_project_items(
+        self,
+        system_api_client,
+        workspace_with_members,
+        create_user,
+        target_user,
+        shared_project_with_state,
+    ):
+        """Items in ``is_template=True`` projects must NOT surface, even
+        when the target is on assignees. Templates carry real assignees
+        only so /duplicate/ can copy them onto launch clones — the
+        template's own items are scaffolding, not work. Mirrors the
+        exclusion pattern in workspace/user.py Your Work endpoints and
+        the lark_notify / automation bgtasks dispatchers."""
+        shared_project, shared_state = shared_project_with_state
+
+        # Assignment in a real project — should appear.
+        real_issue = _create_issue(
+            shared_project,
+            shared_state,
+            "Real task",
+            assignees=[target_user],
+            workspace=workspace_with_members,
+            creator=create_user,
+        )
+
+        # Assignment in a template project — must NOT appear.
+        template_project = Project.objects.create(
+            name="Tier Template",
+            identifier="TMPL",
+            workspace=workspace_with_members,
+            created_by=create_user,
+            is_template=True,
+        )
+        ProjectMember.objects.create(
+            project=template_project, member=target_user, role=20
+        )
+        template_state = State.objects.create(
+            name="Todo",
+            color="#000000",
+            project=template_project,
+            workspace=workspace_with_members,
+            group=StateGroup.UNSTARTED.value,
+            default=True,
+            sequence=15000,
+        )
+        _create_issue(
+            template_project,
+            template_state,
+            "Template scaffolding task",
+            assignees=[target_user],
+            workspace=workspace_with_members,
+            creator=create_user,
+        )
+
+        response = system_api_client.get(
+            _assigned_url(workspace_with_members.slug, assignee=target_user.id)
+        )
+        assert response.status_code == status.HTTP_200_OK, response.content
+        body = response.json()
+        results = body.get("results", body if isinstance(body, list) else [])
+        ids = {str(item["id"]) for item in results}
+        assert str(real_issue.id) in ids
+        assert len(ids) == 1, f"template item leaked: {ids}"
+
+    @pytest.mark.django_db
     def test_empty_when_target_has_no_assignments(
         self, system_api_client, workspace_with_members, target_user
     ):
