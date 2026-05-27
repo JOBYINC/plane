@@ -91,10 +91,21 @@ class AssignedWorkItemAPIEndpoint(BaseAPIView):
         # session API (project.base ProjectViewSet.list / list_detail);
         # the token API queryset on Issue is naturally cross-project,
         # which is what spec §6 Q1 (a-extended) requires.
+        #
+        # ``project__is_template=False`` mirrors the pattern across the
+        # whole codebase (workspace/user.py Your Work endpoints,
+        # project/base.py default lists, automation bgtasks, lark_notify
+        # bgtasks): template projects are clone scaffolding, not real
+        # workstreams, so their items must not surface in any per-user
+        # aggregation. Without this, agents that consume this endpoint
+        # (Tom task-manager monitor / morning brief / S3 list) repeatedly
+        # nag team members about template tasks that were only created
+        # to be /duplicate/'d onto launch projects.
         queryset = (
             Issue.issue_objects.filter(
                 workspace__slug=slug,
                 assignees__id=assignee_uuid,
+                project__is_template=False,
             )
             .select_related("project", "workspace", "state", "parent")
             .prefetch_related("assignees", "labels")
