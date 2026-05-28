@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { observer } from "mobx-react";
 import { EIconSize } from "@plane/constants";
+import { useTranslation } from "@plane/i18n";
 import { StateGroupIcon } from "@plane/propel/icons";
 import type { IState } from "@plane/types";
 import { Loader } from "@plane/ui";
@@ -27,6 +28,7 @@ export const FilterState = observer(function FilterState(props: Props) {
   const [previewEnabled, setPreviewEnabled] = useState(true);
 
   const { inboxFilters, handleInboxIssueFilters } = useProjectInbox();
+  const { t } = useTranslation();
 
   const filterValue = inboxFilters?.state || [];
 
@@ -83,7 +85,7 @@ export const FilterState = observer(function FilterState(props: Props) {
                 )}
               </>
             ) : (
-              <p className="text-11 text-placeholder italic">No matches found</p>
+              <p className="text-11 text-placeholder italic">{t("common.search.no_matches_found")}</p>
             )
           ) : (
             <Loader className="space-y-2">

@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { observer } from "mobx-react";
+import { useTranslation } from "@plane/i18n";
 import { SearchIcon, CloseIcon } from "@plane/propel/icons";
 // hooks
 import { useLabel } from "@/hooks/store/use-label";
@@ -27,6 +28,7 @@ export const InboxIssueFilterSelection = observer(function InboxIssueFilterSelec
   const { projectLabels } = useLabel();
   // states
   const [filtersSearchQuery, setFiltersSearchQuery] = useState("");
+  const { t } = useTranslation();
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
@@ -36,7 +38,7 @@ export const InboxIssueFilterSelection = observer(function InboxIssueFilterSelec
           <input
             type="text"
             className="w-full bg-surface-2 outline-none placeholder:text-placeholder"
-            placeholder="Search"
+            placeholder={t("common.search.label")}
             value={filtersSearchQuery}
             onChange={(e) => setFiltersSearchQuery(e.target.value)}
             autoFocus={!isMobile}
