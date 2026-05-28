@@ -90,6 +90,10 @@ export default {
     select_modules: "Select modules",
     select_cycle: "Select cycle",
   },
+  inbox_properties: {
+    add_assignees: "Add assignees",
+    add_due_date: "Add due date",
+  },
   create_label: {
     new: "New",
   },

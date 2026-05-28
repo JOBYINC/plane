@@ -259,6 +259,10 @@ export default {
     select_modules: "选择模块",
     select_cycle: "选择周期",
   },
+  inbox_properties: {
+    add_assignees: "添加指派人",
+    add_due_date: "添加截止日期",
+  },
   create_label: {
     new: "新建",
   },
