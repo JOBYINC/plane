@@ -7,6 +7,7 @@
 import { observer } from "mobx-react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 // plane imports
+import { useTranslation } from "@plane/i18n";
 import { Button } from "@plane/propel/button";
 import { cn } from "@plane/utils";
 // constants
@@ -32,6 +33,8 @@ export const shouldRenderPlanDetail = (planKey: TPlanePlans) => {
 
 export const PlansComparisonBase = observer(function PlansComparisonBase(props: TPlansComparisonBaseProps) {
   const { planeDetails, isSelfManaged, isCompareAllFeaturesSectionOpen, setIsCompareAllFeaturesSectionOpen } = props;
+  // translation
+  const { t } = useTranslation();
   // plan details
   const { planDetails, planHighlights, planComparison } = PLANE_PLANS;
   const numberOfPlansToRender = Object.keys(planDetails).filter((planKey) =>
@@ -60,7 +63,7 @@ export const PlansComparisonBase = observer(function PlansComparisonBase(props: 
               className="text-caption-md grid gap-3 rounded-xs py-1 text-secondary even:bg-surface-2"
               style={{ gridTemplateColumns: `repeat(${numberOfPlansToRender + 1}, minmax(0, 1fr))` }}
             >
-              <div className="col-span-1 p-3 text-body-sm-medium">Highlights</div>
+              <div className="col-span-1 p-3 text-body-sm-medium">{t("billing_comparison.highlights")}</div>
               {Object.entries(planHighlights).map(
                 ([planKey, highlights]) =>
                   shouldRenderPlanDetail(planKey as TPlanePlans) && (
@@ -132,7 +135,9 @@ export const PlansComparisonBase = observer(function PlansComparisonBase(props: 
             }}
             appendIcon={isCompareAllFeaturesSectionOpen ? <ArrowUp /> : <ArrowDown />}
           >
-            {isCompareAllFeaturesSectionOpen ? "Collapse comparison" : "Compare all features"}
+            {isCompareAllFeaturesSectionOpen
+              ? t("billing_comparison.collapse_comparison")
+              : t("billing_comparison.compare_all_features")}
           </Button>
         </div>
       </div>

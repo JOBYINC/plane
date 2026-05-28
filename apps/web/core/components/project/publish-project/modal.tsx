@@ -11,6 +11,7 @@ import { Controller, useForm } from "react-hook-form";
 
 // types
 import { SPACE_BASE_PATH, SPACE_BASE_URL } from "@plane/constants";
+import { useTranslation } from "@plane/i18n";
 import { Button } from "@plane/propel/button";
 import { GlobeIcon, NewTabIcon, CheckIcon } from "@plane/propel/icons";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
@@ -41,16 +42,18 @@ const defaultValues: Partial<TProjectPublishSettings> = {
 
 const VIEW_OPTIONS: {
   key: TProjectPublishLayouts;
-  label: string;
+  labelKey: string;
 }[] = [
-  { key: "list", label: "List" },
-  { key: "kanban", label: "Kanban" },
+  { key: "list", labelKey: "publish_project.layout.list" },
+  { key: "kanban", labelKey: "publish_project.layout.kanban" },
 ];
 
 export const PublishProjectModal = observer(function PublishProjectModal(props: Props) {
   const { isOpen, onClose, projectId } = props;
   // states
   const [isUnPublishing, setIsUnPublishing] = useState(false);
+  // translation
+  const { t } = useTranslation();
   // router
   const { workspaceSlug } = useParams();
   // store hooks
@@ -100,8 +103,8 @@ export const PublishProjectModal = observer(function PublishProjectModal(props: 
     await updatePublishSettings(workspaceSlug.toString(), projectId, payload.id, payload).then((res) => {
       setToast({
         type: TOAST_TYPE.SUCCESS,
-        title: "Success!",
-        message: "Publish settings updated successfully!",
+        title: t("toast.success"),
+        message: t("publish_project.toast.update_success"),
       });
 
       handleClose();
@@ -118,8 +121,8 @@ export const PublishProjectModal = observer(function PublishProjectModal(props: 
       .catch(() =>
         setToast({
           type: TOAST_TYPE.ERROR,
-          title: "Error!",
-          message: "Something went wrong while unpublishing the project.",
+          title: t("toast.error"),
+          message: t("publish_project.toast.unpublish_error"),
         })
       )
       .finally(() => setIsUnPublishing(false));
@@ -136,8 +139,8 @@ export const PublishProjectModal = observer(function PublishProjectModal(props: 
     if (!selectedLayouts || selectedLayouts.length === 0) {
       setToast({
         type: TOAST_TYPE.ERROR,
-        title: "Error!",
-        message: "Please select at least one view layout to publish the project.",
+        title: t("toast.error"),
+        message: t("publish_project.toast.select_layout"),
       });
       return;
     }
@@ -172,7 +175,7 @@ export const PublishProjectModal = observer(function PublishProjectModal(props: 
       setToast({
         type: TOAST_TYPE.SUCCESS,
         title: "",
-        message: "Published page link copied successfully.",
+        message: t("publish_project.toast.link_copied"),
       })
     );
 
@@ -180,7 +183,7 @@ export const PublishProjectModal = observer(function PublishProjectModal(props: 
     <ModalCore isOpen={isOpen} handleClose={handleClose} width={EModalWidth.XXL}>
       <form onSubmit={handleSubmit(handleFormSubmit)}>
         <div className="flex items-center justify-between gap-2 p-5">
-          <h5 className="text-18 font-medium text-secondary">Publish project</h5>
+          <h5 className="text-18 font-medium text-secondary">{t("publish_project.title")}</h5>
           {isProjectPublished && (
             <Button
               variant="error-fill"
@@ -188,7 +191,7 @@ export const PublishProjectModal = observer(function PublishProjectModal(props: 
               onClick={() => handleUnPublishProject(watch("id") ?? "")}
               loading={isUnPublishing}
             >
-              {isUnPublishing ? "Unpublishing" : "Unpublish"}
+              {isUnPublishing ? t("publish_project.unpublishing") : t("publish_project.unpublish")}
             </Button>
           )}
         </div>
@@ -228,7 +231,7 @@ export const PublishProjectModal = observer(function PublishProjectModal(props: 
                       className="h-8 rounded-sm bg-layer-3 px-3 py-2 text-11 font-medium hover:bg-layer-3-hover"
                       onClick={handleCopyLink}
                     >
-                      Copy link
+                      {t("common.actions.copy_link")}
                     </button>
                   </div>
                 </div>
@@ -237,13 +240,13 @@ export const PublishProjectModal = observer(function PublishProjectModal(props: 
                     <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent-primary opacity-75" />
                     <span className="relative inline-flex size-1.5 rounded-full bg-accent-primary" />
                   </span>
-                  This project is now live on web
+                  {t("publish_project.live_on_web")}
                 </p>
               </>
             )}
             <div className="space-y-4">
               <div className="relative flex items-center justify-between gap-2">
-                <div className="text-13">Views</div>
+                <div className="text-13">{t("publish_project.views")}</div>
                 <Controller
                   control={control}
                   name="view_props"
@@ -251,7 +254,7 @@ export const PublishProjectModal = observer(function PublishProjectModal(props: 
                     <CustomSelect
                       value={value}
                       label={VIEW_OPTIONS.filter((o) => selectedLayouts.includes(o.key))
-                        .map((o) => o.label)
+                        .map((o) => t(o.labelKey))
                         .join(", ")}
                       onChange={(val: TProjectPublishLayouts) => {
                         if (selectedLayouts.length === 1 && selectedLayouts[0] === val) return;
@@ -269,7 +272,7 @@ export const PublishProjectModal = observer(function PublishProjectModal(props: 
                           value={option.key}
                           className="flex items-center justify-between gap-2"
                         >
-                          {option.label}
+                          {t(option.labelKey)}
                           {selectedLayouts.includes(option.key) && <CheckIcon className="size-3.5 flex-shrink-0" />}
                         </CustomSelect.Option>
                       ))}
@@ -278,7 +281,7 @@ export const PublishProjectModal = observer(function PublishProjectModal(props: 
                 />
               </div>
               <div className="relative flex items-center justify-between gap-2">
-                <div className="text-13">Allow comments</div>
+                <div className="text-13">{t("publish_project.allow_comments")}</div>
                 <Controller
                   control={control}
                   name="is_comments_enabled"
@@ -288,7 +291,7 @@ export const PublishProjectModal = observer(function PublishProjectModal(props: 
                 />
               </div>
               <div className="relative flex items-center justify-between gap-2">
-                <div className="text-13">Allow reactions</div>
+                <div className="text-13">{t("publish_project.allow_reactions")}</div>
                 <Controller
                   control={control}
                   name="is_reactions_enabled"
@@ -298,7 +301,7 @@ export const PublishProjectModal = observer(function PublishProjectModal(props: 
                 />
               </div>
               <div className="relative flex items-center justify-between gap-2">
-                <div className="text-13">Allow voting</div>
+                <div className="text-13">{t("publish_project.allow_voting")}</div>
                 <Controller
                   control={control}
                   name="is_votes_enabled"
@@ -315,22 +318,22 @@ export const PublishProjectModal = observer(function PublishProjectModal(props: 
         <div className="relative mt-4 flex items-center justify-between border-t border-subtle px-5 py-4">
           <div className="flex items-center gap-1 text-13 text-placeholder">
             <GlobeIcon className="size-3.5" />
-            <div className="text-13">Anyone with the link can access</div>
+            <div className="text-13">{t("publish_project.anyone_can_access")}</div>
           </div>
           {!fetchSettingsLoader && (
             <div className="relative flex items-center gap-2">
               <Button variant="secondary" size="lg" onClick={handleClose}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               {isProjectPublished ? (
                 isDirty && (
                   <Button variant="primary" size="lg" type="submit" loading={isSubmitting}>
-                    {isSubmitting ? "Updating" : "Update settings"}
+                    {isSubmitting ? t("publish_project.updating") : t("publish_project.update_settings")}
                   </Button>
                 )
               ) : (
                 <Button variant="primary" size="lg" type="submit" loading={isSubmitting}>
-                  {isSubmitting ? "Publishing" : "Publish"}
+                  {isSubmitting ? t("publish_project.publishing") : t("publish_project.publish")}
                 </Button>
               )}
             </div>
