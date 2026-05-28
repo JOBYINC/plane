@@ -10,6 +10,7 @@ import Link from "next/link";
 import useSWR from "swr";
 // icons
 import { History, MessageSquare } from "lucide-react";
+import { useTranslation } from "@plane/i18n";
 import { calculateTimeAgo, getFileURL } from "@plane/utils";
 // hooks
 import { ActivityIcon, ActivityMessage } from "@/components/core/activity";
@@ -35,6 +36,7 @@ export const ActivityProfileSettingsList = observer(function ProfileActivityList
   const { cursor, perPage, updateResultsCount, updateTotalPages, updateEmptyState } = props;
   // store hooks
   const { data: currentUser } = useUserProfile();
+  const { t } = useTranslation();
 
   const { data: userProfileActivity } = useSWR(
     USER_ACTIVITY({
@@ -92,11 +94,11 @@ export const ActivityProfileSettingsList = observer(function ProfileActivityList
                       <div>
                         <div className="text-11">
                           {activityItem.actor_detail.is_bot
-                            ? activityItem.actor_detail.first_name + " Bot"
+                            ? `${activityItem.actor_detail.first_name} ${t("issue_activity.common.bot_suffix")}`
                             : activityItem.actor_detail.display_name}
                         </div>
                         <p className="mt-0.5 text-11 text-secondary">
-                          Commented {calculateTimeAgo(activityItem.created_at)}
+                          {t("activity_commented", { time: calculateTimeAgo(activityItem.created_at) })}
                         </p>
                       </div>
                       <div className="issue-comments-section p-0">
@@ -158,7 +160,9 @@ export const ActivityProfileSettingsList = observer(function ProfileActivityList
                             {activityItem.field === "archived_at" && activityItem.new_value !== "restore" ? (
                               <span className="text-gray font-medium">Tick</span>
                             ) : activityItem.actor_detail.is_bot ? (
-                              <span className="text-gray font-medium">{activityItem.actor_detail.first_name} Bot</span>
+                              <span className="text-gray font-medium">
+                                {activityItem.actor_detail.first_name} {t("issue_activity.common.bot_suffix")}
+                              </span>
                             ) : (
                               <Link
                                 href={`/${activityItem.workspace_detail.slug}/profile/${activityItem.actor_detail.id}`}
@@ -166,7 +170,7 @@ export const ActivityProfileSettingsList = observer(function ProfileActivityList
                               >
                                 <span className="text-gray font-medium">
                                   {currentUser?.id === activityItem.actor_detail.id
-                                    ? "You"
+                                    ? t("activity_actor_you")
                                     : activityItem.actor_detail.display_name}
                                 </span>
                               </Link>

@@ -7,6 +7,7 @@
 import { observer } from "mobx-react";
 import { CalendarDays } from "lucide-react";
 // hooks
+import { useTranslation } from "@plane/i18n";
 import { renderFormattedDate } from "@plane/utils";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 // components
@@ -21,6 +22,7 @@ export const IssueStartDateActivity = observer(function IssueStartDateActivity(p
   const {
     activity: { getActivityById },
   } = useIssueDetail();
+  const { t } = useTranslation();
 
   const activity = getActivityById(activityId);
 
@@ -32,13 +34,14 @@ export const IssueStartDateActivity = observer(function IssueStartDateActivity(p
       ends={ends}
     >
       <>
-        {activity.new_value ? `set the start date to ` : `removed the start date `}
+        {activity.new_value ? `${t("issue_activity.start_date_set")} ` : `${t("issue_activity.start_date_removed")} `}
         {activity.new_value && (
           <>
             <span className="font-medium text-primary">{renderFormattedDate(activity.new_value)}</span>
           </>
         )}
-        {showIssue && (activity.new_value ? ` for ` : ` from `)}
+        {showIssue &&
+          (activity.new_value ? ` ${t("issue_activity.common.for")} ` : ` ${t("issue_activity.common.from")} `)}
         {showIssue && <IssueLink activityId={activityId} />}.
       </>
     </IssueActivityBlockComponent>
