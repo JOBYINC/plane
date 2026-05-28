@@ -28,12 +28,12 @@ import { satisfiesDateFilter } from "./filter";
  * @returns {string}
  */
 export const getProjectName = (
-  project: Pick<IPartialProject, "name" | "is_personal"> | null | undefined,
+  project: Partial<Pick<IPartialProject, "name" | "is_personal">> | null | undefined,
   t: (key: string) => string
 ): string => {
   if (!project) return "";
   if (project.is_personal) return t("personal_project_name");
-  return project.name;
+  return project.name ?? "";
 };
 
 /**

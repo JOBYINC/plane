@@ -14,7 +14,7 @@ import { useTranslation } from "@plane/i18n";
 import { Logo } from "@plane/propel/emoji-icon-picker";
 import { CheckIcon, SearchIcon, ProjectIcon, ChevronDownIcon } from "@plane/propel/icons";
 import { ComboDropDown } from "@plane/ui";
-import { cn, sortBySelectedFirst } from "@plane/utils";
+import { cn, getProjectName, sortBySelectedFirst } from "@plane/utils";
 // components
 // hooks
 import { useDropdown } from "@/hooks/use-dropdown";
@@ -100,9 +100,10 @@ export const ProjectDropdownBase = observer(function ProjectDropdownBase(props: 
   const options = projectIds?.map((projectId) => {
     const projectDetails = getProjectById(projectId);
     if (renderCondition && !renderCondition(projectId)) return;
+    const projectName = getProjectName(projectDetails, t);
     return {
       value: projectId,
-      query: `${projectDetails?.name}`,
+      query: projectName,
       content: (
         <div className="flex items-center gap-2">
           {projectDetails?.logo_props && (
@@ -110,7 +111,7 @@ export const ProjectDropdownBase = observer(function ProjectDropdownBase(props: 
               <Logo logo={projectDetails?.logo_props} size={12} />
             </span>
           )}
-          <span className="flex-grow truncate">{projectDetails?.name}</span>
+          <span className="flex-grow truncate">{projectName}</span>
         </div>
       ),
     };
@@ -142,9 +143,13 @@ export const ProjectDropdownBase = observer(function ProjectDropdownBase(props: 
   const getDisplayName = (value: string | string[] | null, placeholder: string = "") => {
     if (Array.isArray(value)) {
       const firstProject = getProjectById(value[0]);
-      return value.length ? (value.length === 1 ? firstProject?.name : `${value.length} projects`) : placeholder;
+      return value.length
+        ? value.length === 1
+          ? getProjectName(firstProject, t)
+          : `${value.length} projects`
+        : placeholder;
     } else {
-      return value ? (getProjectById(value)?.name ?? placeholder) : placeholder;
+      return value ? getProjectName(getProjectById(value), t) || placeholder : placeholder;
     }
   };
 
