@@ -76,6 +76,34 @@ export default {
     error_name_mismatch: "Please enter the project name as shown in the description.",
     error_fields_empty: "Please fill all fields.",
   },
+  project_form: {
+    identifier: "Identifier",
+  },
+  member_role: {
+    roles: "Roles",
+    admin: "Admin",
+    member: "Member",
+    guest: "Guest",
+    suspended: "Suspended",
+  },
+  workspace_view_actions: {
+    edit: "Edit View",
+    delete: "Delete View",
+  },
+  peek_overview_error: {
+    title: "Work item does not exist",
+    description: "The work item you are looking for does not exist, has been archived, or has been deleted.",
+  },
+  project_view_empty_state: {
+    title: "View work items will appear here",
+    description:
+      "Work items help you track individual pieces of work. With work items, keep track of what's going on, who is working on it, and what's done.",
+  },
+  view_not_found: {
+    title: "View does not exist",
+    description: "The view you are looking for does not exist or you don't have permission to view it.",
+    go_to_all: "Go to All work items",
+  },
   onboarding: {
     tagline: "All your work — unified.",
     create_new_workspace: "Create new workspace",

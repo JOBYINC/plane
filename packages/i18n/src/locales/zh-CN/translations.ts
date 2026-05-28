@@ -245,6 +245,33 @@ export default {
     error_name_mismatch: "请按说明输入项目名称。",
     error_fields_empty: "请填写所有字段。",
   },
+  project_form: {
+    identifier: "标识符",
+  },
+  member_role: {
+    roles: "角色",
+    admin: "管理员",
+    member: "成员",
+    guest: "访客",
+    suspended: "已停用",
+  },
+  workspace_view_actions: {
+    edit: "编辑视图",
+    delete: "删除视图",
+  },
+  peek_overview_error: {
+    title: "工作项不存在",
+    description: "您要查找的工作项不存在、已被归档或已被删除。",
+  },
+  project_view_empty_state: {
+    title: "视图工作项将显示在这里",
+    description: "工作项可帮助您追踪单项工作。通过工作项，您可以了解当前进展、谁在负责以及已完成的工作。",
+  },
+  view_not_found: {
+    title: "视图不存在",
+    description: "您要查找的视图不存在，或您没有查看权限。",
+    go_to_all: "前往全部工作项",
+  },
   onboarding: {
     tagline: "您的所有工作，统一管理。",
     create_new_workspace: "创建新工作区",
