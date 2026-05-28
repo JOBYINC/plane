@@ -9,6 +9,7 @@ import { observer } from "mobx-react";
 // editor
 import type { EditorRefApi } from "@plane/editor";
 // ui
+import { useTranslation } from "@plane/i18n";
 import { TextArea } from "@plane/ui";
 import { cn, getPageName } from "@plane/utils";
 // helpers
@@ -28,6 +29,8 @@ export const PageEditorTitle = observer(function PageEditorTitle(props: Props) {
   const [isLengthVisible, setIsLengthVisible] = useState(false);
   // page filters
   const { fontSize } = usePageFilters();
+  // translation
+  const { t } = useTranslation();
   // ui
   const titleFontClassName = cn("font-bold tracking-[-2%]", {
     "text-[1.6rem] leading-[1.9rem]": fontSize === "small-font",
@@ -52,7 +55,7 @@ export const PageEditorTitle = observer(function PageEditorTitle(props: Props) {
         <div className="relative">
           <TextArea
             className={cn(titleFontClassName, "block w-full resize-none rounded-none border-none p-0 outline-none")}
-            placeholder="Untitled"
+            placeholder={t("page_editor.untitled")}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();

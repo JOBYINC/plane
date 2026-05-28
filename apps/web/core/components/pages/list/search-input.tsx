@@ -7,6 +7,7 @@
 import { useRef, useState } from "react";
 // plane imports
 import { useOutsideClickDetector } from "@plane/hooks";
+import { useTranslation } from "@plane/i18n";
 import { IconButton } from "@plane/propel/icon-button";
 import { SearchIcon, CloseIcon } from "@plane/propel/icons";
 import { cn } from "@plane/utils";
@@ -22,6 +23,8 @@ export function PageSearchInput(props: Props) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   // refs
   const inputRef = useRef<HTMLInputElement>(null);
+  // translation
+  const { t } = useTranslation();
 
   // outside click detector hook
   useOutsideClickDetector(inputRef, () => {
@@ -64,7 +67,7 @@ export function PageSearchInput(props: Props) {
         <input
           ref={inputRef}
           className="ml-2 w-full max-w-[234px] border-none bg-transparent text-13 text-primary placeholder:text-placeholder focus:outline-none"
-          placeholder="Search pages"
+          placeholder={t("pages_list.search_placeholder")}
           value={searchQuery}
           onChange={(e) => updateSearchQuery(e.target.value)}
           onKeyDown={handleInputKeyDown}

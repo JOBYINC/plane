@@ -86,6 +86,32 @@ export default {
     guest: "Guest",
     suspended: "Suspended",
   },
+  filter_dates: {
+    start_date: "Start date",
+    due_date: "Due date",
+    custom: "Custom",
+  },
+  transfer_issues_modal: {
+    title: "Transfer work items",
+    search_placeholder: "Search for a cycle...",
+    success_message: "Work items have been transferred successfully",
+    error_message: "Unable to transfer work items. Please try again.",
+    fetch_error: "Unable to fetch cycle details",
+    no_cycles: "You don’t have any current cycle. Please create one to transfer the work items.",
+  },
+  delete_page_modal: {
+    title: "Delete page",
+    success_message: "Page deleted successfully.",
+    error_message: "Page could not be deleted. Please try again.",
+    warning_prefix: "Are you sure you want to delete page-",
+    warning_suffix: " ? The Page will be deleted permanently. This action cannot be undone.",
+  },
+  pages_list: {
+    search_placeholder: "Search pages",
+  },
+  page_editor: {
+    untitled: "Untitled",
+  },
   workspace_view_actions: {
     edit: "Edit View",
     delete: "Delete View",

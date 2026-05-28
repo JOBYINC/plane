@@ -255,6 +255,32 @@ export default {
     guest: "访客",
     suspended: "已停用",
   },
+  filter_dates: {
+    start_date: "开始日期",
+    due_date: "截止日期",
+    custom: "自定义",
+  },
+  transfer_issues_modal: {
+    title: "转移工作项",
+    search_placeholder: "搜索周期…",
+    success_message: "工作项转移成功",
+    error_message: "无法转移工作项，请重试。",
+    fetch_error: "无法获取周期详情",
+    no_cycles: "您没有任何当前周期。请先创建一个周期以转移工作项。",
+  },
+  delete_page_modal: {
+    title: "删除页面",
+    success_message: "页面删除成功。",
+    error_message: "无法删除页面，请重试。",
+    warning_prefix: "您确定要删除页面 -",
+    warning_suffix: " 吗？此页面将被永久删除，无法撤销。",
+  },
+  pages_list: {
+    search_placeholder: "搜索页面",
+  },
+  page_editor: {
+    untitled: "无标题",
+  },
   workspace_view_actions: {
     edit: "编辑视图",
     delete: "删除视图",

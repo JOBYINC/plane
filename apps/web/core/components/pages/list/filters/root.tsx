@@ -6,6 +6,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { observer } from "mobx-react";
+import { useTranslation } from "@plane/i18n";
 import { SearchIcon, CloseIcon } from "@plane/propel/icons";
 import type { TPageFilterProps, TPageFilters } from "@plane/types";
 // components
@@ -26,6 +27,7 @@ export const PageFiltersSelection = observer(function PageFiltersSelection(props
   const [filtersSearchQuery, setFiltersSearchQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const { isMobile } = usePlatformOS();
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!isMobile && inputRef.current) {
@@ -65,7 +67,7 @@ export const PageFiltersSelection = observer(function PageFiltersSelection(props
             ref={inputRef}
             type="text"
             className="w-full outline-none placeholder:text-placeholder"
-            placeholder="Search"
+            placeholder={t("common.search.label")}
             value={filtersSearchQuery}
             onChange={(e) => setFiltersSearchQuery(e.target.value)}
           />
@@ -86,7 +88,7 @@ export const PageFiltersSelection = observer(function PageFiltersSelection(props
                 favorites: !filters.filters?.favorites,
               })
             }
-            title="Favorites"
+            title={t("sidebar.favorites")}
           />
         </div>
 
