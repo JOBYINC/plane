@@ -255,6 +255,10 @@ export default {
     guest: "访客",
     suspended: "已停用",
   },
+  spreadsheet: {
+    select_modules: "选择模块",
+    select_cycle: "选择周期",
+  },
   create_label: {
     new: "新建",
   },

@@ -86,6 +86,10 @@ export default {
     guest: "Guest",
     suspended: "Suspended",
   },
+  spreadsheet: {
+    select_modules: "Select modules",
+    select_cycle: "Select cycle",
+  },
   create_label: {
     new: "New",
   },
