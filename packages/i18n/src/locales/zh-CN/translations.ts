@@ -255,6 +255,9 @@ export default {
     guest: "访客",
     suspended: "已停用",
   },
+  create_label: {
+    new: "新建",
+  },
   billing_comparison: {
     highlights: "亮点",
     collapse_comparison: "收起对比",

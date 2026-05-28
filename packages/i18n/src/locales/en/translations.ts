@@ -86,6 +86,9 @@ export default {
     guest: "Guest",
     suspended: "Suspended",
   },
+  create_label: {
+    new: "New",
+  },
   billing_comparison: {
     highlights: "Highlights",
     collapse_comparison: "Collapse comparison",

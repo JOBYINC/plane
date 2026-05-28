@@ -10,6 +10,7 @@ import { Controller, useForm } from "react-hook-form";
 import { usePopper } from "react-popper";
 import { Loader } from "lucide-react";
 import { Popover } from "@headlessui/react";
+import { useTranslation } from "@plane/i18n";
 import { PlusIcon, CloseIcon } from "@plane/propel/icons";
 import type { IIssueLabel } from "@plane/types";
 // hooks
@@ -39,6 +40,7 @@ export function LabelCreate(props: ILabelCreate) {
   const handleIsCreateToggle = () => setIsCreateToggle(!isCreateToggle);
   const [referenceElement, setReferenceElement] = useState<HTMLButtonElement | null>(null);
   const [popperElement, setPopperElement] = useState<HTMLDivElement | null>(null);
+  const { t } = useTranslation();
   // react hook form
   const {
     handleSubmit,
@@ -88,7 +90,7 @@ export function LabelCreate(props: ILabelCreate) {
         <div className="flex-shrink-0">
           {isCreateToggle ? <CloseIcon className="h-2.5 w-2.5" /> : <PlusIcon className="h-2.5 w-2.5" />}
         </div>
-        <div className="flex-shrink-0">{isCreateToggle ? "Cancel" : "New"}</div>
+        <div className="flex-shrink-0">{isCreateToggle ? t("common.cancel") : t("create_label.new")}</div>
       </div>
 
       {isCreateToggle && (
@@ -131,7 +133,7 @@ export function LabelCreate(props: ILabelCreate) {
             control={control}
             name="name"
             rules={{
-              required: "This is required",
+              required: t("common.errors.required"),
             }}
             render={({ field: { value, onChange, ref } }) => (
               <Input
@@ -142,7 +144,7 @@ export function LabelCreate(props: ILabelCreate) {
                 onChange={onChange}
                 ref={ref}
                 hasError={Boolean(errors.name)}
-                placeholder="Title"
+                placeholder={t("common.title")}
                 className="w-full px-1.5 py-1 text-11"
                 disabled={isSubmitting}
               />
