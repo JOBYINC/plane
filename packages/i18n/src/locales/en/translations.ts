@@ -93,6 +93,13 @@ export default {
   create_label: {
     new: "New",
   },
+  delete_label_modal: {
+    title: "Delete Label",
+    warning_prefix: "Are you sure you want to delete",
+    warning_suffix:
+      "? This will remove the label from all the work item and from any views where the label is being filtered upon.",
+    error_message: "Label could not be deleted. Please try again.",
+  },
   billing_comparison: {
     highlights: "Highlights",
     collapse_comparison: "Collapse comparison",

@@ -262,6 +262,12 @@ export default {
   create_label: {
     new: "新建",
   },
+  delete_label_modal: {
+    title: "删除标签",
+    warning_prefix: "确定要删除",
+    warning_suffix: " 吗？此操作会从所有工作项以及使用该标签作为筛选条件的视图中移除该标签。",
+    error_message: "无法删除标签，请重试。",
+  },
   billing_comparison: {
     highlights: "亮点",
     collapse_comparison: "收起对比",
