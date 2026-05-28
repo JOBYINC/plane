@@ -161,11 +161,10 @@ export const InboxSidebar = observer(function InboxSidebar(props: IInboxSidebarP
                     rootClassName="px-page-x"
                   />
                 ) : (
-                  // TODO: Add translation
                   <EmptyStateDetailed
                     assetKey="inbox"
-                    title="No request closed yet"
-                    description="All the work items whether accepted or declined can be found here."
+                    title={t("inbox.closed_empty.title")}
+                    description={t("inbox.closed_empty.description")}
                     assetClassName="size-20"
                     className="px-10"
                   />

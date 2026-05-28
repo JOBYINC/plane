@@ -10,6 +10,7 @@ import { Controller, useForm } from "react-hook-form";
 import { ImageIcon } from "lucide-react";
 // plane imports
 import { E_PASSWORD_STRENGTH } from "@plane/constants";
+import { useTranslation } from "@plane/i18n";
 import { Button } from "@plane/propel/button";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { IUser } from "@plane/types";
@@ -60,6 +61,8 @@ export const ProfileSetupStep = observer(function ProfileSetupStep({ handleStepC
   const { data: user, updateCurrentUser } = useUser();
   const { updateUserProfile } = useUserProfile();
   const { config: instanceConfig } = useInstance();
+  // translation
+  const { t } = useTranslation();
   // form info
   const {
     getValues,
@@ -190,7 +193,9 @@ export const ProfileSetupStep = observer(function ProfileSetupStep({ handleStepC
           onClick={() => setIsImageUploadModalOpen(true)}
         >
           <ImageIcon className="size-4" />
-          <span className="text-13">{userAvatar ? "Change image" : "Upload image"}</span>
+          <span className="text-13">
+            {userAvatar ? t("onboarding.profile.change_image") : t("onboarding.profile.upload_image")}
+          </span>
         </button>
       </div>
 
@@ -201,17 +206,17 @@ export const ProfileSetupStep = observer(function ProfileSetupStep({ handleStepC
             className="block text-13 font-medium text-tertiary after:ml-0.5 after:text-danger-primary after:content-['*']"
             htmlFor="first_name"
           >
-            Name
+            {t("common.name")}
           </label>
           <Controller
             control={control}
             name="first_name"
             rules={{
-              required: "Name is required",
+              required: t("onboarding.profile.name_required"),
               validate: validatePersonName,
               maxLength: {
                 value: 50,
-                message: "Name must be within 50 characters.",
+                message: t("onboarding.profile.name_max_length"),
               },
             }}
             render={({ field: { value, onChange, ref } }) => (
@@ -230,7 +235,7 @@ export const ProfileSetupStep = observer(function ProfileSetupStep({ handleStepC
                     "border-danger-strong": errors.first_name,
                   }
                 )}
-                placeholder="Enter your full name"
+                placeholder={t("onboarding.profile.name_placeholder")}
                 autoComplete="on"
               />
             )}
@@ -248,7 +253,7 @@ export const ProfileSetupStep = observer(function ProfileSetupStep({ handleStepC
       </div>
       {/* Continue Button */}
       <Button variant="primary" type="submit" className="w-full" size="xl" disabled={isButtonDisabled}>
-        Continue
+        {t("common.continue")}
       </Button>
 
       {/* Marketing Consent */}

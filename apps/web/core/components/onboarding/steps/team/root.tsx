@@ -264,6 +264,8 @@ export const InviteTeamStep = observer(function InviteTeamStep(props: Props) {
 
   const { workspaces } = useWorkspace();
   const workspacesList = Object.values(workspaces ?? {});
+  // translation
+  const { t } = useTranslation();
   const workspace = workspacesList[0];
 
   const {
@@ -341,14 +343,11 @@ export const InviteTeamStep = observer(function InviteTeamStep(props: Props) {
         if (e.code === "Enter") e.preventDefault();
       }}
     >
-      <CommonOnboardingHeader
-        title="Invite your teammates"
-        description="Work in plane happens best with your team. Invite them now to use Plane to its potential."
-      />
+      <CommonOnboardingHeader title={t("onboarding.team.title")} description={t("onboarding.team.description")} />
       <div className="w-full py-4 text-13">
         <div className="group relative mx-8 grid grid-cols-10 gap-4 py-2">
-          <div className="col-span-6 px-1 text-13 font-medium text-secondary">Email</div>
-          <div className="col-span-4 px-1 text-13 font-medium text-secondary">Role</div>
+          <div className="col-span-6 px-1 text-13 font-medium text-secondary">{t("common.email")}</div>
+          <div className="col-span-4 px-1 text-13 font-medium text-secondary">{t("common.role")}</div>
         </div>
         <div className="mb-3 space-y-3 sm:space-y-4">
           {fields.map((field, index) => (
@@ -374,7 +373,7 @@ export const InviteTeamStep = observer(function InviteTeamStep(props: Props) {
           onClick={appendField}
         >
           <PlusIcon className="h-4 w-4" strokeWidth={2} />
-          Add another
+          {t("onboarding.team.add_another")}
         </button>
       </div>
       <div className="mx-auto flex w-full flex-col items-center justify-center gap-4 px-8 sm:px-2">
@@ -385,10 +384,10 @@ export const InviteTeamStep = observer(function InviteTeamStep(props: Props) {
           className="w-full"
           disabled={isInvitationDisabled || !isValid || isSubmitting}
         >
-          {isSubmitting ? <Spinner height="20px" width="20px" /> : "Continue"}
+          {isSubmitting ? <Spinner height="20px" width="20px" /> : t("common.continue")}
         </Button>
         <Button variant="ghost" size="xl" className="w-full" onClick={nextStep}>
-          I’ll do it later
+          {t("onboarding.team.do_it_later")}
         </Button>
       </div>
     </form>
