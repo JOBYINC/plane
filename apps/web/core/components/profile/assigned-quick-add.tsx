@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 import { Plus, X } from "lucide-react";
@@ -16,14 +16,10 @@ import { EIssuesStoreType, type TIssue } from "@plane/types";
 import { cn } from "@plane/utils";
 // components
 import { DateDropdown } from "@/components/dropdowns/date";
-import { ProjectDropdown } from "@/components/dropdowns/project/dropdown";
 // hooks
 import { useProject } from "@/hooks/store/use-project";
 import { useUser } from "@/hooks/store/user";
 import { useIssuesActions } from "@/hooks/use-issues-actions";
-import useLocalStorage from "@/hooks/use-local-storage";
-
-const QUICK_ADD_PROJECT_KEY = "profileAssignedQuickAddProjectId";
 
 export const ProfileAssignedQuickAdd = observer(function ProfileAssignedQuickAdd() {
   const { t } = useTranslation();
@@ -33,33 +29,26 @@ export const ProfileAssignedQuickAdd = observer(function ProfileAssignedQuickAdd
   const { userId: routeUserId } = useParams();
   // store hooks
   const { data: currentUser } = useUser();
-  const { joinedProjectIds } = useProject();
+  const { joinedProjectIds, getProjectById } = useProject();
   const { createIssue } = useIssuesActions(EIssuesStoreType.PROFILE);
   // Only show quick-add on the viewer's own Assigned page — creating a task
-  // here always assigns it to `currentUser.id`, so on someone else's profile
-  // the button would silently mis-route work to the viewer instead of the
-  // profile owner. Hiding it is clearer than guessing intent.
+  // here always assigns it to `currentUser.id` and routes it to their
+  // personal-tasks bucket; on someone else's profile both would silently
+  // mis-route work to the viewer instead of the profile owner.
   const isOwnProfile = !!currentUser?.id && routeUserId?.toString() === currentUser.id;
-  // last-used project persists across sessions for rapid re-entry.
-  const { storedValue: persistedProjectId, setValue: setPersistedProjectId } = useLocalStorage<string | null>(
-    QUICK_ADD_PROJECT_KEY,
-    null
+  // Always route to the viewer's personal "Personal Tasks" bucket. Backend
+  // lazily creates it on first /projects list and filters is_personal rows by
+  // personal_owner, so the only is_personal project the viewer sees in
+  // joinedProjectIds is their own.
+  const personalProjectId = useMemo(
+    () => joinedProjectIds.find((id) => getProjectById(id)?.is_personal) ?? null,
+    [joinedProjectIds, getProjectById]
   );
   // local state
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [title, setTitle] = useState("");
-  const [projectId, setProjectId] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Resolve a sensible default project: last-used (if still joined) → first joined.
-  useEffect(() => {
-    if (projectId) return;
-    if (joinedProjectIds.length === 0) return;
-    const initial =
-      persistedProjectId && joinedProjectIds.includes(persistedProjectId) ? persistedProjectId : joinedProjectIds[0];
-    setProjectId(initial);
-  }, [joinedProjectIds, persistedProjectId, projectId]);
 
   // Autofocus title input when the composer opens.
   useEffect(() => {
@@ -72,18 +61,9 @@ export const ProfileAssignedQuickAdd = observer(function ProfileAssignedQuickAdd
     setDueDate(null);
   };
 
-  // The composer is dismissed only on Escape, the cancel button, or after a
-  // successful submit — an outside-click handler would misfire on the
-  // project dropdown popper (rendered via a portal outside `composerRef`).
-
-  const handleProjectChange = (next: string) => {
-    setProjectId(next);
-    setPersistedProjectId(next);
-  };
-
   const handleSubmit = async () => {
     const name = title.trim();
-    if (!name || !projectId || !currentUser?.id || isSubmitting) return;
+    if (!name || !personalProjectId || !currentUser?.id || isSubmitting) return;
     setIsSubmitting(true);
     try {
       const payload: Partial<TIssue> = {
@@ -99,7 +79,7 @@ export const ProfileAssignedQuickAdd = observer(function ProfileAssignedQuickAdd
         const day = String(dueDate.getDate()).padStart(2, "0");
         payload.target_date = `${year}-${month}-${day}`;
       }
-      await createIssue?.(projectId, payload);
+      await createIssue?.(personalProjectId, payload);
       // Clear input but keep the composer open so the user can add another, Asana-style.
       setTitle("");
       setDueDate(null);
@@ -126,7 +106,7 @@ export const ProfileAssignedQuickAdd = observer(function ProfileAssignedQuickAdd
     }
   };
 
-  const canCreate = joinedProjectIds.length > 0;
+  const canCreate = !!personalProjectId;
 
   if (!isOwnProfile) return null;
 
@@ -153,12 +133,6 @@ export const ProfileAssignedQuickAdd = observer(function ProfileAssignedQuickAdd
           "opacity-70": isSubmitting,
         })}
       >
-        <ProjectDropdown
-          buttonVariant="border-with-text"
-          multiple={false}
-          value={projectId}
-          onChange={handleProjectChange}
-        />
         <input
           ref={inputRef}
           type="text"
@@ -183,7 +157,7 @@ export const ProfileAssignedQuickAdd = observer(function ProfileAssignedQuickAdd
           size="sm"
           onClick={handleSubmit}
           loading={isSubmitting}
-          disabled={!title.trim() || !projectId || isSubmitting}
+          disabled={!title.trim() || !personalProjectId || isSubmitting}
         >
           {t("common.add")}
         </Button>
