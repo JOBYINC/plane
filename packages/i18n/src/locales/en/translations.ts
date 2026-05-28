@@ -86,6 +86,13 @@ export default {
     guest: "Guest",
     suspended: "Suspended",
   },
+  module_link_modal: {
+    add_link: "Add link",
+    update_link: "Update link",
+    adding_link: "Adding link",
+    updating_link: "Updating link",
+    url_required: "URL is required",
+  },
   filter_dates: {
     start_date: "Start date",
     due_date: "Due date",

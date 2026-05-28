@@ -255,6 +255,13 @@ export default {
     guest: "访客",
     suspended: "已停用",
   },
+  module_link_modal: {
+    add_link: "添加链接",
+    update_link: "更新链接",
+    adding_link: "添加中",
+    updating_link: "更新中",
+    url_required: "URL 为必填项",
+  },
   filter_dates: {
     start_date: "开始日期",
     due_date: "截止日期",
