@@ -126,6 +126,7 @@ export default {
   filter_dates: {
     start_date: "Start date",
     due_date: "Due date",
+    created_date: "Created date",
     custom: "Custom",
   },
   transfer_issues_modal: {

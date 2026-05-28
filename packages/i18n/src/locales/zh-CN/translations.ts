@@ -295,6 +295,7 @@ export default {
   filter_dates: {
     start_date: "开始日期",
     due_date: "截止日期",
+    created_date: "创建日期",
     custom: "自定义",
   },
   transfer_issues_modal: {
