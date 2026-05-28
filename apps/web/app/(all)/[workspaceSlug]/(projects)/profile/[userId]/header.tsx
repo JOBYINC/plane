@@ -95,7 +95,7 @@ export const UserProfileHeader = observer(function UserProfileHeader(props: TUse
               </CustomMenu.MenuItem>
             ))}
           </CustomMenu>
-          <div className="shrink-0 md:hidden">
+          <div className="shrink-0">
             <Button
               variant="ghost"
               size="lg"
