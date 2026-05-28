@@ -128,8 +128,8 @@ export const DisplayFiltersSelection = observer(function DisplayFiltersSelection
         <div className="py-2">
           <FilterExtraOptions
             selectedExtraOptions={{
-              show_empty_groups: displayFilters?.show_empty_groups ?? true,
-              sub_issue: displayFilters?.sub_issue ?? true,
+              show_empty_groups: displayFilters?.show_empty_groups ?? false,
+              sub_issue: displayFilters?.sub_issue ?? false,
             }}
             handleUpdate={(key, val) =>
               handleDisplayFiltersUpdate({

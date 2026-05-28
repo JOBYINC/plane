@@ -64,8 +64,8 @@ def get_default_display_filters():
         "group_by": None,
         "order_by": "-created_at",
         "type": None,
-        "sub_issue": True,
-        "show_empty_groups": True,
+        "sub_issue": False,
+        "show_empty_groups": False,
         "layout": "list",
         "calendar_date_range": "",
     }
