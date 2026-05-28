@@ -9,6 +9,7 @@ import { Command } from "cmdk";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // hooks
+import { useTranslation } from "@plane/i18n";
 import { CloseIcon, SearchIcon } from "@plane/propel/icons";
 import { cn } from "@plane/utils";
 // power-k
@@ -26,6 +27,7 @@ export const TopNavPowerK = observer(() => {
   const router = useAppRouter();
   const params = useParams();
   const { projectId: routerProjectId, workItem: workItemIdentifier } = params;
+  const { t } = useTranslation();
 
   // states
   const [searchTerm, setSearchTerm] = useState("");
@@ -235,7 +237,7 @@ export const TopNavPowerK = observer(() => {
             onMouseDown={handleMouseDown}
             onFocus={handleFocus}
             onKeyDown={handleKeyDown}
-            placeholder="Search commands..."
+            placeholder={t("top_nav_power_k.search_commands")}
             className="placeholder-text-placeholder min-w-0 flex-1 bg-transparent text-13 text-primary outline-none"
           />
           {searchTerm && (

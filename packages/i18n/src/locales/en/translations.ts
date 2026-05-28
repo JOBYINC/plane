@@ -94,6 +94,16 @@ export default {
     add_assignees: "Add assignees",
     add_due_date: "Add due date",
   },
+  analytics: {
+    group_by: "Group By",
+    add_property: "Add Property",
+  },
+  set_password_form: {
+    match: "Passwords match",
+  },
+  top_nav_power_k: {
+    search_commands: "Search commands...",
+  },
   create_label: {
     new: "New",
   },

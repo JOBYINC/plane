@@ -263,6 +263,16 @@ export default {
     add_assignees: "添加指派人",
     add_due_date: "添加截止日期",
   },
+  analytics: {
+    group_by: "分组依据",
+    add_property: "添加属性",
+  },
+  set_password_form: {
+    match: "密码一致",
+  },
+  top_nav_power_k: {
+    search_commands: "搜索命令…",
+  },
   create_label: {
     new: "新建",
   },

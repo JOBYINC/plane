@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { observer } from "mobx-react";
 import { ETabIndices } from "@plane/constants";
+import { useTranslation } from "@plane/i18n";
 import { ParentPropertyIcon } from "@plane/propel/icons";
 import type { ISearchIssueResponse, TIssue } from "@plane/types";
 import { CustomMenu } from "@plane/ui";
@@ -38,6 +39,7 @@ export const InboxIssueProperties = observer(function InboxIssueProperties(props
   // hooks
   const { areEstimateEnabledByProjectId } = useProjectEstimates();
   const { isMobile } = usePlatformOS();
+  const { t } = useTranslation();
   // states
   const [parentIssueModalOpen, setParentIssueModalOpen] = useState(false);
   const [selectedParentIssue, setSelectedParentIssue] = useState<ISearchIssueResponse | undefined>(undefined);
@@ -86,7 +88,7 @@ export const InboxIssueProperties = observer(function InboxIssueProperties(props
           onChange={(assigneeIds) => handleData("assignee_ids", assigneeIds)}
           buttonVariant={(data?.assignee_ids || [])?.length > 0 ? "transparent-without-text" : "border-with-text"}
           buttonClassName={(data?.assignee_ids || [])?.length > 0 ? "hover:bg-transparent" : ""}
-          placeholder="Assignees"
+          placeholder={t("common.assignees")}
           multiple
           tabIndex={getIndex("assignee_ids")}
         />
@@ -110,7 +112,7 @@ export const InboxIssueProperties = observer(function InboxIssueProperties(props
             onChange={(date) => handleData("start_date", date ? renderFormattedPayloadDate(date) : "")}
             buttonVariant="border-with-text"
             minDate={minDate ?? undefined}
-            placeholder="Start date"
+            placeholder={t("filter_dates.start_date")}
             tabIndex={getIndex("start_date")}
           />
         </div>
@@ -123,7 +125,7 @@ export const InboxIssueProperties = observer(function InboxIssueProperties(props
           onChange={(date) => handleData("target_date", date ? renderFormattedPayloadDate(date) : "")}
           buttonVariant="border-with-text"
           minDate={minDate ?? undefined}
-          placeholder="Due date"
+          placeholder={t("filter_dates.due_date")}
           tabIndex={getIndex("target_date")}
         />
       </div>
@@ -135,7 +137,7 @@ export const InboxIssueProperties = observer(function InboxIssueProperties(props
             value={data?.cycle_id || ""}
             onChange={(cycleId) => handleData("cycle_id", cycleId)}
             projectId={projectId}
-            placeholder="Cycle"
+            placeholder={t("common.cycle")}
             buttonVariant="border-with-text"
             tabIndex={getIndex("cycle_id")}
           />
@@ -149,7 +151,7 @@ export const InboxIssueProperties = observer(function InboxIssueProperties(props
             value={data?.module_ids || []}
             onChange={(moduleIds) => handleData("module_ids", moduleIds)}
             projectId={projectId}
-            placeholder="Modules"
+            placeholder={t("common.modules")}
             buttonVariant="border-with-text"
             multiple
             showCount
@@ -166,7 +168,7 @@ export const InboxIssueProperties = observer(function InboxIssueProperties(props
             onChange={(estimatePoint) => handleData("estimate_point", estimatePoint)}
             projectId={projectId}
             buttonVariant="border-with-text"
-            placeholder="Estimate"
+            placeholder={t("common.estimate")}
             tabIndex={getIndex("estimate_point")}
           />
         </div>
