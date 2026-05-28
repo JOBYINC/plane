@@ -257,11 +257,14 @@ export default {
       name_placeholder: "请输入工作区名称",
     },
     profile: {
+      title: "创建您的个人资料。",
+      description: "这是您在 Tick 中显示的样子。",
       change_image: "更换头像",
       upload_image: "上传头像",
       name_required: "姓名为必填项",
       name_max_length: "姓名不能超过 50 个字符。",
       name_placeholder: "请输入您的全名",
+      update_failed: "用户信息更新失败，请重试！",
     },
     usecase: {
       title: "您来 Tick 想做什么？",

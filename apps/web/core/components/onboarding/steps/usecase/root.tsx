@@ -56,14 +56,14 @@ export const UseCaseSetupStep = observer(function UseCaseSetupStep({ handleStepC
       [await updateUserProfile(profileUpdatePayload)];
       setToast({
         type: TOAST_TYPE.SUCCESS,
-        title: "Success",
-        message: "Profile setup completed!",
+        title: t("toast.success"),
+        message: t("onboarding.role.success_message"),
       });
     } catch {
       setToast({
         type: TOAST_TYPE.ERROR,
-        title: "Error",
-        message: "Profile setup failed. Please try again!",
+        title: t("toast.error"),
+        message: t("onboarding.role.error_message"),
       });
     }
   };

@@ -102,8 +102,8 @@ export const ProfileSetupStep = observer(function ProfileSetupStep({ handleStepC
     } catch {
       setToast({
         type: TOAST_TYPE.ERROR,
-        title: "Error",
-        message: "User details update failed. Please try again!",
+        title: t("toast.error"),
+        message: t("onboarding.profile.update_failed"),
       });
     }
   };
@@ -150,7 +150,7 @@ export const ProfileSetupStep = observer(function ProfileSetupStep({ handleStepC
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-10">
       {/* Header */}
-      <CommonOnboardingHeader title="Create your profile." description="This is how you will appear in Plane." />
+      <CommonOnboardingHeader title={t("onboarding.profile.title")} description={t("onboarding.profile.description")} />
 
       {/* Profile Picture Section */}
       <Controller

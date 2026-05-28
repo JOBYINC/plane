@@ -88,11 +88,14 @@ export default {
       name_placeholder: "Enter workspace name",
     },
     profile: {
+      title: "Create your profile.",
+      description: "This is how you will appear in Tick.",
       change_image: "Change image",
       upload_image: "Upload image",
       name_required: "Name is required",
       name_max_length: "Name must be within 50 characters.",
       name_placeholder: "Enter your full name",
+      update_failed: "User details update failed. Please try again!",
     },
     usecase: {
       title: "What brings you to Tick?",
