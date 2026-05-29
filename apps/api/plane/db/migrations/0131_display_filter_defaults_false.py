@@ -6,7 +6,7 @@
 #
 # Affected JSON containers (all hold a `display_filters` dict):
 #   - CycleUserProperties.display_filters
-#   - Module.display_filters
+#   - ModuleUserProperties.display_filters
 #   - IssueView.display_filters
 #   - ProjectUserProperty.display_filters
 #   - WorkspaceUserProperties.display_filters
@@ -28,7 +28,7 @@ from django.db import migrations
 
 _MODELS = [
     ("CycleUserProperties", "display_filters"),
-    ("Module", "display_filters"),
+    ("ModuleUserProperties", "display_filters"),
     ("IssueView", "display_filters"),
     ("ProjectUserProperty", "display_filters"),
     ("WorkspaceUserProperties", "display_filters"),
