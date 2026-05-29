@@ -2,16 +2,18 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
-"""Regression: the hourly Lark due-date reminder must DM once per
-(issue, assignee, stage, day) and survive a non-persistent cache.
+"""Regression: the hourly Lark due-date reminder must DM at most once per
+(issue, assignee) pair — fired the day `target_date - today == 3` — and
+survive a non-persistent cache.
 
 Before the durable LarkDueReminderLog the dedup was a 25h Redis key; if
 the deployment cache was lost/non-shared the hourly beat re-DM'd the same
-assignee dozens of times. These tests pin the durable behaviour.
+assignee dozens of times. These tests pin the durable behaviour and the
+"once per task, ever" semantics.
 """
 
 import os
-from datetime import date
+from datetime import date, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -33,13 +35,20 @@ class TestLarkDueReminderDedup:
 
     @pytest.fixture
     def issue(self, workspace, project, create_user):
-        # target_date == today -> "today" stage; not completed/cancelled.
+        # target_date == today + 3 days -> fires the single "due_in_3" stage.
+        # Backdate created_at so the lead-time check (>= 4 days) passes —
+        # auto_now_add stamps creation at "now", which would otherwise put
+        # lead time at 3 days and the task would be skipped as short-lead.
         issue = Issue.objects.create(
-            name="Due today",
+            name="Due in 3 days",
             workspace=workspace,
             project=project,
-            target_date=date.today(),
+            target_date=date.today() + timedelta(days=3),
         )
+        Issue.objects.filter(pk=issue.pk).update(
+            created_at=issue.created_at - timedelta(days=2)
+        )
+        issue.refresh_from_db()
         # Plane's assignees m2m goes through IssueAssignee (ProjectBaseModel:
         # project + workspace are NOT NULL), so .add() alone is invalid.
         IssueAssignee.objects.create(
@@ -67,7 +76,7 @@ class TestLarkDueReminderDedup:
         assert third["sent"] == 0 and third["skipped_dup"] == 1
 
         log = LarkDueReminderLog.objects.get(
-            issue=issue, receiver=create_user, stage="today", reminder_date=date.today()
+            issue=issue, receiver=create_user, stage="due_in_3", reminder_date=date.today()
         )
         assert log.sent_at is not None
 
@@ -85,7 +94,7 @@ class TestLarkDueReminderDedup:
             # claim released -> no live row blocks the retry
             assert failed["sent"] == 0 and failed["errored"] == 1
             assert not LarkDueReminderLog.objects.filter(
-                issue=issue, receiver=create_user, stage="today", reminder_date=date.today()
+                issue=issue, receiver=create_user, stage="due_in_3", reminder_date=date.today()
             ).exists()
 
             with patch(f"{LARK_NOTIFY}.send_interactive_card", return_value=True) as mock_ok:
@@ -100,6 +109,90 @@ class TestLarkDueReminderDedup:
             result = remind_due_dates_task()
         assert "skipped" in result
         assert LarkDueReminderLog.objects.count() == 0
+
+    @pytest.mark.django_db
+    def test_short_lead_time_skips(self, workspace, project, create_user):
+        """If a task is created with target_date <= 3 days out, the creation
+        itself is the reminder — never DM about it. User intent: 'a task due
+        tomorrow should not generate a due reminder'."""
+        # target_date = today + 3 but created today (auto_now_add), lead = 3.
+        issue = Issue.objects.create(
+            name="Born short-lead",
+            workspace=workspace,
+            project=project,
+            target_date=date.today() + timedelta(days=3),
+        )
+        IssueAssignee.objects.create(
+            issue=issue, assignee=create_user, project=project, workspace=workspace
+        )
+        with (
+            patch.dict(os.environ, {"LARK_NOTIFICATIONS_ENABLED": "1"}),
+            patch(f"{LARK_NOTIFY}.send_interactive_card", return_value=True) as mock_send,
+            patch(f"{LARK_NOTIFY}.get_union_id", return_value="union-123"),
+            patch(f"{LARK_NOTIFY}.card_issue_due_reminder", return_value={}),
+            patch(f"{LARK_I18N}.user_lang", return_value="en"),
+        ):
+            result = remind_due_dates_task()
+        assert mock_send.call_count == 0
+        assert result["sent"] == 0
+        assert result["skipped_short_lead"] == 1
+        assert LarkDueReminderLog.objects.count() == 0
+
+    @pytest.mark.django_db
+    def test_lead_four_days_sends(self, workspace, project, create_user):
+        """Boundary: lead time of exactly 4 days IS reminded (the smallest
+        lead that's not 'short'). Paired with the lead-3-skip test above so
+        the < LEAD_DAYS + 1 boundary is pinned from both sides."""
+        issue = Issue.objects.create(
+            name="Lead exactly 4",
+            workspace=workspace,
+            project=project,
+            target_date=date.today() + timedelta(days=3),
+        )
+        # Backdate created_at by 1 day so lead = (target - created) = 4.
+        Issue.objects.filter(pk=issue.pk).update(
+            created_at=issue.created_at - timedelta(days=1)
+        )
+        issue.refresh_from_db()
+        IssueAssignee.objects.create(
+            issue=issue, assignee=create_user, project=project, workspace=workspace
+        )
+        with (
+            patch.dict(os.environ, {"LARK_NOTIFICATIONS_ENABLED": "1"}),
+            patch(f"{LARK_NOTIFY}.send_interactive_card", return_value=True) as mock_send,
+            patch(f"{LARK_NOTIFY}.get_union_id", return_value="union-123"),
+            patch(f"{LARK_NOTIFY}.card_issue_due_reminder", return_value={}),
+            patch(f"{LARK_I18N}.user_lang", return_value="en"),
+        ):
+            result = remind_due_dates_task()
+        assert mock_send.call_count == 1
+        assert result["sent"] == 1
+        assert result["skipped_short_lead"] == 0
+
+    @pytest.mark.django_db
+    def test_dedups_across_legacy_stage_rows(self, issue, create_user):
+        """A pre-existing log for this (issue, receiver) under ANY legacy stage
+        means we already DMed them — never DM again, even if the due date is
+        moved away and then back to today+3."""
+        # Pretend the legacy 3-stage system already DMed this user under
+        # "today" some time ago.
+        LarkDueReminderLog.objects.create(
+            issue=issue,
+            receiver=create_user,
+            stage="today",
+            reminder_date=date.today() - timedelta(days=10),
+        )
+        with (
+            patch.dict(os.environ, {"LARK_NOTIFICATIONS_ENABLED": "1"}),
+            patch(f"{LARK_NOTIFY}.send_interactive_card", return_value=True) as mock_send,
+            patch(f"{LARK_NOTIFY}.get_union_id", return_value="union-123"),
+            patch(f"{LARK_NOTIFY}.card_issue_due_reminder", return_value={}),
+            patch(f"{LARK_I18N}.user_lang", return_value="en"),
+        ):
+            result = remind_due_dates_task()
+        assert mock_send.call_count == 0
+        assert result["sent"] == 0
+        assert result["skipped_dup"] == 1
 
 
 @pytest.mark.unit
@@ -121,11 +214,15 @@ class TestLarkDueReminderSkipsTemplates:
     @pytest.fixture
     def template_issue(self, workspace, template_project, create_user):
         issue = Issue.objects.create(
-            name="Due today (template)",
+            name="Due in 3 days (template)",
             workspace=workspace,
             project=template_project,
-            target_date=date.today(),
+            target_date=date.today() + timedelta(days=3),
         )
+        Issue.objects.filter(pk=issue.pk).update(
+            created_at=issue.created_at - timedelta(days=2)
+        )
+        issue.refresh_from_db()
         IssueAssignee.objects.create(
             issue=issue,
             assignee=create_user,

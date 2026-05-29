@@ -171,7 +171,10 @@ class LarkDueReminderLog(BaseModel):
         on_delete=models.CASCADE,
         related_name="lark_due_reminder_logs",
     )
-    # soon | today | overdue
+    # Currently always "due_in_3" (single firing point: 3 days before
+    # target_date). Legacy rows from the prior 3-stage system carry
+    # "soon" / "today" / "overdue" — kept so the dedup pre-check in
+    # remind_due_dates_task covers users already DM'd under the old scheme.
     stage = models.CharField(max_length=16)
     reminder_date = models.DateField()
     sent_at = models.DateTimeField(null=True)

@@ -2,20 +2,21 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
-"""Hourly Celery beat task: DM assignees about approaching/past due-dates.
+"""Hourly Celery beat task: DM assignees once about an approaching due-date.
 
-Three reminder stages, each capped at one DM per assignee per stage per day
-(deduped via a durable LarkDueReminderLog row — atomic across beat workers
-and surviving cache loss/restart) so the hourly cadence doesn't spam:
-  - soon    (24h-48h before target_date) -> orange card "⏰ 任务明天到期"
-  - today   (target_date == today, UTC)  -> red card    "🔥 任务今日到期"
-  - overdue (target_date in the past,
-             within OVERDUE_WINDOW_DAYS)   -> red card    "❗ 任务已逾期 N 天"
+Exactly one DM per (issue, assignee), fired the day `target_date - today == 3`:
 
-After OVERDUE_WINDOW_DAYS the issue is presumed handled / abandoned and we
-stop nagging. Skips issues whose state is in the completed or cancelled
-group -- no point reminding about done work.
+  - upcoming (3 days before target_date) -> yellow card "🗓️ 任务还有 3 天到期"
 
+Once a LarkDueReminderLog row exists for (issue, receiver) we never DM that
+pair again — moving the due date forward and back does not re-trigger, and
+overdue / day-of / day-before reminders are intentionally not sent.
+
+Tasks whose lead time at creation is already < 4 days are skipped entirely:
+if you create a task due in 1-3 days, the act of creating it IS the reminder.
+Same for tasks created with a past due date.
+
+Skips issues whose state is in the completed or cancelled group.
 Whole task is a no-op unless LARK_NOTIFICATIONS_ENABLED is truthy.
 """
 
@@ -32,9 +33,12 @@ from django.utils import timezone
 
 logger = logging.getLogger("plane.bgtasks.lark_due_reminder_task")
 
-# Don't keep nagging forever -- if a task is 8+ days overdue, the team has
-# already decided to ignore it; further DMs are pure noise.
-OVERDUE_WINDOW_DAYS = 7
+# Single firing point: how many days before target_date we DM.
+LEAD_DAYS = 3
+# Identifier persisted in LarkDueReminderLog.stage; lets the (issue, receiver)
+# dedup query still work against historical "soon"/"today"/"overdue" rows
+# without needing a data migration.
+STAGE = "due_in_3"
 
 
 def _notifications_enabled():
@@ -61,8 +65,7 @@ def remind_due_dates_task():
     from plane.utils.lark_i18n import user_lang
 
     today = date.today()
-    tomorrow = today + timedelta(days=1)
-    earliest_overdue = today - timedelta(days=OVERDUE_WINDOW_DAYS)
+    target = today + timedelta(days=LEAD_DAYS)
 
     # Build the candidate set in one query. Excluding completed/cancelled
     # group states up front saves us per-row checks later. Template
@@ -72,42 +75,56 @@ def remind_due_dates_task():
         Issue.objects.select_related("workspace", "project", "state")
         .prefetch_related("assignees")
         .filter(
-            target_date__gte=earliest_overdue,
-            target_date__lte=tomorrow,
+            target_date=target,
             project__is_template=False,
         )
         .exclude(state__group__in=("completed", "cancelled"))
     )
 
-    sent = skipped_dup = no_union = errored = 0
+    sent = skipped_dup = skipped_short_lead = no_union = errored = 0
 
     for issue in candidates:
-        # Classify the stage; days = signed delta from today (negative => overdue).
-        delta = (issue.target_date - today).days
-        if delta < 0:
-            stage = "overdue"
-        elif delta == 0:
-            stage = "today"
-        elif delta == 1:
-            stage = "soon"
-        else:
-            continue  # outside the windows we care about (shouldn't hit -- query bounds us)
+        # Skip tasks whose lead time at creation was already too short. If you
+        # create a task due in 1-3 days, the act of creating it IS the reminder.
+        # Compare on the same date scale as target_date (DateField, naive day).
+        created_date = issue.created_at.date() if issue.created_at else today
+        if (issue.target_date - created_date).days < LEAD_DAYS + 1:
+            skipped_short_lead += 1
+            continue
 
         for assignee in issue.assignees.all():
-            # Atomic durable claim. The unique (issue, receiver, stage,
-            # reminder_date) constraint makes this idempotent across the
-            # hourly cadence AND across concurrent beat workers, regardless
-            # of whether the cache is healthy. The claim is released on any
-            # failure below so a later run retries -- i.e. the
-            # once-per-stage/day slot is only consumed on a confirmed
-            # successful send (same intent the old Redis check had, now
-            # durable). Release uses a hard delete (soft=False): a failed
-            # claim has no audit value, and a soft delete would both leave
-            # a ghost row and queue a pointless cascade task per failure.
+            # "Once per (issue, receiver) ever" — if any prior log row exists
+            # for this pair (regardless of stage / reminder_date), we already
+            # DMed them about this issue and never DM again. This survives the
+            # user moving the due date forward and back across the 3-day mark.
+            if LarkDueReminderLog.objects.filter(
+                issue=issue, receiver=assignee, deleted_at__isnull=True
+            ).exists():
+                skipped_dup += 1
+                continue
+
+            # Atomic durable claim. The partial unique
+            # (issue, receiver, stage, reminder_date) constraint makes this
+            # idempotent across the hourly cadence AND across concurrent beat
+            # workers (the pre-check above might race; the constraint is the
+            # actual guarantee). On any failure below the claim is released so
+            # a later run can retry; release is a hard delete (soft=False) —
+            # a failed claim has no audit value and a soft delete would both
+            # leave a ghost row and queue a pointless cascade task per failure.
+            #
+            # Accepted race (under-DM): if a send fails on the LAST hourly
+            # tick before UTC midnight, the released claim won't be re-tried
+            # the next day because target_date is now today+2 and falls
+            # outside the target_date == today+3 filter. The reminder is lost
+            # for this assignee. Hourly cadence with 24 attempts/day makes
+            # this a corner case (would require an outage spanning the very
+            # last tick), and the once-per-task semantic is more important
+            # than guaranteed delivery — the user explicitly traded one for
+            # the other.
             _log, created = LarkDueReminderLog.objects.get_or_create(
                 issue=issue,
                 receiver=assignee,
-                stage=stage,
+                stage=STAGE,
                 reminder_date=today,
             )
             if not created:
@@ -118,7 +135,7 @@ def remind_due_dates_task():
             # language. The dict construction is cheap; we'd otherwise have
             # to cache N cards keyed by language, which isn't worth it.
             try:
-                card = card_issue_due_reminder(issue, stage, delta, lang=user_lang(assignee))
+                card = card_issue_due_reminder(issue, LEAD_DAYS, lang=user_lang(assignee))
             except Exception:
                 logger.exception("Failed to build due-reminder card for issue=%s", issue.id)
                 _log.delete(soft=False)
@@ -159,6 +176,7 @@ def remind_due_dates_task():
     stats = {
         "sent": sent,
         "skipped_dup": skipped_dup,
+        "skipped_short_lead": skipped_short_lead,
         "no_union": no_union,
         "errored": errored,
         "candidates": len(candidates),

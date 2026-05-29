@@ -20,7 +20,7 @@ falls back to "en" key-by-key, then to the literal key string if absent.
 Lookup key convention: `<surface>.<context>.<role>`
   card.issue_assigned.header     -> the orange/red bar text at the top
   card.issue_assigned.field_task -> the **Task** field label
-  card.due.overdue.header        -> "Task overdue by N days"
+  card.due.upcoming.header       -> "Task due in N days"
 """
 
 LARK_I18N = {
@@ -44,12 +44,8 @@ LARK_I18N = {
         "card.issue_state_changed.header": "🔄 Task state changed",
         "card.issue_state_changed.line": "**{old}** → **{new}** _by {who}_",
 
-        "card.due.soon.header": "⏰ Task due tomorrow",
-        "card.due.soon.timing": "Due: **{due}** (tomorrow)",
-        "card.due.today.header": "🔥 Task due today",
-        "card.due.today.timing": "Due: **{due}** (today)",
-        "card.due.overdue.header": "❗ Task overdue by {days} day(s)",
-        "card.due.overdue.timing": "Originally due: **{due}** (overdue)",
+        "card.due.upcoming.header": "🗓️ Task due in {days} days",
+        "card.due.upcoming.timing": "Due: **{due}** (in {days} days)",
 
         "card.issue_completed.header": "✅ Task completed",
         "card.issue_completed.line": "Marked as **{state}** by **{completer}**",
@@ -89,12 +85,8 @@ LARK_I18N = {
         "card.issue_state_changed.header": "🔄 任务状态变更",
         "card.issue_state_changed.line": "**{old}** → **{new}** _由 {who}_",
 
-        "card.due.soon.header": "⏰ 任务明天到期",
-        "card.due.soon.timing": "截止: **{due}** (明天)",
-        "card.due.today.header": "🔥 任务今日到期",
-        "card.due.today.timing": "截止: **{due}** (今天)",
-        "card.due.overdue.header": "❗ 任务已逾期 {days} 天",
-        "card.due.overdue.timing": "原定截止: **{due}** (已过期)",
+        "card.due.upcoming.header": "🗓️ 任务还有 {days} 天到期",
+        "card.due.upcoming.timing": "截止: **{due}** ({days} 天后)",
 
         "card.issue_completed.header": "✅ 任务已完成",
         "card.issue_completed.line": "已由 **{completer}** 标记为 **{state}**",

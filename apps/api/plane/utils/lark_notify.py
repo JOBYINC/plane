@@ -252,13 +252,9 @@ def card_issue_state_changed(issue, old_state_name, new_state_name, changer_name
     }
 
 
-def card_issue_due_reminder(issue, stage, days, lang="en"):
-    """Card sent by the hourly Celery beat job for approaching deadlines.
-
-    `stage` is one of:
-      - "soon":    24h-48h before target_date -> orange
-      - "today":   target_date == today      -> red
-      - "overdue": target_date in the past   -> red
+def card_issue_due_reminder(issue, days, lang="en"):
+    """Card sent by the hourly Celery beat job once a task is `days` away from
+    target_date (currently fixed at 3 by the caller).
 
     Reuses the standard action row so the recipient can one-click complete
     from the reminder DM without opening Plane.
@@ -267,18 +263,9 @@ def card_issue_due_reminder(issue, stage, days, lang="en"):
     due = issue.target_date.strftime("%Y-%m-%d") if issue.target_date else "—"
     state_name = getattr(getattr(issue, "state", None), "name", None) or "—"
 
-    if stage == "overdue":
-        header_title = lark_t("card.due.overdue.header", lang, days=abs(days))
-        template = "red"
-        timing = lark_t("card.due.overdue.timing", lang, due=due)
-    elif stage == "today":
-        header_title = lark_t("card.due.today.header", lang)
-        template = "red"
-        timing = lark_t("card.due.today.timing", lang, due=due)
-    else:  # soon
-        header_title = lark_t("card.due.soon.header", lang)
-        template = "orange"
-        timing = lark_t("card.due.soon.timing", lang, due=due)
+    header_title = lark_t("card.due.upcoming.header", lang, days=days)
+    template = "yellow"
+    timing = lark_t("card.due.upcoming.timing", lang, due=due, days=days)
 
     return {
         "config": {"wide_screen_mode": True},
