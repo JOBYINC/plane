@@ -7,6 +7,8 @@
 //
 import type { IBlockUpdateDependencyData } from "@plane/types";
 import { GanttChartBlock } from "@/components/gantt-chart/blocks/block";
+import { SectionSwimlaneBlockSpacer } from "@/components/issues/issue-layouts/gantt/section-swimlane-rows";
+import { isSectionHeaderId } from "@/components/issues/issue-layouts/gantt/section-swimlanes";
 
 export type GanttChartBlocksProps = {
   blockIds: string[];
@@ -35,24 +37,30 @@ export function GanttChartBlocksList(props: GanttChartBlocksProps) {
 
   return (
     <>
-      {blockIds?.map((blockId) => (
-        <GanttChartBlock
-          key={blockId}
-          blockId={blockId}
-          showAllBlocks={showAllBlocks}
-          blockToRender={blockToRender}
-          enableBlockLeftResize={
-            typeof enableBlockLeftResize === "function" ? enableBlockLeftResize(blockId) : enableBlockLeftResize
-          }
-          enableBlockRightResize={
-            typeof enableBlockRightResize === "function" ? enableBlockRightResize(blockId) : enableBlockRightResize
-          }
-          enableBlockMove={typeof enableBlockMove === "function" ? enableBlockMove(blockId) : enableBlockMove}
-          enableDependency={typeof enableDependency === "function" ? enableDependency(blockId) : enableDependency}
-          ganttContainerRef={ganttContainerRef}
-          updateBlockDates={updateBlockDates}
-        />
-      ))}
+      {blockIds?.map((blockId) =>
+        isSectionHeaderId(blockId) ? (
+          // Section header occupies one BLOCK_HEIGHT row here too, so the flow-
+          // stacked bars below keep their index→Y alignment with the arrows.
+          <SectionSwimlaneBlockSpacer key={blockId} />
+        ) : (
+          <GanttChartBlock
+            key={blockId}
+            blockId={blockId}
+            showAllBlocks={showAllBlocks}
+            blockToRender={blockToRender}
+            enableBlockLeftResize={
+              typeof enableBlockLeftResize === "function" ? enableBlockLeftResize(blockId) : enableBlockLeftResize
+            }
+            enableBlockRightResize={
+              typeof enableBlockRightResize === "function" ? enableBlockRightResize(blockId) : enableBlockRightResize
+            }
+            enableBlockMove={typeof enableBlockMove === "function" ? enableBlockMove(blockId) : enableBlockMove}
+            enableDependency={typeof enableDependency === "function" ? enableDependency(blockId) : enableDependency}
+            ganttContainerRef={ganttContainerRef}
+            updateBlockDates={updateBlockDates}
+          />
+        )
+      )}
     </>
   );
 }

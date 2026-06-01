@@ -4,14 +4,14 @@
  * See the LICENSE file for details.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // plane imports
 import { ALL_ISSUES, EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
-import type { EIssuesStoreType, IBlockUpdateData, TIssue } from "@plane/types";
+import type { EIssuesStoreType, GroupByColumnTypes, IBlockUpdateData, TIssue } from "@plane/types";
 import { EIssueLayoutTypes, EIssueServiceType, GANTT_TIMELINE_TYPE } from "@plane/types";
 import { renderFormattedPayloadDate } from "@plane/utils";
 // components
@@ -21,6 +21,7 @@ import { IssueGanttSidebar } from "@/components/gantt-chart/sidebar/issues/sideb
 // hooks
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useIssues } from "@/hooks/store/use-issues";
+import { useProjectSection } from "@/hooks/store/use-project-section";
 import { useUserPermissions } from "@/hooks/store/user";
 import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
 import { useIssuesActions } from "@/hooks/use-issues-actions";
@@ -30,9 +31,18 @@ import { IssueService } from "@/services/issue/issue.service";
 // plane web hooks
 import { useBulkOperationStatus } from "@/plane-web/hooks/use-bulk-operation-status";
 
+import { getGroupByColumns, isWorkspaceLevel } from "../utils";
 import { IssueLayoutHOC } from "../issue-layout-HOC";
 import { GanttQuickAddIssueButton, QuickAddIssueRoot } from "../quick-add";
 import { IssueGanttBlock } from "./blocks";
+import type { TSwimlaneSection } from "./section-swimlane-context";
+import { SectionSwimlaneContext } from "./section-swimlane-context";
+import {
+  NO_SECTION_GROUP_ID,
+  bucketIssueIdsBySection,
+  buildSwimlaneBlockIds,
+  getSectionColor,
+} from "./section-swimlanes";
 
 interface IBaseGanttRoot {
   viewId?: string | undefined;
@@ -54,13 +64,16 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
   const { workspaceSlug, projectId } = useParams();
 
   const storeType = useIssueStoreType() as GanttStoreType;
-  const { issues, issuesFilter } = useIssues(storeType);
+  const { issues, issuesFilter, issueMap } = useIssues(storeType);
   const { fetchIssues, fetchNextIssues, updateIssue, quickAddIssue } = useIssuesActions(storeType);
   const { initGantt } = useTimeLineChart(GANTT_TIMELINE_TYPE.ISSUE);
   // store hooks
   const { allowPermissions } = useUserPermissions();
+  const { getSections, fetchProjectSections, fetchedMap } = useProjectSection();
 
   const appliedDisplayFilters = issuesFilter.issueFilters?.displayFilters;
+  const groupBy = appliedDisplayFilters?.group_by;
+  const isSectionGrouped = groupBy === "section";
   // plane web hooks
   const isBulkOperationsEnabled = useBulkOperationStatus();
   // derived values
@@ -75,8 +88,99 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
     initGantt();
   }, []);
 
+  // Ensure sections are loaded for swimlane grouping. use-project-issue-properties
+  // already fetches them on project entry; this is a defensive, idempotent fetch
+  // for the case where the Timeline is the first view to need the section axis.
+  useEffect(() => {
+    if (!isSectionGrouped || !workspaceSlug || !projectId) return;
+    if (fetchedMap[projectId.toString()]) return;
+    void fetchProjectSections(workspaceSlug.toString(), projectId.toString());
+  }, [isSectionGrouped, workspaceSlug, projectId, fetchedMap, fetchProjectSections]);
+
   const issuesIds = (issues.groupedIssueIds?.[ALL_ISSUES] as string[]) ?? [];
   const nextPageResults = issues.getPaginationData(undefined, undefined)?.nextPageResults;
+
+  // Section swimlanes: when grouped by "section", interleave section-header
+  // sentinel ids into the flat block list (issues bucketed client-side by
+  // section_id), so the existing index→Y row math renders aligned swimlanes in
+  // the sidebar, chart, and dependency overlay. Collapsed sections drop their
+  // issue rows but keep the header. Any other grouping leaves the Gantt flat.
+  const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(() => new Set());
+  const toggleSectionCollapse = useCallback((groupId: string) => {
+    setCollapsedSectionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  }, []);
+
+  const sectionGroups = useMemo(
+    () =>
+      isSectionGrouped
+        ? (getGroupByColumns({
+            groupBy: "section" as GroupByColumnTypes,
+            includeNone: true,
+            isWorkspaceLevel: isWorkspaceLevel(storeType),
+            isEpic,
+          }) ?? [])
+        : [],
+    [isSectionGrouped, storeType, isEpic, getSections, projectId]
+  );
+
+  const { swimlaneBlockIds, sectionsById, sectionColorByGroupId } = useMemo(() => {
+    if (!isSectionGrouped || sectionGroups.length === 0) {
+      return { swimlaneBlockIds: issuesIds, sectionsById: {}, sectionColorByGroupId: {} as Record<string, string> };
+    }
+    const issueIdsBySection = bucketIssueIdsBySection(issuesIds, issueMap, sectionGroups);
+    const sectionsMeta: Record<string, TSwimlaneSection> = {};
+    const colorByGroupId: Record<string, string> = {};
+    sectionGroups.forEach((group, index) => {
+      const color = getSectionColor(group.id, index);
+      colorByGroupId[group.id] = color;
+      sectionsMeta[group.id] = {
+        id: group.id,
+        name: group.name,
+        count: issueIdsBySection[group.id]?.length ?? 0,
+        color,
+      };
+    });
+    return {
+      swimlaneBlockIds: buildSwimlaneBlockIds(sectionGroups, issueIdsBySection, collapsedSectionIds),
+      sectionsById: sectionsMeta,
+      sectionColorByGroupId: colorByGroupId,
+    };
+  }, [isSectionGrouped, sectionGroups, issuesIds, issueMap, collapsedSectionIds]);
+
+  const getColorForSection = useCallback(
+    (sectionId: string | null | undefined) => sectionColorByGroupId[sectionId ?? NO_SECTION_GROUP_ID],
+    [sectionColorByGroupId]
+  );
+
+  // Seed collapsed state from each section's is_collapsed_default exactly once
+  // per project, so a user's manual toggles afterwards are never overwritten.
+  const seededCollapseProjectRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isSectionGrouped || !projectId) return;
+    const key = projectId.toString();
+    if (seededCollapseProjectRef.current === key) return;
+    const sections = getSections(key);
+    if (sections.length === 0) return; // not loaded yet
+    seededCollapseProjectRef.current = key;
+    const defaults = sections.filter((section) => section.is_collapsed_default).map((section) => section.id);
+    if (defaults.length > 0) setCollapsedSectionIds(new Set(defaults));
+  }, [isSectionGrouped, projectId, getSections]);
+
+  const swimlaneContextValue = useMemo(
+    () => ({
+      enabled: isSectionGrouped,
+      sectionsById,
+      collapsedIds: collapsedSectionIds,
+      toggleCollapse: toggleSectionCollapse,
+      getColorForSection,
+    }),
+    [isSectionGrouped, sectionsById, collapsedSectionIds, toggleSectionCollapse, getColorForSection]
+  );
 
   // Hydrate issue relations for the timeline's blocks so the Asana-style
   // dependency connectors (ce TimelineDependencyPaths) can render. Isolated and
@@ -177,30 +281,32 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
   return (
     <IssueLayoutHOC layout={EIssueLayoutTypes.GANTT}>
       <TimeLineTypeContext.Provider value={GANTT_TIMELINE_TYPE.ISSUE}>
-        <div className="h-full w-full">
-          <GanttChartRoot
-            border={false}
-            title={isEpic ? t("epic.label", { count: 2 }) : t("issue.label", { count: 2 })}
-            loaderTitle={isEpic ? t("epic.label", { count: 2 }) : t("issue.label", { count: 2 })}
-            blockIds={issuesIds}
-            blockUpdateHandler={updateIssueBlockStructure}
-            blockToRender={(data: TIssue) => <IssueGanttBlock issueId={data.id} isEpic={isEpic} />}
-            sidebarToRender={(props) => <IssueGanttSidebar {...props} showAllBlocks isEpic={isEpic} />}
-            enableBlockLeftResize={isAllowed}
-            enableBlockRightResize={isAllowed}
-            enableBlockMove={isAllowed}
-            enableReorder={appliedDisplayFilters?.order_by === "sort_order" && isAllowed}
-            enableAddBlock={isAllowed}
-            enableSelection={isBulkOperationsEnabled && isAllowed}
-            quickAdd={quickAdd}
-            loadMoreBlocks={loadMoreIssues}
-            canLoadMoreBlocks={nextPageResults}
-            updateBlockDates={updateBlockDates}
-            showAllBlocks
-            enableDependency
-            isEpic={isEpic}
-          />
-        </div>
+        <SectionSwimlaneContext.Provider value={swimlaneContextValue}>
+          <div className="h-full w-full">
+            <GanttChartRoot
+              border={false}
+              title={isEpic ? t("epic.label", { count: 2 }) : t("issue.label", { count: 2 })}
+              loaderTitle={isEpic ? t("epic.label", { count: 2 }) : t("issue.label", { count: 2 })}
+              blockIds={swimlaneBlockIds}
+              blockUpdateHandler={updateIssueBlockStructure}
+              blockToRender={(data: TIssue) => <IssueGanttBlock issueId={data.id} isEpic={isEpic} />}
+              sidebarToRender={(props) => <IssueGanttSidebar {...props} showAllBlocks isEpic={isEpic} />}
+              enableBlockLeftResize={isAllowed}
+              enableBlockRightResize={isAllowed}
+              enableBlockMove={isAllowed}
+              enableReorder={appliedDisplayFilters?.order_by === "sort_order" && isAllowed}
+              enableAddBlock={isAllowed}
+              enableSelection={isBulkOperationsEnabled && isAllowed}
+              quickAdd={quickAdd}
+              loadMoreBlocks={loadMoreIssues}
+              canLoadMoreBlocks={nextPageResults}
+              updateBlockDates={updateBlockDates}
+              showAllBlocks
+              enableDependency
+              isEpic={isEpic}
+            />
+          </div>
+        </SectionSwimlaneContext.Provider>
       </TimeLineTypeContext.Provider>
     </IssueLayoutHOC>
   );

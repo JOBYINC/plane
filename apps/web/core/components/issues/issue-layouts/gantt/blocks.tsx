@@ -32,6 +32,7 @@ import { CompletionToggle } from "../../mark-complete";
 import { WorkItemPreviewCard } from "../../preview-card";
 import { getBlockViewDetails } from "../utils";
 import type { GanttStoreType } from "./base-gantt-root";
+import { useSectionSwimlane } from "./section-swimlane-context";
 
 type Props = {
   issueId: string;
@@ -57,7 +58,13 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
   const stateDetails =
     issueDetails && getProjectStates(issueDetails?.project_id)?.find((state) => state?.id == issueDetails?.state_id);
 
-  const { blockStyle } = getBlockViewDetails(issueDetails, stateDetails?.color ?? "");
+  // When grouped into section swimlanes, tint the bar/diamond with the section's
+  // Asana colour instead of the state colour (an axis independent of State, §2).
+  const swimlane = useSectionSwimlane();
+  const sectionColor = swimlane.enabled ? swimlane.getColorForSection(issueDetails?.section_id) : undefined;
+  const accentColor = sectionColor ?? stateDetails?.color ?? "#6b7280";
+
+  const { blockStyle } = getBlockViewDetails(issueDetails, sectionColor ?? stateDetails?.color ?? "");
 
   const handleIssuePeekOverview = () => handleRedirection(workspaceSlug, issueDetails, isMobile);
 
@@ -66,7 +73,7 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
   // A task with only a due date (no start date) renders as an Asana-style
   // milestone diamond instead of a bar.
   const isMilestone = !!issueDetails?.target_date && !issueDetails?.start_date;
-  const stateColor = stateDetails?.color ?? "#6b7280";
+  const stateColor = accentColor;
 
   return (
     <Popover delay={100} openOnHover>

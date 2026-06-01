@@ -10,6 +10,8 @@ import RenderIfVisible from "@/components/core/render-if-visible-HOC";
 // hooks
 import { BlockRow } from "@/components/gantt-chart/blocks/block-row";
 import { BLOCK_HEIGHT } from "@/components/gantt-chart/constants";
+import { SectionSwimlaneChartRow } from "@/components/issues/issue-layouts/gantt/section-swimlane-rows";
+import { isSectionHeaderId, sectionGroupIdFromHeader } from "@/components/issues/issue-layouts/gantt/section-swimlanes";
 import type { TSelectionHelper } from "@/hooks/use-multiple-select";
 // types
 
@@ -36,9 +38,12 @@ export function GanttChartRowList(props: GanttChartBlocksProps) {
 
   return (
     <div className="absolute top-0 left-0 w-max min-w-full">
-      {blockIds?.map((blockId) => (
-        <>
+      {blockIds?.map((blockId) =>
+        isSectionHeaderId(blockId) ? (
+          <SectionSwimlaneChartRow key={blockId} groupId={sectionGroupIdFromHeader(blockId)} />
+        ) : (
           <RenderIfVisible
+            key={blockId}
             root={ganttContainerRef}
             horizontalOffset={100}
             verticalOffset={200}
@@ -57,8 +62,8 @@ export function GanttChartRowList(props: GanttChartBlocksProps) {
               ganttContainerRef={ganttContainerRef}
             />
           </RenderIfVisible>
-        </>
-      ))}
+        )
+      )}
     </div>
   );
 }

@@ -13,6 +13,8 @@ import type { IBlockUpdateData } from "@plane/types";
 import { Loader } from "@plane/ui";
 // components
 import RenderIfVisible from "@/components/core/render-if-visible-HOC";
+import { SectionSwimlaneSidebarRow } from "@/components/issues/issue-layouts/gantt/section-swimlane-rows";
+import { isSectionHeaderId, sectionGroupIdFromHeader } from "@/components/issues/issue-layouts/gantt/section-swimlanes";
 import { GanttLayoutListItemLoader } from "@/components/ui/loader/layouts/gantt-layout-loader";
 //hooks
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
@@ -81,6 +83,11 @@ export const IssueGanttSidebar = observer(function IssueGanttSidebar(props: Prop
       {blockIds ? (
         <>
           {blockIds.map((blockId, index) => {
+            // Section swimlane header (issue Gantt only) — rendered directly, no
+            // DnD/virtualization, exactly one BLOCK_HEIGHT row to stay aligned.
+            if (isSectionHeaderId(blockId))
+              return <SectionSwimlaneSidebarRow key={blockId} groupId={sectionGroupIdFromHeader(blockId)} />;
+
             const block = getBlockById(blockId);
             const isBlockVisibleOnSidebar = block?.start_date && block?.target_date;
 
