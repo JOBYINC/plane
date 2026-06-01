@@ -76,7 +76,9 @@ export class BaseTimeLineStore implements IBaseTimelineStore {
   blockIds: string[] | undefined = undefined;
 
   isDragging: boolean = false;
-  currentView: TGanttViews = "week";
+  // Default to a month span (~3 months in view at the denser dayWidth) instead of
+  // a single week, so the Timeline opens Asana-style with the whole plan visible.
+  currentView: TGanttViews = "month";
   currentViewData: ChartDataType | undefined = undefined;
   activeBlockId: string | null = null;
   renderView: any = [];

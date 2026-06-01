@@ -20,7 +20,10 @@ export const MonthChartView = observer(function MonthChartView(_props: any) {
   const { currentViewData, renderView } = useTimeLineChartStore();
   const monthView: IMonthView = renderView;
 
-  if (!monthView) return <></>;
+  // renderView starts as [] (built lazily by the mount effect). Guard the
+  // object shape, not just falsiness, so the initial render — now reachable
+  // because Month is the default view — doesn't read months[0] of undefined.
+  if (!monthView || !monthView.months?.length || !monthView.weeks?.length) return <></>;
 
   const { months, weeks } = monthView;
 

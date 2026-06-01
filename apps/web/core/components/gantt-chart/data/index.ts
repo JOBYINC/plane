@@ -92,7 +92,7 @@ export const VIEWS_LIST: ChartDataType[] = [
       currentDate: new Date(),
       endDate: new Date(),
       approxFilterRange: 6, // it will preview monthly all dates with weekends highlighted with no limitations ex: title (1, 2, 3)
-      dayWidth: 20,
+      dayWidth: 15, // denser than upstream (was 20) → ~3 months fit in view, Asana-style
     },
   },
   {
