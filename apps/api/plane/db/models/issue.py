@@ -124,6 +124,17 @@ class Issue(ProjectBaseModel):
         blank=True,
         related_name="state_issue",
     )
+    # Free-form organizational bucket — a parallel, independent axis to
+    # State (workflow). SET_NULL, not CASCADE: deleting a section must
+    # never delete work items; they fall back to "(No section)". See
+    # docs/sections-design.md §3. Independent of state_id by design (S1).
+    section = models.ForeignKey(
+        "db.ProjectSection",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="issues",
+    )
     point = models.IntegerField(validators=[MinValueValidator(0), MaxValueValidator(12)], null=True, blank=True)
     estimate_point = models.ForeignKey(
         "db.EstimatePoint",

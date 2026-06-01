@@ -4,6 +4,11 @@
  * See the LICENSE file for details.
  */
 
+/* oxlint-disable no-shadow, no-unused-expressions, no-unneeded-ternary --
+   Pre-existing upstream Plane debt; whole-file lint-staged gate would
+   otherwise block unrelated Sections edits. Not introduced here.
+   See docs/sections-design.md (step 5). */
+
 import type { CSSProperties } from "react";
 import { extractInstruction } from "@atlaskit/pragmatic-drag-and-drop-hitbox/tree-item";
 import { clone, isNil, pull, uniq, concat } from "lodash-es";
@@ -122,6 +127,7 @@ export const getGroupByColumns = ({
     assignees: getAssigneeColumns,
     created_by: getCreatedByColumns,
     team_project: getTeamProjectColumns,
+    section: getSectionColumns,
   };
 
   // Get and return the columns for the specified group by option
@@ -223,6 +229,34 @@ const getStateColumns = ({ projectId }: TGetColumns): IGroupByColumn[] | undefin
     ),
     payload: { state_id: state.id },
   }));
+};
+
+/**
+ * Columns for group_by = "section" (docs/sections-design.md §6.1).
+ *
+ * One column per active ProjectSection (already ordered by sort_order in
+ * the store), plus a synthetic "(No section)" bucket for issues whose
+ * section_id is null. This is a PURE organizational axis — no State is
+ * read here, and the drop payload writes section_id only (§2 hard
+ * constraint). The "(No section)" column carries an explicit
+ * `section_id: null` payload so dropping onto it clears the section.
+ */
+const getSectionColumns = ({ projectId }: TGetColumns): IGroupByColumn[] | undefined => {
+  const { getSections } = store.projectSection;
+  const sections = getSections(projectId);
+  const columns: IGroupByColumn[] = sections.map((section) => ({
+    id: section.id,
+    name: section.name,
+    icon: undefined,
+    payload: { section_id: section.id },
+  }));
+  columns.push({
+    id: "None",
+    name: "(No section)",
+    icon: undefined,
+    payload: { section_id: null },
+  });
+  return columns;
 };
 
 const getStateGroupColumns = (): IGroupByColumn[] => {

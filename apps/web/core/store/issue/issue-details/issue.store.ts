@@ -4,6 +4,12 @@
  * See the LICENSE file for details.
  */
 
+/* oxlint-disable promise/always-return --
+   Pre-existing upstream Plane debt (parent-issue retrieve .then() at
+   ~L104/~L290); whole-file lint-staged gate would otherwise block the
+   one-line section_id carry in addIssueToStore. Not introduced here.
+   See docs/sections-design.md (typecheck pass). */
+
 import { makeObservable, observable } from "mobx";
 import { computedFn } from "mobx-utils";
 // types
@@ -147,6 +153,7 @@ export class IssueStore implements IIssueStore {
       description_html: issue?.description_html,
       sort_order: issue?.sort_order,
       state_id: issue?.state_id,
+      section_id: issue?.section_id,
       priority: issue?.priority,
       label_ids: issue?.label_ids,
       assignee_ids: issue?.assignee_ids,

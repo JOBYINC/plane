@@ -981,6 +981,11 @@ export default {
     remove: "移除",
     archiving: "归档中",
     archive: "归档",
+    rename: "重命名",
+    add_section: "添加版块",
+    section_name: "版块名称",
+    section_archived: "版块已归档。",
+    section_update_failed: "无法更新此版块。",
     access: {
       public: "公开",
       private: "私有",
@@ -3410,5 +3415,7 @@ export default {
     error_create_failed: "创建失败",
     sdk_init_failed: "Lark SDK 初始化失败",
     debug_panel: "🔧 调试 (开发用)",
+    warning_assignee_not_member:
+      "该负责人不是当前项目的成员，将看不到这个任务。请改用共享项目（例如 Team Inbox），或先把他/她加入此项目。",
   },
 } as const;

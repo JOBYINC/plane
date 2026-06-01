@@ -69,6 +69,7 @@ from .project import (
     ProjectPublicMember,
     ProjectUserProperty,
 )
+from .section import ProjectSection
 from .session import Session
 from .social_connection import SocialLoginConnection
 from .state import State, StateGroup, DEFAULT_STATES

@@ -38,6 +38,7 @@ from plane.db.models import (
     IssueVote,
     IssueRelation,
     State,
+    ProjectSection,
     IssueVersion,
     IssueDescriptionVersion,
     Project,
@@ -85,6 +86,13 @@ class IssueCreateSerializer(BaseSerializer):
     # ids
     state_id = serializers.PrimaryKeyRelatedField(
         source="state", queryset=State.all_state_objects.all(), required=False, allow_null=True
+    )
+    # Free-form section — independent organizational axis, exposed as
+    # `section_id` to mirror `state_id` so per-section quick-add can
+    # prePopulate it on create (docs/sections-design.md §1, §5). NEVER
+    # validated against State (§2 hard constraint).
+    section_id = serializers.PrimaryKeyRelatedField(
+        source="section", queryset=ProjectSection.objects.all(), required=False, allow_null=True
     )
     parent_id = serializers.PrimaryKeyRelatedField(
         source="parent", queryset=Issue.objects.all(), required=False, allow_null=True
@@ -268,6 +276,18 @@ class IssueCreateSerializer(BaseSerializer):
             ).exists()
         ):
             raise serializers.ValidationError("State is not valid please pass a valid state_id")
+
+        # Section must belong to this project. Validated independently of
+        # State by design — a section is a pure container, never tied to
+        # workflow group (docs/sections-design.md §2).
+        if (
+            attrs.get("section")
+            and not ProjectSection.objects.filter(
+                project_id=self.context.get("project_id"),
+                pk=attrs.get("section").id,
+            ).exists()
+        ):
+            raise serializers.ValidationError("Section is not valid please pass a valid section_id")
 
         # Check parent issue is from workspace as it can be cross workspace
         if (
@@ -872,6 +892,7 @@ class IssueSerializer(DynamicBaseSerializer):
             "id",
             "name",
             "state_id",
+            "section_id",
             "sort_order",
             "completed_at",
             "estimate_point",

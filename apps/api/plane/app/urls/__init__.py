@@ -18,6 +18,7 @@ from .search import urlpatterns as search_urls
 from .state import urlpatterns as state_urls
 from .automation import urlpatterns as automation_urls
 from .work_item_field import urlpatterns as work_item_field_urls
+from .section import urlpatterns as section_urls
 from .user import urlpatterns as user_urls
 from .views import urlpatterns as view_urls
 from .webhook import urlpatterns as webhook_urls
@@ -41,6 +42,7 @@ urlpatterns = [
     *state_urls,
     *automation_urls,
     *work_item_field_urls,
+    *section_urls,
     *user_urls,
     *view_urls,
     *workspace_urls,

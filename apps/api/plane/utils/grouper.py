@@ -16,6 +16,7 @@ from plane.db.models import (
     Module,
     Project,
     ProjectMember,
+    ProjectSection,
     State,
     WorkspaceMember,
     IssueAssignee,
@@ -107,6 +108,7 @@ def issue_on_results(
         "id",
         "name",
         "state_id",
+        "section_id",
         "sort_order",
         "completed_at",
         "estimate_point",
@@ -179,6 +181,17 @@ def issue_group_values(
 
     if field == "cycle_id":
         queryset = Cycle.objects.filter(workspace__slug=slug).values_list("id", flat=True)
+        if project_id:
+            return list(queryset.filter(project_id=project_id)) + ["None"]
+        return list(queryset) + ["None"]
+
+    # Free-form Section — nullable single FK like cycle/module, so include
+    # the synthetic "None" = "(No section)" bucket. Active sections only.
+    # docs/sections-design.md §2: section_id only, never State.
+    if field == "section_id":
+        queryset = ProjectSection.objects.filter(
+            workspace__slug=slug, is_archived=False
+        ).values_list("id", flat=True)
         if project_id:
             return list(queryset.filter(project_id=project_id)) + ["None"]
         return list(queryset) + ["None"]

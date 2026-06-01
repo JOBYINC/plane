@@ -96,6 +96,7 @@ from .work_item_field import (
     WorkItemFieldValueViewSet,
     WorkItemFieldValueBulkEndpoint,
 )
+from .section import ProjectSectionViewSet
 from .view.base import (
     WorkspaceViewViewSet,
     WorkspaceViewIssuesViewSet,
@@ -161,6 +162,7 @@ from .issue.relation import IssueRelationViewSet
 from .issue.reaction import IssueReactionViewSet
 
 from .issue.sub_issue import SubIssuesEndpoint
+from .issue.section import IssueSectionEndpoint
 
 from .issue.subscriber import IssueSubscriberViewSet
 

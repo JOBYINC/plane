@@ -50,6 +50,7 @@ from .work_item_field import (
     WorkItemFieldOptionSerializer,
     WorkItemFieldValueSerializer,
 )
+from .section import ProjectSectionSerializer
 from .view import IssueViewSerializer, ViewIssueListSerializer
 from .cycle import (
     CycleSerializer,

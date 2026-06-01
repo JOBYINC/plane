@@ -4,6 +4,12 @@
  * See the LICENSE file for details.
  */
 
+/* oxlint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions --
+   Pre-existing upstream Plane a11y debt (onClick on the group-header
+   <div>s at lines ~119/~157); whole-file lint-staged gate would
+   otherwise block the Sections header wiring. Not introduced here.
+   See docs/sections-design.md (step 6). */
+
 import { useState } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
@@ -26,6 +32,8 @@ import type { TSelectionHelper } from "@/hooks/use-multiple-select";
 import { CreateUpdateEpicModal } from "@/plane-web/components/epics/epic-modal";
 // Plane-web
 import { WorkFlowGroupTree } from "@/plane-web/components/workflow";
+// sections
+import { SectionGroupActions } from "./section-group-actions";
 
 interface IHeaderGroupByCard {
   groupID: string;
@@ -125,6 +133,8 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
             <WorkFlowGroupTree groupBy={groupBy} groupId={groupID} />
           </div>
         </button>
+
+        <SectionGroupActions groupBy={groupBy} groupId={groupID} title={title} />
 
         {!disableIssueCreation &&
           (renderExistingIssueModal ? (

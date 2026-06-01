@@ -4,6 +4,12 @@
  * See the LICENSE file for details.
  */
 
+/* oxlint-disable typescript-eslint/no-duplicate-enum-values --
+   Pre-existing upstream Plane debt (project/team_project both map to
+   "project_id" by design); whole-file lint-staged gate would otherwise
+   block the Sections group-by option. Not introduced here.
+   See docs/sections-design.md (step 6). */
+
 import type {
   TIssueGroupByOptions,
   TIssueOrderByOptions,
@@ -37,6 +43,9 @@ export enum EIssueGroupByToServerOptions {
   "created_by" = "created_by",
   // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
   "team_project" = "project_id",
+  // Free-form Section — server-side grouping/pagination field. Maps to
+  // section_id only; independent of State (docs/sections-design.md §2).
+  "section" = "section_id",
 }
 
 export enum EIssueGroupBYServerToProperty {
@@ -50,6 +59,7 @@ export enum EIssueGroupBYServerToProperty {
   "target_date" = "target_date",
   "project_id" = "project_id",
   "created_by" = "created_by",
+  "section_id" = "section_id",
 }
 
 export enum EIssueCommentAccessSpecifier {
@@ -129,6 +139,7 @@ export const ISSUE_GROUP_BY_OPTIONS: {
   { key: "labels", titleTranslationKey: "common.labels" },
   { key: "assignees", titleTranslationKey: "common.assignees" },
   { key: "created_by", titleTranslationKey: "common.created_by" },
+  { key: "section", titleTranslationKey: "common.sections" },
   { key: null, titleTranslationKey: "common.none" },
 ];
 

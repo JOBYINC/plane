@@ -39,6 +39,7 @@ import type { GroupDropLocation } from "../utils";
 import { getGroupByColumns, isWorkspaceLevel, isSubGrouped } from "../utils";
 import { getOrderedListColumns, getUnifiedListGridTemplate } from "./columns/list-columns";
 import { ListHeaderRow } from "./columns/list-header-row";
+import { AddSectionRow } from "./add-section-row";
 import { ListGroup } from "./list-group";
 import type { TRenderQuickActions } from "./list-view-types";
 
@@ -213,6 +214,7 @@ export const List = observer(function List(props: IList) {
                     isEpic={isEpic}
                   />
                 ))}
+                <AddSectionRow groupBy={group_by} />
               </div>
 
               <IssueBulkOperationsRoot selectionHelpers={helpers} />

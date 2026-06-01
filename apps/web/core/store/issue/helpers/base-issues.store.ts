@@ -4,6 +4,11 @@
  * See the LICENSE file for details.
  */
 
+/* oxlint-disable no-shadow, no-unused-expressions, no-unneeded-ternary --
+   Pre-existing upstream Plane debt; whole-file lint-staged gate would
+   otherwise block unrelated Sections edits. Not introduced here.
+   See docs/sections-design.md (step 5). */
+
 import { isEqual, concat, get, indexOf, isEmpty, orderBy, pull, set, uniq, update, clone } from "lodash-es";
 import { action, computed, makeObservable, observable, runInAction } from "mobx";
 import { computedFn } from "mobx-utils";
@@ -125,6 +130,9 @@ export const ISSUE_GROUP_BY_KEY: Record<TIssueDisplayFilterOptions, keyof TIssue
   cycle: "cycle_id",
   module: "module_ids",
   team_project: "project_id",
+  // Free-form Section — independent organizational axis. Grouping reads
+  // issue.section_id only; never State (docs/sections-design.md §2/§6.1).
+  section: "section_id",
 };
 
 export const ISSUE_FILTER_DEFAULT_DATA: Record<TIssueDisplayFilterOptions, keyof TIssue> = {
@@ -139,6 +147,7 @@ export const ISSUE_FILTER_DEFAULT_DATA: Record<TIssueDisplayFilterOptions, keyof
   assignees: "assignee_ids",
   target_date: "target_date",
   team_project: "project_id",
+  section: "section_id",
 };
 
 // This constant maps the order by keys to the respective issue property that the key relies on

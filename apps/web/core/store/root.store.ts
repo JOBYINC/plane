@@ -45,6 +45,8 @@ import type { ILabelStore } from "./label.store";
 import { LabelStore } from "./label.store";
 import type { IWorkItemFieldStore } from "./work-item-field.store";
 import { WorkItemFieldStore } from "./work-item-field.store";
+import type { IProjectSectionStore } from "./project/project-section.store";
+import { ProjectSectionStore } from "./project/project-section.store";
 import type { IMemberRootStore } from "./member";
 import { MemberRootStore } from "./member";
 import type { IModuleStore } from "./module.store";
@@ -87,6 +89,7 @@ export class CoreRootStore {
   state: IStateStore;
   label: ILabelStore;
   workItemField: IWorkItemFieldStore;
+  projectSection: IProjectSectionStore;
   dashboard: IDashboardStore;
   analytics: IAnalyticsStore;
   projectPages: IProjectPageStore;
@@ -124,6 +127,7 @@ export class CoreRootStore {
     this.state = new StateStore(this as unknown as RootStore);
     this.label = new LabelStore(this);
     this.workItemField = new WorkItemFieldStore(this);
+    this.projectSection = new ProjectSectionStore(this);
     this.dashboard = new DashboardStore(this);
     this.multipleSelect = new MultipleSelectStore();
     this.projectInbox = new ProjectInboxStore(this);
@@ -159,6 +163,7 @@ export class CoreRootStore {
     this.state = new StateStore(this as unknown as RootStore);
     this.label = new LabelStore(this);
     this.workItemField = new WorkItemFieldStore(this);
+    this.projectSection = new ProjectSectionStore(this);
     this.dashboard = new DashboardStore(this);
     this.projectInbox = new ProjectInboxStore(this);
     this.projectPages = new ProjectPageStore(this as unknown as RootStore);

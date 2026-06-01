@@ -148,6 +148,11 @@ export const ListGroup = observer(function ListGroup(props: Props) {
   );
 
   const validateEmptyIssueGroups = (issueCount: number = 0) => {
+    // Sections are deliberate, user-created containers (Asana-style):
+    // an empty one must stay visible regardless of the "show empty
+    // groups" filter, otherwise "Add section" appears to do nothing
+    // until an issue lands in it. docs/sections-design.md §6.2.
+    if (group_by === "section") return true;
     if (!showEmptyGroup && issueCount <= 0) return false;
     return true;
   };
@@ -173,6 +178,10 @@ export const ListGroup = observer(function ListGroup(props: Props) {
         preloadedData = { ...preloadedData, module_ids: [value] };
       } else if (groupByKey === "created_by") {
         preloadedData = { ...preloadedData };
+      } else if (groupByKey === "section" && value != "None") {
+        // Per-section quick-add prePopulates section_id (independent of
+        // State — §2). "None" => leave unset = "(No section)".
+        preloadedData = { ...preloadedData, section_id: value };
       } else {
         preloadedData = { ...preloadedData, [groupByKey]: value };
       }
