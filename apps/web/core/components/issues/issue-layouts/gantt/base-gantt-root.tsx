@@ -115,6 +115,11 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
     });
   }, []);
 
+  // Reactive read so the observer + memo recompute once sections finish loading
+  // (getGroupByColumns reads the same store but isn't itself a memo signal).
+  const loadedSections = isSectionGrouped ? getSections(projectId?.toString()) : [];
+  const loadedSectionsKey = loadedSections.map((section) => section.id).join(",");
+
   const sectionGroups = useMemo(
     () =>
       isSectionGrouped
@@ -123,9 +128,10 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
             includeNone: true,
             isWorkspaceLevel: isWorkspaceLevel(storeType),
             isEpic,
+            projectId: projectId?.toString(),
           }) ?? [])
         : [],
-    [isSectionGrouped, storeType, isEpic, getSections, projectId]
+    [isSectionGrouped, storeType, isEpic, projectId, loadedSectionsKey]
   );
 
   const { swimlaneBlockIds, sectionsById, sectionColorByGroupId } = useMemo(() => {
