@@ -21,7 +21,9 @@ import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useIssuesStore } from "@/hooks/use-issue-layout-store";
 import type { TSelectionHelper } from "@/hooks/use-multiple-select";
 // local imports
+import { useSectionSwimlane } from "@/components/issues/issue-layouts/gantt/section-swimlane-context";
 import { useTimeLineChart } from "../../../../hooks/use-timeline-chart";
+import { BLOCK_HEIGHT } from "../../constants";
 import { GanttDnDHOC } from "../gantt-dnd-HOC";
 import { handleOrderChange } from "../utils";
 import { IssuesSidebarBlock } from "./block";
@@ -54,6 +56,7 @@ export const IssueGanttSidebar = observer(function IssueGanttSidebar(props: Prop
   } = props;
 
   const { getBlockById } = useTimeLineChart(GANTT_TIMELINE_TYPE.ISSUE);
+  const swimlane = useSectionSwimlane();
 
   const {
     issues: { getIssueLoader },
@@ -87,6 +90,12 @@ export const IssueGanttSidebar = observer(function IssueGanttSidebar(props: Prop
             // DnD/virtualization, exactly one BLOCK_HEIGHT row to stay aligned.
             if (isSectionHeaderId(blockId))
               return <SectionSwimlaneSidebarRow key={blockId} groupId={sectionGroupIdFromHeader(blockId)} />;
+
+            // Asana-style swimlanes: the left column lists only sections. Task
+            // rows are blank, equal-height spacers so the sidebar stays aligned
+            // row-for-row with the chart bars (the task name shows beside its bar).
+            if (swimlane.enabled)
+              return <div key={blockId} className="w-full" style={{ height: `${BLOCK_HEIGHT}px` }} />;
 
             const block = getBlockById(blockId);
             const isBlockVisibleOnSidebar = block?.start_date && block?.target_date;
