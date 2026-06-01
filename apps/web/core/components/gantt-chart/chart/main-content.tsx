@@ -37,6 +37,7 @@ import { useBulkOperationStatus } from "@/plane-web/hooks/use-bulk-operation-sta
 import { DEFAULT_BLOCK_WIDTH, GANTT_SELECT_GROUP, HEADER_HEIGHT } from "../constants";
 import { getItemPositionWidth } from "../views";
 import { TimelineDragHelper } from "./timeline-drag-helper";
+import { TimelineTodayLine } from "./today-line";
 
 type Props = {
   blockIds: string[];
@@ -219,6 +220,7 @@ export const GanttChartMainContent = observer(function GanttChartMainContent(pro
                       selectionHelpers={helpers}
                       ganttContainerRef={ganttContainerRef}
                     />
+                    <TimelineTodayLine />
                     <TimelineDependencyPaths isEpic={isEpic} />
                     <TimelineDraggablePath />
                     <GanttAdditionalLayers itemsContainerWidth={itemsContainerWidth} blockCount={blockIds.length} />

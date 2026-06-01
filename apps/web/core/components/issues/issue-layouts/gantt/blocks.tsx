@@ -101,10 +101,10 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
               </>
             ) : (
               <>
-                {/* Asana-style pill bar: solid state colour, rounded, centred in the row */}
-                <div className="h-[18px] w-full rounded-full shadow-raised-100" style={blockStyle} />
-                {/* Label to the RIGHT of the bar: assignee avatar + name + due date */}
-                <div className="pointer-events-none absolute top-1/2 left-full ml-2 flex -translate-y-1/2 items-center gap-2 whitespace-nowrap">
+                {/* Asana-style pill bar: solid colour, rounded, centred in the row */}
+                <div className="h-[16px] w-full rounded-full shadow-raised-100" style={blockStyle} />
+                {/* Label to the RIGHT of the bar: assignee avatar (hugging the bar end) + name + due date */}
+                <div className="pointer-events-none absolute top-1/2 left-full ml-1 flex -translate-y-1/2 items-center gap-1.5 whitespace-nowrap">
                   <div className="flex-shrink-0">
                     <ButtonAvatars showTooltip={false} userIds={issueDetails?.assignee_ids ?? []} size="sm" />
                   </div>
