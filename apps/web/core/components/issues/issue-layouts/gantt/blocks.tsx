@@ -12,6 +12,8 @@ import { Popover } from "@plane/propel/popover";
 import { Tooltip } from "@plane/propel/tooltip";
 import { ControlLink } from "@plane/ui";
 import { findTotalDaysInRange, generateWorkItemLink, renderFormattedDate } from "@plane/utils";
+// components
+import { ButtonAvatars } from "@/components/dropdowns/member/avatar";
 // hooks
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useIssues } from "@/hooks/store/use-issues";
@@ -61,6 +63,11 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
 
   const duration = findTotalDaysInRange(issueDetails?.start_date, issueDetails?.target_date) || 0;
 
+  // A task with only a due date (no start date) renders as an Asana-style
+  // milestone diamond instead of a bar.
+  const isMilestone = !!issueDetails?.target_date && !issueDetails?.start_date;
+  const stateColor = stateDetails?.color ?? "#6b7280";
+
   return (
     <Popover delay={100} openOnHover>
       <Popover.Button
@@ -71,15 +78,38 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
             className="relative flex h-full w-full cursor-pointer items-center"
             onClick={handleIssuePeekOverview}
           >
-            {/* Asana-style pill bar: solid state colour, rounded, centred in the row */}
-            <div className="h-[18px] w-full rounded-full shadow-raised-100" style={blockStyle} />
-            {/* Label to the RIGHT of the bar (name + due date), scrolls with the bar */}
-            <div className="pointer-events-none absolute top-1/2 left-full ml-2 flex -translate-y-1/2 items-center gap-1.5 whitespace-nowrap">
-              <span className="text-13 font-medium text-primary">{issueDetails?.name}</span>
-              {issueDetails?.target_date && (
-                <span className="text-11 text-tertiary">{renderFormattedDate(issueDetails.target_date)}</span>
-              )}
-            </div>
+            {isMilestone ? (
+              <>
+                {/* Asana-style milestone: outlined diamond at the due date */}
+                <div
+                  className="size-[14px] flex-shrink-0 rotate-45 rounded-[3px] border-2 bg-surface-1"
+                  style={{ borderColor: stateColor }}
+                />
+                <div className="pointer-events-none ml-2 flex flex-col leading-tight whitespace-nowrap">
+                  <span className="text-13 font-medium text-primary">{issueDetails?.name}</span>
+                  {issueDetails?.target_date && (
+                    <span className="text-11 text-tertiary">Due {renderFormattedDate(issueDetails.target_date)}</span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Asana-style pill bar: solid state colour, rounded, centred in the row */}
+                <div className="h-[18px] w-full rounded-full shadow-raised-100" style={blockStyle} />
+                {/* Label to the RIGHT of the bar: assignee avatar + name + due date */}
+                <div className="pointer-events-none absolute top-1/2 left-full ml-2 flex -translate-y-1/2 items-center gap-2 whitespace-nowrap">
+                  <div className="flex-shrink-0">
+                    <ButtonAvatars showTooltip={false} userIds={issueDetails?.assignee_ids ?? []} size="sm" />
+                  </div>
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-13 font-medium text-primary">{issueDetails?.name}</span>
+                    {issueDetails?.target_date && (
+                      <span className="text-11 text-tertiary">Due {renderFormattedDate(issueDetails.target_date)}</span>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
             {isEpic && (
               <IssueStats
                 issueId={issueId}
