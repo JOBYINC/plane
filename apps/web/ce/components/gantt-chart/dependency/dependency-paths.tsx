@@ -25,16 +25,32 @@ type TDependencyEdge = {
   y2: number;
 };
 
-// horizontal control-point offset for the bezier elbow (px)
-const CONNECTOR_CURVE = 24;
+// orthogonal routing constants (px)
+const CONNECTOR_STUB = 16; // horizontal stub out of the source before turning
+const CONNECTOR_RADIUS = 8; // rounded-corner radius at the bends
 
 /**
- * Builds the cubic-bezier "elbow" path from a source bar's right edge to a
- * target bar's left edge, with horizontal tangents at both ends so the line
- * reads like Asana's dependency connectors.
+ * Builds an Asana-style orthogonal connector with rounded corners: a short
+ * horizontal stub out of the source bar's right edge, a vertical run down/up to
+ * the target's row, then a horizontal run into the target bar's left edge.
+ * Corners are rounded via quadratic curves.
  */
-const buildConnectorPath = ({ x1, y1, x2, y2 }: TDependencyEdge): string =>
-  `M ${x1} ${y1} C ${x1 + CONNECTOR_CURVE} ${y1}, ${x2 - CONNECTOR_CURVE} ${y2}, ${x2} ${y2}`;
+const buildConnectorPath = ({ x1, y1, x2, y2 }: TDependencyEdge): string => {
+  // (near-)same row → straight horizontal line
+  if (Math.abs(y2 - y1) < 2) return `M ${x1} ${y1} H ${x2}`;
+  const dir = y2 > y1 ? 1 : -1; // vertical direction
+  // x at which the vertical run happens; keep room for the in-segment
+  let cx = x1 + CONNECTOR_STUB;
+  if (cx > x2 - CONNECTOR_RADIUS) cx = (x1 + x2) / 2;
+  const r = Math.max(2, Math.min(CONNECTOR_RADIUS, Math.abs(y2 - y1) / 2, Math.abs(cx - x1), Math.abs(x2 - cx)));
+  return (
+    `M ${x1} ${y1} H ${cx - r} ` +
+    `Q ${cx} ${y1} ${cx} ${y1 + dir * r} ` +
+    `V ${y2 - dir * r} ` +
+    `Q ${cx} ${y2} ${cx + r} ${y2} ` +
+    `H ${x2}`
+  );
+};
 
 /**
  * Asana-style dependency connectors for the Timeline (Gantt).
@@ -111,6 +127,8 @@ export const TimelineDependencyPaths = observer(function TimelineDependencyPaths
           fill="none"
           stroke="currentColor"
           strokeWidth={1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
           markerEnd="url(#gantt-dependency-arrow)"
         />
       ))}

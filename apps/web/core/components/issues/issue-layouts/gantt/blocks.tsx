@@ -11,9 +11,7 @@ import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 import { Popover } from "@plane/propel/popover";
 import { Tooltip } from "@plane/propel/tooltip";
 import { ControlLink } from "@plane/ui";
-import { findTotalDaysInRange, generateWorkItemLink } from "@plane/utils";
-// components
-import { SIDEBAR_WIDTH } from "@/components/gantt-chart/constants";
+import { findTotalDaysInRange, generateWorkItemLink, renderFormattedDate } from "@plane/utils";
 // hooks
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useIssues } from "@/hooks/store/use-issues";
@@ -70,16 +68,17 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
         render={
           <div
             id={`issue-${issueId}`}
-            className="space-between relative flex h-full w-full cursor-pointer items-center rounded-sm"
-            style={blockStyle}
+            className="relative flex h-full w-full cursor-pointer items-center"
             onClick={handleIssuePeekOverview}
           >
-            <div className="absolute top-0 left-0 h-full w-full bg-surface-1/50" />
-            <div
-              className="sticky w-auto flex-1 truncate overflow-hidden px-2.5 py-1 text-13 text-primary"
-              style={{ left: `${SIDEBAR_WIDTH}px` }}
-            >
-              {issueDetails?.name}
+            {/* Asana-style pill bar: solid state colour, rounded, centred in the row */}
+            <div className="h-[18px] w-full rounded-full shadow-raised-100" style={blockStyle} />
+            {/* Label to the RIGHT of the bar (name + due date), scrolls with the bar */}
+            <div className="pointer-events-none absolute top-1/2 left-full ml-2 flex -translate-y-1/2 items-center gap-1.5 whitespace-nowrap">
+              <span className="text-13 font-medium text-primary">{issueDetails?.name}</span>
+              {issueDetails?.target_date && (
+                <span className="text-11 text-tertiary">{renderFormattedDate(issueDetails.target_date)}</span>
+              )}
             </div>
             {isEpic && (
               <IssueStats
