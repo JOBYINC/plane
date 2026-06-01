@@ -358,9 +358,13 @@ export const filterActivityOnSelectedFilters = (
     return filters.includes(activity.activity_type as TActivityFilters);
   });
 
-// Tick: enabled so the Timeline (Gantt) loads issue relations (expand=issue_relation)
-// and renders Asana-style dependency connectors. See ce TimelineDependencyPaths.
-export const ENABLE_ISSUE_DEPENDENCIES = true;
+// Tick: kept FALSE. Enabling this routes the Gantt list fetch to the flat
+// `issues-detail/` endpoint (which needs explicit issue_ids and returns a
+// non-paginated array), which breaks the Gantt loader. Relations for the
+// dependency connectors are loaded via a dedicated fetch instead — see the
+// Gantt relation hydration. ce TimelineDependencyPaths renders nothing when
+// relationMap is empty, so this is safe to keep off until that lands.
+export const ENABLE_ISSUE_DEPENDENCIES = false;
 
 export const BASE_ACTIVITY_FILTER_TYPES = [
   EActivityFilterType.ACTIVITY,
