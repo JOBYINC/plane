@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // plane imports
@@ -12,18 +12,21 @@ import { ALL_ISSUES, EUserPermissions, EUserPermissionsLevel } from "@plane/cons
 import { useTranslation } from "@plane/i18n";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { EIssuesStoreType, IBlockUpdateData, TIssue } from "@plane/types";
-import { EIssueLayoutTypes, GANTT_TIMELINE_TYPE } from "@plane/types";
+import { EIssueLayoutTypes, EIssueServiceType, GANTT_TIMELINE_TYPE } from "@plane/types";
 import { renderFormattedPayloadDate } from "@plane/utils";
 // components
 import { TimeLineTypeContext } from "@/components/gantt-chart/contexts";
 import { GanttChartRoot } from "@/components/gantt-chart/root";
 import { IssueGanttSidebar } from "@/components/gantt-chart/sidebar/issues/sidebar";
 // hooks
+import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useIssues } from "@/hooks/store/use-issues";
 import { useUserPermissions } from "@/hooks/store/user";
 import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
 import { useIssuesActions } from "@/hooks/use-issues-actions";
 import { useTimeLineChart } from "@/hooks/use-timeline-chart";
+// services
+import { IssueService } from "@/services/issue/issue.service";
 // plane web hooks
 import { useBulkOperationStatus } from "@/plane-web/hooks/use-bulk-operation-status";
 
@@ -74,6 +77,53 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
 
   const issuesIds = (issues.groupedIssueIds?.[ALL_ISSUES] as string[]) ?? [];
   const nextPageResults = issues.getPaginationData(undefined, undefined)?.nextPageResults;
+
+  // Hydrate issue relations for the timeline's blocks so the Asana-style
+  // dependency connectors (ce TimelineDependencyPaths) can render. Isolated and
+  // best-effort: it hits the `issues/list/` endpoint (flat array) with
+  // expand=issue_relation,issue_related and feeds the relation store — it never
+  // touches the Gantt's paginated list fetch, so a failure just means no arrows.
+  const serviceType = isEpic ? EIssueServiceType.EPICS : EIssueServiceType.ISSUES;
+  const issueService = useMemo(() => new IssueService(serviceType), [serviceType]);
+  const {
+    relation: { extractRelationsFromIssues },
+  } = useIssueDetail(serviceType);
+  const hydratedRelationIdsRef = useRef<Set<string>>(new Set());
+  const issuesIdsKey = issuesIds.join(",");
+
+  useEffect(() => {
+    const ids = issuesIdsKey ? issuesIdsKey.split(",") : [];
+    if (!workspaceSlug || !projectId || ids.length === 0) return;
+    const pendingIds = ids.filter((id) => !hydratedRelationIdsRef.current.has(id));
+    if (pendingIds.length === 0) return;
+
+    let cancelled = false;
+    const CHUNK_SIZE = 50; // keep the `issues=<csv>` query string bounded
+    void (async () => {
+      for (let i = 0; i < pendingIds.length; i += CHUNK_SIZE) {
+        const chunk = pendingIds.slice(i, i + CHUNK_SIZE);
+        try {
+          const issuesWithRelations = await issueService.retrieveIssues(
+            workspaceSlug.toString(),
+            projectId.toString(),
+            chunk,
+            "issue_relation,issue_related"
+          );
+          if (cancelled) return;
+          if (Array.isArray(issuesWithRelations) && issuesWithRelations.length > 0) {
+            extractRelationsFromIssues(issuesWithRelations);
+            chunk.forEach((id) => hydratedRelationIdsRef.current.add(id));
+          }
+        } catch {
+          // best-effort: the timeline renders normally, just without dependency arrows
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceSlug, projectId, issuesIdsKey, issueService, extractRelationsFromIssues]);
 
   const { enableIssueCreation } = issues?.viewFlags || {};
 
