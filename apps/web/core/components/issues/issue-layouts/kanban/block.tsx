@@ -35,6 +35,7 @@ import { usePlatformOS } from "@/hooks/use-platform-os";
 import { IssueIdentifier } from "@/plane-web/components/issues/issue-details/issue-identifier";
 // local components
 import { IssueStats } from "@/plane-web/components/issues/issue-layouts/issue-stats";
+import { CompletionToggle } from "../../mark-complete";
 import type { TRenderQuickActions } from "../list/list-view-types";
 import { IssueProperties } from "../properties/all-properties";
 import { WithDisplayPropertiesHOC } from "../properties/with-display-properties-HOC";
@@ -124,11 +125,16 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
         </div>
       </div>
 
-      <Tooltip tooltipContent={issue.name} isMobile={isMobile} renderByDefault={false}>
-        <div className="line-clamp-1 w-full text-body-sm-medium text-primary">
-          <span>{issue.name}</span>
-        </div>
-      </Tooltip>
+      <div className="flex w-full items-start gap-1.5">
+        {!isEpic && (
+          <CompletionToggle issue={issue} updateIssue={updateIssue} disabled={isReadOnly} className="mt-0.5" />
+        )}
+        <Tooltip tooltipContent={issue.name} isMobile={isMobile} renderByDefault={false}>
+          <div className="line-clamp-1 w-full text-body-sm-medium text-primary">
+            <span>{issue.name}</span>
+          </div>
+        </Tooltip>
+      </div>
 
       <IssueProperties
         className="flex flex-wrap items-center gap-2 pt-1.5 whitespace-nowrap text-tertiary"
@@ -246,7 +252,13 @@ export const KanbanIssueBlock = observer(function KanbanIssueBlock(props: IssueB
         },
       })
     );
-  }, [cardRef?.current, issue?.id, isDragAllowed, canDropOverIssue, setIsCurrentBlockDragging, setIsDraggingOverBlock]);
+  }, [
+	issue?.id,
+	isDragAllowed,
+	canDropOverIssue,
+	setIsCurrentBlockDragging,
+	setIsDraggingOverBlock
+]);
 
   if (!issue) return null;
 

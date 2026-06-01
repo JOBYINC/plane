@@ -24,9 +24,11 @@ import { useProject } from "@/hooks/store/use-project";
 import { useUser } from "@/hooks/store/user";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // local imports
+import type { TIssueOperations } from "../issue-detail";
 import { IssueSubscription } from "../issue-detail/subscription";
 import { WorkItemDetailQuickActions } from "../issue-layouts/quick-action-dropdowns";
 import { NameDescriptionUpdateStatus } from "../issue-update-status";
+import { MarkCompleteButton } from "./mark-complete-button";
 import { IconButton } from "@plane/propel/icon-button";
 
 export type TPeekModes = "side-peek" | "modal" | "full-screen";
@@ -65,6 +67,7 @@ export type PeekOverviewHeaderProps = {
   toggleEditIssueModal: (value: boolean) => void;
   handleRestoreIssue: () => Promise<void>;
   isSubmitting: TNameDescriptionLoader;
+  issueOperations: TIssueOperations;
 };
 
 export const IssuePeekOverviewHeader = observer(function IssuePeekOverviewHeader(props: PeekOverviewHeaderProps) {
@@ -84,6 +87,7 @@ export const IssuePeekOverviewHeader = observer(function IssuePeekOverviewHeader
     toggleEditIssueModal,
     handleRestoreIssue,
     isSubmitting,
+    issueOperations,
   } = props;
   // ref
   const parentRef = useRef<HTMLDivElement>(null);
@@ -159,6 +163,14 @@ export const IssuePeekOverviewHeader = observer(function IssuePeekOverviewHeader
       }`}
     >
       <div className="flex items-center gap-4">
+        {issueDetails && (
+          <MarkCompleteButton
+            projectId={projectId}
+            stateId={issueDetails.state_id}
+            disabled={disabled || isArchived}
+            updateIssue={(data) => issueOperations.update(workspaceSlug, projectId, issueId, data)}
+          />
+        )}
         <Tooltip tooltipContent={t("common.close_peek_view")} isMobile={isMobile}>
           <button onClick={removeRoutePeekId}>
             <MoveRight className="h-4 w-4 text-tertiary hover:text-secondary" />

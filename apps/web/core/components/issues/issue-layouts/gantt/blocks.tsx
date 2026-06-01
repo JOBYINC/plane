@@ -7,6 +7,7 @@
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // plane imports
+import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 import { Popover } from "@plane/propel/popover";
 import { Tooltip } from "@plane/propel/tooltip";
 import { ControlLink } from "@plane/ui";
@@ -18,13 +19,16 @@ import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useIssues } from "@/hooks/store/use-issues";
 import { useProject } from "@/hooks/store/use-project";
 import { useProjectState } from "@/hooks/store/use-project-state";
+import { useUserPermissions } from "@/hooks/store/user";
 import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
+import { useIssuesActions } from "@/hooks/use-issues-actions";
 import useIssuePeekOverviewRedirection from "@/hooks/use-issue-peek-overview-redirection";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // plane web imports
 import { IssueIdentifier } from "@/plane-web/components/issues/issue-details/issue-identifier";
 import { IssueStats } from "@/plane-web/components/issues/issue-layouts/issue-stats";
 // local imports
+import { CompletionToggle } from "../../mark-complete";
 import { WorkItemPreviewCard } from "../../preview-card";
 import { getBlockViewDetails } from "../utils";
 import type { GanttStoreType } from "./base-gantt-root";
@@ -117,7 +121,9 @@ export const IssueGanttSidebarBlock = observer(function IssueGanttSidebarBlock(p
   const { isMobile } = usePlatformOS();
   const storeType = useIssueStoreType() as GanttStoreType;
   const { issuesFilter } = useIssues(storeType);
+  const { updateIssue } = useIssuesActions(storeType);
   const { getProjectIdentifierById } = useProject();
+  const { allowPermissions } = useUserPermissions();
 
   // handlers
   const { handleRedirection } = useIssuePeekOverviewRedirection(isEpic);
@@ -125,6 +131,10 @@ export const IssueGanttSidebarBlock = observer(function IssueGanttSidebarBlock(p
   // derived values
   const issueDetails = getIssueById(issueId);
   const projectIdentifier = getProjectIdentifierById(issueDetails?.project_id);
+  const isEditingAllowed = allowPermissions(
+    [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
+    EUserPermissionsLevel.PROJECT
+  );
 
   const handleIssuePeekOverview = (e: any) => {
     e.stopPropagation(true);
@@ -158,6 +168,9 @@ export const IssueGanttSidebarBlock = observer(function IssueGanttSidebarBlock(p
             variant="tertiary"
             displayProperties={issuesFilter?.issueFilters?.displayProperties}
           />
+        )}
+        {issueDetails && !isEpic && (
+          <CompletionToggle issue={issueDetails} updateIssue={updateIssue} disabled={!isEditingAllowed} />
         )}
         <Tooltip tooltipContent={issueDetails?.name} isMobile={isMobile}>
           <span className="flex-grow truncate text-13 font-medium">{issueDetails?.name}</span>

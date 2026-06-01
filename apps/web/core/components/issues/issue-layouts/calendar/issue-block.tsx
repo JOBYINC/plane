@@ -9,6 +9,7 @@ import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 import { MoreHorizontal } from "lucide-react";
 // plane imports
+import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 import { useOutsideClickDetector } from "@plane/hooks";
 import { Popover } from "@plane/propel/popover";
 import type { TIssue } from "@plane/types";
@@ -19,12 +20,15 @@ import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useIssues } from "@/hooks/store/use-issues";
 import { useProject } from "@/hooks/store/use-project";
 import { useProjectState } from "@/hooks/store/use-project-state";
+import { useUserPermissions } from "@/hooks/store/user";
 import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
+import { useIssuesActions } from "@/hooks/use-issues-actions";
 import useIssuePeekOverviewRedirection from "@/hooks/use-issue-peek-overview-redirection";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // plane web components
 import { IssueIdentifier } from "@/plane-web/components/issues/issue-details/issue-identifier";
 // local components
+import { CompletionToggle } from "../../mark-complete";
 import { WorkItemPreviewCard } from "../../preview-card";
 import type { TRenderQuickActions } from "../list/list-view-types";
 import type { CalendarStoreType } from "./base-calendar-root";
@@ -52,7 +56,14 @@ export const CalendarIssueBlock = observer(
     const { isMobile } = usePlatformOS();
     const storeType = useIssueStoreType() as CalendarStoreType;
     const { issuesFilter } = useIssues(storeType);
+    const { updateIssue } = useIssuesActions(storeType);
     const { getProjectIdentifierById } = useProject();
+    const { allowPermissions } = useUserPermissions();
+    // derived values
+    const isEditingAllowed = allowPermissions(
+      [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
+      EUserPermissionsLevel.PROJECT
+    );
 
     const stateColor = getProjectStates(issue?.project_id)?.find((state) => state?.id == issue?.state_id)?.color || "";
     const projectIdentifier = getProjectIdentifierById(issue?.project_id);
@@ -133,6 +144,9 @@ export const CalendarIssueBlock = observer(
                         variant="tertiary"
                         displayProperties={issuesFilter?.issueFilters?.displayProperties}
                       />
+                    )}
+                    {!isEpic && (
+                      <CompletionToggle issue={issue} updateIssue={updateIssue} disabled={!isEditingAllowed} />
                     )}
                     <div className="truncate text-13 font-medium md:text-11 md:font-regular">{issue.name}</div>
                   </div>

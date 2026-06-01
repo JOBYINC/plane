@@ -23,6 +23,7 @@ import { cn, generateWorkItemLink } from "@plane/utils";
 // components
 import { MultipleSelectEntityAction } from "@/components/core/multiple-select";
 import RenderIfVisible from "@/components/core/render-if-visible-HOC";
+import { CompletionToggle } from "@/components/issues/mark-complete";
 // helper
 // hooks
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
@@ -357,6 +358,10 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
                   </button>
                 )}
               </div>
+
+              {!isEpic && (
+                <CompletionToggle issue={issueDetail} updateIssue={updateIssue} disabled={disableUserActions} />
+              )}
 
               <div className="my-auto flex h-full w-full min-w-0 items-center justify-between gap-2">
                 {/* Title slot: relative + min-w-0 + flex-1. The name is an

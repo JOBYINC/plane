@@ -1403,6 +1403,11 @@ export default {
       deselect_all: "取消全选",
     },
     open_in_full_screen: "在全屏中打开任务",
+    mark_complete: {
+      action: "标记完成",
+      completed: "已完成",
+      reopen_tooltip: "点击标记为未完成",
+    },
   },
   attachment: {
     error: "无法附加文件。请重新上传。",

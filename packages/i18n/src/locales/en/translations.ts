@@ -1249,6 +1249,11 @@ export default {
       deselect_all: "Deselect all",
     },
     open_in_full_screen: "Open work item in full screen",
+    mark_complete: {
+      action: "Mark complete",
+      completed: "Completed",
+      reopen_tooltip: "Click to mark incomplete",
+    },
   },
   attachment: {
     error: "File could not be attached. Try uploading again.",
