@@ -7,10 +7,11 @@
 import type { RefObject } from "react";
 import { observer } from "mobx-react";
 // hooks
+import { useSectionSwimlane } from "@/components/issues/issue-layouts/gantt/section-swimlane-context";
 import { useAutoScroller } from "@/hooks/use-auto-scroller";
 import { useTimeLineChartStore } from "@/hooks/use-timeline-chart";
 //
-import { HEADER_HEIGHT, SIDEBAR_WIDTH } from "../constants";
+import { HEADER_HEIGHT } from "../constants";
 
 type Props = {
   ganttContainerRef: RefObject<HTMLDivElement>;
@@ -18,7 +19,8 @@ type Props = {
 export const TimelineDragHelper = observer(function TimelineDragHelper(props: Props) {
   const { ganttContainerRef } = props;
   const { isDragging } = useTimeLineChartStore();
+  const { sidebarWidth } = useSectionSwimlane();
 
-  useAutoScroller(ganttContainerRef, isDragging, SIDEBAR_WIDTH, HEADER_HEIGHT);
+  useAutoScroller(ganttContainerRef, isDragging, sidebarWidth, HEADER_HEIGHT);
   return <></>;
 });

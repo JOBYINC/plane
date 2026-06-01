@@ -27,8 +27,15 @@ export type TSwimlaneSection = {
   color: string;
 };
 
+/** Default Gantt sidebar width (mirrors gantt-chart/constants SIDEBAR_WIDTH). */
+export const DEFAULT_GANTT_SIDEBAR_WIDTH = 360;
+/** Narrow sidebar for swimlane mode: section label + ~20px gap, no task column. */
+export const SWIMLANE_SIDEBAR_WIDTH = 210;
+
 export type TSectionSwimlaneContext = {
   enabled: boolean;
+  /** sidebar width to use (narrow in swimlane mode, default otherwise). */
+  sidebarWidth: number;
   /** ordered section group ids → metadata (name/count/color). */
   sectionsById: Record<string, TSwimlaneSection>;
   /** group ids whose issue rows are currently hidden. */
@@ -40,6 +47,7 @@ export type TSectionSwimlaneContext = {
 
 const DEFAULT_CONTEXT: TSectionSwimlaneContext = {
   enabled: false,
+  sidebarWidth: DEFAULT_GANTT_SIDEBAR_WIDTH,
   sectionsById: {},
   collapsedIds: new Set(),
   toggleCollapse: () => {},

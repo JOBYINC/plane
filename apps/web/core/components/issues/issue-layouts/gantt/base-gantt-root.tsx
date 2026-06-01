@@ -36,7 +36,11 @@ import { IssueLayoutHOC } from "../issue-layout-HOC";
 import { GanttQuickAddIssueButton, QuickAddIssueRoot } from "../quick-add";
 import { IssueGanttBlock } from "./blocks";
 import type { TSwimlaneSection } from "./section-swimlane-context";
-import { SectionSwimlaneContext } from "./section-swimlane-context";
+import {
+  DEFAULT_GANTT_SIDEBAR_WIDTH,
+  SWIMLANE_SIDEBAR_WIDTH,
+  SectionSwimlaneContext,
+} from "./section-swimlane-context";
 import {
   NO_SECTION_GROUP_ID,
   bucketIssueIdsBySection,
@@ -180,6 +184,7 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
   const swimlaneContextValue = useMemo(
     () => ({
       enabled: isSectionGrouped,
+      sidebarWidth: isSectionGrouped ? SWIMLANE_SIDEBAR_WIDTH : DEFAULT_GANTT_SIDEBAR_WIDTH,
       sectionsById,
       collapsedIds: collapsedSectionIds,
       toggleCollapse: toggleSectionCollapse,

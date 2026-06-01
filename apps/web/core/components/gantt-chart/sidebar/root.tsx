@@ -14,9 +14,10 @@ import { cn } from "@plane/utils";
 import { MultipleSelectGroupAction } from "@/components/core/multiple-select";
 // helpers
 // hooks
+import { useSectionSwimlane } from "@/components/issues/issue-layouts/gantt/section-swimlane-context";
 import type { TSelectionHelper } from "@/hooks/use-multiple-select";
 // constants
-import { GANTT_SELECT_GROUP, HEADER_HEIGHT, SIDEBAR_WIDTH } from "../constants";
+import { GANTT_SELECT_GROUP, HEADER_HEIGHT } from "../constants";
 
 type Props = {
   blockIds: string[];
@@ -51,6 +52,8 @@ export const GanttChartSidebar = observer(function GanttChartSidebar(props: Prop
   } = props;
 
   const isGroupSelectionEmpty = selectionHelpers.isGroupSelected(GANTT_SELECT_GROUP) === "empty";
+  // Narrow sidebar in section-swimlane mode (no task column to show).
+  const { enabled: isSwimlane, sidebarWidth } = useSectionSwimlane();
 
   return (
     <Row
@@ -58,7 +61,7 @@ export const GanttChartSidebar = observer(function GanttChartSidebar(props: Prop
       id="gantt-sidebar"
       className="sticky left-0 z-10 h-max min-h-full flex-shrink-0 border-r-[0.5px] border-subtle-1 bg-surface-1"
       style={{
-        width: `${SIDEBAR_WIDTH}px`,
+        width: `${sidebarWidth}px`,
       }}
       variant={ERowVariant.HUGGING}
     >
@@ -85,7 +88,7 @@ export const GanttChartSidebar = observer(function GanttChartSidebar(props: Prop
           )}
           <h6>{title}</h6>
         </div>
-        <h6>{t("common.duration")}</h6>
+        {!isSwimlane && <h6>{t("common.duration")}</h6>}
       </Row>
 
       <Row variant={ERowVariant.HUGGING} className="h-max min-h-full bg-surface-1">
