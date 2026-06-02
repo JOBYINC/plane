@@ -87,13 +87,13 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
               <>
                 {/* Asana-style marker: solid narrow vertical capsule at the due date */}
                 <div
-                  className="h-[44px] w-[11px] flex-shrink-0 rounded-full shadow-raised-100"
+                  className="h-[31px] w-[11px] flex-shrink-0 rounded-full shadow-raised-100"
                   style={{ backgroundColor: statusColor }}
                 />
                 {/* Label beside the marker: assignee avatar + name + due date */}
                 <div className="pointer-events-none ml-2 flex items-center gap-1.5 whitespace-nowrap">
                   <div className="flex-shrink-0">
-                    <ButtonAvatars showTooltip={false} userIds={issueDetails?.assignee_ids ?? []} size="sm" />
+                    <ButtonAvatars showTooltip={false} userIds={issueDetails?.assignee_ids ?? []} size={21} />
                   </div>
                   <div className="flex flex-col leading-tight">
                     <span className="text-13 font-medium text-primary">{issueDetails?.name}</span>
@@ -110,7 +110,7 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
                 {/* Label to the RIGHT of the bar: assignee avatar (hugging the bar end) + name + due date */}
                 <div className="pointer-events-none absolute top-1/2 left-full ml-1 flex -translate-y-1/2 items-center gap-1.5 whitespace-nowrap">
                   <div className="flex-shrink-0">
-                    <ButtonAvatars showTooltip={false} userIds={issueDetails?.assignee_ids ?? []} size="sm" />
+                    <ButtonAvatars showTooltip={false} userIds={issueDetails?.assignee_ids ?? []} size={21} />
                   </div>
                   <div className="flex flex-col leading-tight">
                     <span className="text-13 font-medium text-primary">{issueDetails?.name}</span>

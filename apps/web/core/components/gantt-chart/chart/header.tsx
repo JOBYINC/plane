@@ -13,6 +13,7 @@ import { Row } from "@plane/ui";
 // components
 import { cn } from "@plane/utils";
 import { GANTT_ZOOM_ORDER, VIEWS_LIST, getZoomedView } from "@/components/gantt-chart/data";
+import { useSectionSwimlane } from "@/components/issues/issue-layouts/gantt/section-swimlane-context";
 // helpers
 // hooks
 import { useTimeLineChartStore } from "@/hooks/use-timeline-chart";
@@ -35,6 +36,8 @@ export const GanttChartHeader = observer(function GanttChartHeader(props: Props)
     props;
   // chart hook
   const { currentView } = useTimeLineChartStore();
+  // section-swimlane toggle (project timeline only)
+  const { canToggle: canToggleSwimlane, enabled: swimlaneEnabled, toggleSwimlane } = useSectionSwimlane();
 
   const canZoomIn = currentView !== GANTT_ZOOM_ORDER[GANTT_ZOOM_ORDER.length - 1];
   const canZoomOut = currentView !== GANTT_ZOOM_ORDER[0];
@@ -49,6 +52,19 @@ export const GanttChartHeader = observer(function GanttChartHeader(props: Props)
           {blockIds ? `${blockIds.length} ${loaderTitle}` : t("common.loading")}
         </div>
       </div>
+
+      {canToggleSwimlane && (
+        <button
+          type="button"
+          title="Toggle section swimlanes"
+          className={cn("rounded-md bg-layer-transparent p-1 px-2 text-11 hover:bg-layer-transparent-hover", {
+            "bg-layer-transparent-selected": swimlaneEnabled,
+          })}
+          onClick={toggleSwimlane}
+        >
+          {t("common.sections")}
+        </button>
+      )}
 
       {/* Zoom out / in (keyboard: - / +) — steps through quarter ↔ month ↔ week */}
       <div className="flex items-center gap-1">

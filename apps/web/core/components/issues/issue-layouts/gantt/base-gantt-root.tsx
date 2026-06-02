@@ -77,11 +77,13 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
 
   const appliedDisplayFilters = issuesFilter.issueFilters?.displayFilters;
   const groupBy = appliedDisplayFilters?.group_by;
-  // The project Timeline IS the Asana-style section-swimlane view: always grouped
-  // by section so the left column shows sections (never task names — names live
-  // beside the markers). Module/cycle/epic gantts only swimlane when explicitly
-  // grouped by section.
-  const isSectionGrouped = storeType === EIssuesStoreType.PROJECT || groupBy === "section";
+  // The project Timeline defaults to the Asana-style section-swimlane view (left
+  // column = sections, names beside the markers), with a header toggle to turn it
+  // off. Module/cycle/epic gantts only swimlane when explicitly grouped by section.
+  const canToggleSwimlane = storeType === EIssuesStoreType.PROJECT;
+  const [swimlaneOn, setSwimlaneOn] = useState(true);
+  const toggleSwimlane = useCallback(() => setSwimlaneOn((v) => !v), []);
+  const isSectionGrouped = groupBy === "section" || (canToggleSwimlane && swimlaneOn);
   // plane web hooks
   const isBulkOperationsEnabled = useBulkOperationStatus();
   // derived values
@@ -188,13 +190,23 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
   const swimlaneContextValue = useMemo(
     () => ({
       enabled: isSectionGrouped,
+      canToggle: canToggleSwimlane,
+      toggleSwimlane,
       sidebarWidth: isSectionGrouped ? SWIMLANE_SIDEBAR_WIDTH : DEFAULT_GANTT_SIDEBAR_WIDTH,
       sectionsById,
       collapsedIds: collapsedSectionIds,
       toggleCollapse: toggleSectionCollapse,
       getColorForSection,
     }),
-    [isSectionGrouped, sectionsById, collapsedSectionIds, toggleSectionCollapse, getColorForSection]
+    [
+      isSectionGrouped,
+      canToggleSwimlane,
+      toggleSwimlane,
+      sectionsById,
+      collapsedSectionIds,
+      toggleSectionCollapse,
+      getColorForSection,
+    ]
   );
 
   // Hydrate issue relations for the timeline's blocks so the Asana-style

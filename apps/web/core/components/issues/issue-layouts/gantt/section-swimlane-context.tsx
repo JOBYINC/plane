@@ -34,6 +34,10 @@ export const SWIMLANE_SIDEBAR_WIDTH = 210;
 
 export type TSectionSwimlaneContext = {
   enabled: boolean;
+  /** whether a "Sections" toggle should be offered in the header (project timeline). */
+  canToggle: boolean;
+  /** flip the section-swimlane view on/off (only meaningful when canToggle). */
+  toggleSwimlane: () => void;
   /** sidebar width to use (narrow in swimlane mode, default otherwise). */
   sidebarWidth: number;
   /** ordered section group ids → metadata (name/count/color). */
@@ -47,6 +51,8 @@ export type TSectionSwimlaneContext = {
 
 const DEFAULT_CONTEXT: TSectionSwimlaneContext = {
   enabled: false,
+  canToggle: false,
+  toggleSwimlane: () => {},
   sidebarWidth: DEFAULT_GANTT_SIDEBAR_WIDTH,
   sectionsById: {},
   collapsedIds: new Set(),
