@@ -11,8 +11,8 @@ import { useParams } from "next/navigation";
 import { ALL_ISSUES, EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
-import type { EIssuesStoreType, GroupByColumnTypes, IBlockUpdateData, TIssue } from "@plane/types";
-import { EIssueLayoutTypes, EIssueServiceType, GANTT_TIMELINE_TYPE } from "@plane/types";
+import type { GroupByColumnTypes, IBlockUpdateData, TIssue } from "@plane/types";
+import { EIssueLayoutTypes, EIssueServiceType, EIssuesStoreType, GANTT_TIMELINE_TYPE } from "@plane/types";
 import { renderFormattedPayloadDate } from "@plane/utils";
 // components
 import { TimeLineTypeContext } from "@/components/gantt-chart/contexts";
@@ -77,7 +77,10 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
 
   const appliedDisplayFilters = issuesFilter.issueFilters?.displayFilters;
   const groupBy = appliedDisplayFilters?.group_by;
-  const isSectionGrouped = groupBy === "section";
+  // The project Timeline defaults to Asana-style section swimlanes (so the left
+  // column shows sections, not task names — names live beside the bars). Explicit
+  // non-section groupings are still respected; module/cycle/epic gantts stay flat.
+  const isSectionGrouped = groupBy === "section" || (!groupBy && storeType === EIssuesStoreType.PROJECT);
   // plane web hooks
   const isBulkOperationsEnabled = useBulkOperationStatus();
   // derived values

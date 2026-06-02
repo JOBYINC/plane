@@ -90,11 +90,17 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
                   className="h-[44px] w-[11px] flex-shrink-0 rounded-full shadow-raised-100"
                   style={{ backgroundColor: statusColor }}
                 />
-                <div className="pointer-events-none ml-2 flex flex-col leading-tight whitespace-nowrap">
-                  <span className="text-13 font-medium text-primary">{issueDetails?.name}</span>
-                  {issueDetails?.target_date && (
-                    <span className="text-11 text-tertiary">Due {renderFormattedDate(issueDetails.target_date)}</span>
-                  )}
+                {/* Label beside the marker: assignee avatar + name + due date */}
+                <div className="pointer-events-none ml-2 flex items-center gap-1.5 whitespace-nowrap">
+                  <div className="flex-shrink-0">
+                    <ButtonAvatars showTooltip={false} userIds={issueDetails?.assignee_ids ?? []} size="sm" />
+                  </div>
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-13 font-medium text-primary">{issueDetails?.name}</span>
+                    {issueDetails?.target_date && (
+                      <span className="text-11 text-tertiary">Due {renderFormattedDate(issueDetails.target_date)}</span>
+                    )}
+                  </div>
                 </div>
               </>
             ) : (
