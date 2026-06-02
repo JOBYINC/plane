@@ -26,28 +26,29 @@ type TDependencyEdge = {
 };
 
 // orthogonal routing constants (px)
-const CONNECTOR_STUB = 16; // horizontal stub out of the source before turning
+const CONNECTOR_STUB = 14; // horizontal stub into the left gutter before turning
 const CONNECTOR_RADIUS = 8; // rounded-corner radius at the bends
 
 /**
- * Builds an Asana-style orthogonal connector with rounded corners: a short
- * horizontal stub out of the source bar's right edge, a vertical run down/up to
- * the target's row, then a horizontal run into the target bar's left edge.
- * Corners are rounded via quadratic curves.
+ * Builds an Asana-style orthogonal connector with rounded corners, routed in the
+ * LEFT gutter so it never crosses the task labels (which sit to the RIGHT of each
+ * marker). Both endpoints attach on the LEFT edge of their marker: exit the
+ * source's left edge, a short stub further left, a vertical run down/up in the
+ * gutter, then a horizontal run rightward into the target's left edge (arrowhead).
+ * `x1`/`x2` are the LEFT edges of the source/target markers.
  */
 const buildConnectorPath = ({ x1, y1, x2, y2 }: TDependencyEdge): string => {
   // (near-)same row → straight horizontal line
   if (Math.abs(y2 - y1) < 2) return `M ${x1} ${y1} H ${x2}`;
   const dir = y2 > y1 ? 1 : -1; // vertical direction
-  // x at which the vertical run happens; keep room for the in-segment
-  let cx = x1 + CONNECTOR_STUB;
-  if (cx > x2 - CONNECTOR_RADIUS) cx = (x1 + x2) / 2;
-  const r = Math.max(2, Math.min(CONNECTOR_RADIUS, Math.abs(y2 - y1) / 2, Math.abs(cx - x1), Math.abs(x2 - cx)));
+  // vertical run sits in the gutter, just left of the earlier of the two markers
+  const gx = Math.min(x1, x2) - CONNECTOR_STUB;
+  const r = Math.max(2, Math.min(CONNECTOR_RADIUS, Math.abs(y2 - y1) / 2, Math.abs(x1 - gx), Math.abs(x2 - gx)));
   return (
-    `M ${x1} ${y1} H ${cx - r} ` +
-    `Q ${cx} ${y1} ${cx} ${y1 + dir * r} ` +
+    `M ${x1} ${y1} H ${gx + r} ` +
+    `Q ${gx} ${y1} ${gx} ${y1 + dir * r} ` +
     `V ${y2 - dir * r} ` +
-    `Q ${cx} ${y2} ${cx + r} ${y2} ` +
+    `Q ${gx} ${y2} ${gx + r} ${y2} ` +
     `H ${x2}`
   );
 };
@@ -92,7 +93,8 @@ export const TimelineDependencyPaths = observer(function TimelineDependencyPaths
 
       edges.push({
         key: `${sourceId}->${targetId}`,
-        x1: sourceBlock.position.marginLeft + sourceBlock.position.width,
+        // Left edges of both markers — route in the left gutter, away from labels.
+        x1: sourceBlock.position.marginLeft,
         y1: sourceIndex * BLOCK_HEIGHT + BLOCK_HEIGHT / 2,
         x2: targetBlock.position.marginLeft,
         y2: targetIndex * BLOCK_HEIGHT + BLOCK_HEIGHT / 2,

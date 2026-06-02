@@ -39,6 +39,22 @@ export const NO_SECTION_COLOR = "#9AA0A6";
 export const getSectionColor = (groupId: string, orderIndex: number): string =>
   groupId === NO_SECTION_GROUP_ID ? NO_SECTION_COLOR : SECTION_COLORS[orderIndex % SECTION_COLORS.length];
 
+/**
+ * Solid status colour for task shapes (Asana-style): completed = green,
+ * in-progress (started) = amber, everything else (backlog / unstarted /
+ * cancelled / unknown) = grey. Keyed by the Plane state group.
+ */
+export const getStatusColor = (stateGroup: string | undefined | null): string => {
+  switch (stateGroup) {
+    case "completed":
+      return "#16A34A"; // solid green
+    case "started":
+      return "#F59E0B"; // in progress — amber
+    default:
+      return "#9AA0A6"; // not done — grey
+  }
+};
+
 export const isSectionHeaderId = (id: string): boolean => id.startsWith(SECTION_HEADER_PREFIX);
 
 export const toSectionHeaderId = (sectionGroupId: string): string => `${SECTION_HEADER_PREFIX}${sectionGroupId}`;

@@ -32,7 +32,7 @@ import { CompletionToggle } from "../../mark-complete";
 import { WorkItemPreviewCard } from "../../preview-card";
 import { getBlockViewDetails } from "../utils";
 import type { GanttStoreType } from "./base-gantt-root";
-import { useSectionSwimlane } from "./section-swimlane-context";
+import { getStatusColor } from "./section-swimlanes";
 
 type Props = {
   issueId: string;
@@ -58,22 +58,20 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
   const stateDetails =
     issueDetails && getProjectStates(issueDetails?.project_id)?.find((state) => state?.id == issueDetails?.state_id);
 
-  // When grouped into section swimlanes, tint the bar/diamond with the section's
-  // Asana colour instead of the state colour (an axis independent of State, §2).
-  const swimlane = useSectionSwimlane();
-  const sectionColor = swimlane.enabled ? swimlane.getColorForSection(issueDetails?.section_id) : undefined;
-  const accentColor = sectionColor ?? stateDetails?.color ?? "#6b7280";
+  // Asana-style solid status colour for the shape: completed = green,
+  // in-progress = amber, everything else = grey (section identity lives on the
+  // swimlane header dot, not the task shape).
+  const statusColor = getStatusColor(stateDetails?.group);
 
-  const { blockStyle } = getBlockViewDetails(issueDetails, sectionColor ?? stateDetails?.color ?? "");
+  const { blockStyle } = getBlockViewDetails(issueDetails, statusColor);
 
   const handleIssuePeekOverview = () => handleRedirection(workspaceSlug, issueDetails, isMobile);
 
   const duration = findTotalDaysInRange(issueDetails?.start_date, issueDetails?.target_date) || 0;
 
   // A task with only a due date (no start date) renders as an Asana-style
-  // milestone diamond instead of a bar.
+  // narrow vertical capsule marker at the due date instead of a bar.
   const isMilestone = !!issueDetails?.target_date && !issueDetails?.start_date;
-  const stateColor = accentColor;
 
   return (
     <Popover delay={100} openOnHover>
@@ -87,10 +85,10 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
           >
             {isMilestone ? (
               <>
-                {/* Asana-style milestone: outlined diamond at the due date */}
+                {/* Asana-style marker: solid narrow vertical capsule at the due date */}
                 <div
-                  className="size-[14px] flex-shrink-0 rotate-45 rounded-[3px] border-2 bg-surface-1"
-                  style={{ borderColor: stateColor }}
+                  className="h-[22px] w-[11px] flex-shrink-0 rounded-full shadow-raised-100"
+                  style={{ backgroundColor: statusColor }}
                 />
                 <div className="pointer-events-none ml-2 flex flex-col leading-tight whitespace-nowrap">
                   <span className="text-13 font-medium text-primary">{issueDetails?.name}</span>
