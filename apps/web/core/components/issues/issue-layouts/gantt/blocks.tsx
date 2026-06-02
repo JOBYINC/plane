@@ -87,7 +87,7 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
               <>
                 {/* Asana-style marker: solid narrow vertical capsule at the due date */}
                 <div
-                  className="h-[22px] w-[11px] flex-shrink-0 rounded-full shadow-raised-100"
+                  className="h-[44px] w-[11px] flex-shrink-0 rounded-full shadow-raised-100"
                   style={{ backgroundColor: statusColor }}
                 />
                 <div className="pointer-events-none ml-2 flex flex-col leading-tight whitespace-nowrap">
