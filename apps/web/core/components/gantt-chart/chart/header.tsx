@@ -5,14 +5,14 @@
  */
 
 import { observer } from "mobx-react";
-import { Expand, Shrink } from "lucide-react";
+import { Expand, Minus, Plus, Shrink } from "lucide-react";
 import { useTranslation } from "@plane/i18n";
 // plane
 import type { TGanttViews } from "@plane/types";
 import { Row } from "@plane/ui";
 // components
 import { cn } from "@plane/utils";
-import { VIEWS_LIST } from "@/components/gantt-chart/data";
+import { GANTT_ZOOM_ORDER, VIEWS_LIST, getZoomedView } from "@/components/gantt-chart/data";
 // helpers
 // hooks
 import { useTimeLineChartStore } from "@/hooks/use-timeline-chart";
@@ -36,6 +36,9 @@ export const GanttChartHeader = observer(function GanttChartHeader(props: Props)
   // chart hook
   const { currentView } = useTimeLineChartStore();
 
+  const canZoomIn = currentView !== GANTT_ZOOM_ORDER[GANTT_ZOOM_ORDER.length - 1];
+  const canZoomOut = currentView !== GANTT_ZOOM_ORDER[0];
+
   return (
     <Row
       className="relative flex w-full flex-shrink-0 flex-wrap items-center gap-2 bg-surface-1 py-2 whitespace-nowrap"
@@ -45,6 +48,30 @@ export const GanttChartHeader = observer(function GanttChartHeader(props: Props)
         <div className="ml-auto text-11 font-medium text-tertiary">
           {blockIds ? `${blockIds.length} ${loaderTitle}` : t("common.loading")}
         </div>
+      </div>
+
+      {/* Zoom out / in (keyboard: - / +) — steps through quarter ↔ month ↔ week */}
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          aria-label="Zoom out"
+          title="Zoom out ( - )"
+          disabled={!canZoomOut}
+          className="flex items-center justify-center rounded-md border border-subtle bg-layer-transparent p-1 transition-all hover:bg-layer-transparent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={() => handleChartView(getZoomedView(currentView, "out"))}
+        >
+          <Minus className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          aria-label="Zoom in"
+          title="Zoom in ( + )"
+          disabled={!canZoomIn}
+          className="flex items-center justify-center rounded-md border border-subtle bg-layer-transparent p-1 transition-all hover:bg-layer-transparent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={() => handleChartView(getZoomedView(currentView, "in"))}
+        >
+          <Plus className="h-4 w-4" />
+        </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

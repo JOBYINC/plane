@@ -77,10 +77,11 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
 
   const appliedDisplayFilters = issuesFilter.issueFilters?.displayFilters;
   const groupBy = appliedDisplayFilters?.group_by;
-  // The project Timeline defaults to Asana-style section swimlanes (so the left
-  // column shows sections, not task names — names live beside the bars). Explicit
-  // non-section groupings are still respected; module/cycle/epic gantts stay flat.
-  const isSectionGrouped = groupBy === "section" || (!groupBy && storeType === EIssuesStoreType.PROJECT);
+  // The project Timeline IS the Asana-style section-swimlane view: always grouped
+  // by section so the left column shows sections (never task names — names live
+  // beside the markers). Module/cycle/epic gantts only swimlane when explicitly
+  // grouped by section.
+  const isSectionGrouped = storeType === EIssuesStoreType.PROJECT || groupBy === "section";
   // plane web hooks
   const isBulkOperationsEnabled = useBulkOperationStatus();
   // derived values

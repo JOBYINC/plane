@@ -110,3 +110,14 @@ export const VIEWS_LIST: ChartDataType[] = [
 
 export const currentViewDataWithView = (view: TGanttViews = "month") =>
   VIEWS_LIST.find((_viewData) => _viewData.key === view);
+
+// Zoom ordering, coarsest -> finest (quarter is most zoomed out, week most in).
+// Zoom IN steps toward "week", zoom OUT toward "quarter".
+export const GANTT_ZOOM_ORDER: TGanttViews[] = ["quarter", "month", "week"];
+
+export const getZoomedView = (current: TGanttViews, direction: "in" | "out"): TGanttViews => {
+  const index = GANTT_ZOOM_ORDER.indexOf(current);
+  const safeIndex = index === -1 ? GANTT_ZOOM_ORDER.indexOf("month") : index;
+  const nextIndex = Math.min(GANTT_ZOOM_ORDER.length - 1, Math.max(0, safeIndex + (direction === "in" ? 1 : -1)));
+  return GANTT_ZOOM_ORDER[nextIndex];
+};

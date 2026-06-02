@@ -4,8 +4,9 @@
  * See the LICENSE file for details.
  */
 
-// Row height = the per-task gap. Widened 1.5x (was 44) for an airier Asana feel.
-export const BLOCK_HEIGHT = 66;
+// Row height = the per-task gap. Slightly airier than upstream's 44 (Asana feel),
+// trimmed back from 66 after the row gap read a touch too wide.
+export const BLOCK_HEIGHT = 56;
 
 export const HEADER_HEIGHT = 48;
 

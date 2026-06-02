@@ -18,7 +18,7 @@ import { useSectionSwimlane } from "@/components/issues/issue-layouts/gantt/sect
 import { useUserProfile } from "@/hooks/store/user";
 import { useTimeLineChartStore } from "@/hooks/use-timeline-chart";
 //
-import { currentViewDataWithView } from "../data";
+import { currentViewDataWithView, getZoomedView } from "../data";
 import type { IMonthBlock, IMonthView, IWeekBlock } from "../views";
 import { getNumberOfDaysBetweenTwoDates, monthView, quarterView, weekView } from "../views";
 
@@ -146,6 +146,24 @@ export const ChartViewRoot = observer(function ChartViewRoot(props: ChartViewRoo
     handleToday();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keyboard zoom: + / = zoom in (finer), - / _ zoom out (coarser). Ignored while
+  // typing in inputs so it doesn't hijack normal text entry.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
+      if (e.key === "+" || e.key === "=") {
+        updateCurrentViewRenderPayload(null, getZoomedView(currentView, "in"));
+      } else if (e.key === "-" || e.key === "_") {
+        updateCurrentViewRenderPayload(null, getZoomedView(currentView, "out"));
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentView]);
 
   const updateItemsContainerWidth = (width: number) => {
     const scrollContainer = document.querySelector("#gantt-container") as HTMLDivElement;
