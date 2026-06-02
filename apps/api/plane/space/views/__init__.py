@@ -7,6 +7,8 @@ from .project import (
     WorkspaceProjectDeployBoardEndpoint,
     WorkspaceProjectAnchorEndpoint,
     ProjectMembersEndpoint,
+    ProjectSectionsPublicEndpoint,
+    ProjectIssueRelationsPublicEndpoint,
 )
 
 from .issue import (

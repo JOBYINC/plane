@@ -15,6 +15,8 @@ from plane.space.views import (
     ProjectLabelsEndpoint,
     ProjectMembersEndpoint,
     ProjectMetaDataEndpoint,
+    ProjectSectionsPublicEndpoint,
+    ProjectIssueRelationsPublicEndpoint,
 )
 
 urlpatterns = [
@@ -62,5 +64,15 @@ urlpatterns = [
         "anchor/<str:anchor>/members/",
         ProjectMembersEndpoint.as_view(),
         name="project-members",
+    ),
+    path(
+        "anchor/<str:anchor>/sections/",
+        ProjectSectionsPublicEndpoint.as_view(),
+        name="project-sections-public",
+    ),
+    path(
+        "anchor/<str:anchor>/relations/",
+        ProjectIssueRelationsPublicEndpoint.as_view(),
+        name="project-relations-public",
     ),
 ]
