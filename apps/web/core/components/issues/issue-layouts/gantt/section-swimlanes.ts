@@ -62,11 +62,24 @@ export const toSectionHeaderId = (sectionGroupId: string): string => `${SECTION_
 export const sectionGroupIdFromHeader = (headerId: string): string => headerId.slice(SECTION_HEADER_PREFIX.length);
 
 /**
+ * Order issue ids by due date ascending (earliest first), so the Timeline reads
+ * top-to-bottom in chronological order by default. Falls back to start_date, and
+ * undated issues sort last. ISO date strings (YYYY-MM-DD) compare lexicographically.
+ */
+export const sortIssueIdsByDueDate = (ids: string[], issuesMap: TIssueMap): string[] => {
+  const sortKey = (id: string): string => {
+    const issue = issuesMap[id];
+    return issue?.target_date || issue?.start_date || "9999-12-31";
+  };
+  return [...ids].sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+};
+
+/**
  * Bucket a flat, ordered list of issue ids by their section, using the ordered
  * section columns from `getGroupByColumns`. Every group gets a bucket (empty
  * sections still render a header, matching Asana); issues whose `section_id` is
  * null or points at an unknown/archived section fall into the "(No section)"
- * bucket.
+ * bucket. Each bucket is ordered by due date so each lane reads chronologically.
  */
 export const bucketIssueIdsBySection = (
   issueIds: string[],
@@ -85,6 +98,11 @@ export const bucketIssueIdsBySection = (
     // Guard against the "None" bucket not existing (groups always include it,
     // but stay defensive against an empty groups list).
     (buckets[groupId] ??= []).push(issueId);
+  }
+
+  // Order each lane chronologically by due date (Timeline default).
+  for (const groupId of Object.keys(buckets)) {
+    buckets[groupId] = sortIssueIdsByDueDate(buckets[groupId], issuesMap);
   }
 
   return buckets;

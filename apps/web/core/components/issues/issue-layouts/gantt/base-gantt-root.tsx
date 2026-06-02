@@ -46,6 +46,7 @@ import {
   bucketIssueIdsBySection,
   buildSwimlaneBlockIds,
   getSectionColor,
+  sortIssueIdsByDueDate,
 } from "./section-swimlanes";
 
 interface IBaseGanttRoot {
@@ -146,7 +147,12 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
 
   const { swimlaneBlockIds, sectionsById, sectionColorByGroupId } = useMemo(() => {
     if (!isSectionGrouped || sectionGroups.length === 0) {
-      return { swimlaneBlockIds: issuesIds, sectionsById: {}, sectionColorByGroupId: {} as Record<string, string> };
+      // Flat Timeline still reads chronologically by due date (foolproof default).
+      return {
+        swimlaneBlockIds: sortIssueIdsByDueDate(issuesIds, issueMap),
+        sectionsById: {},
+        sectionColorByGroupId: {} as Record<string, string>,
+      };
     }
     const issueIdsBySection = bucketIssueIdsBySection(issuesIds, issueMap, sectionGroups);
     const sectionsMeta: Record<string, TSwimlaneSection> = {};
