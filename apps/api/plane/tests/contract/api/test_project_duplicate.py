@@ -475,6 +475,177 @@ class TestProjectDuplicateOverrides:
 
 
 @pytest.mark.contract
+class TestProjectDuplicateIssueDateOverrides:
+    """issue_date_overrides pins specific clone issues to absolute dates
+    (keyed by SOURCE issue UUID), winning over the date_delta shift — used for
+    GTM "rush launches" where prep tasks compress non-uniformly. Optional →
+    absent leaves rebump behaviour byte-for-byte unchanged.
+    """
+
+    @pytest.mark.django_db
+    def test_override_pins_absolute_date_and_others_still_shift(
+        self, api_key_client, duplicate_workspace, source_project, create_user
+    ):
+        ProjectMember.objects.get_or_create(
+            project=source_project,
+            workspace=duplicate_workspace,
+            member=create_user,
+            defaults={"role": 20},
+        )
+        source_parent = source_project.project_issue.get(name="Parent task")
+        source_sub = source_project.project_issue.get(name="Sub task")
+
+        # Override the parent to a hard absolute date (with a start_date);
+        # leave the sub to the +4d rebump. Parent's override date is NOT
+        # source_date + 4, so the two behaviours are distinguishable.
+        response = api_key_client.post(
+            _duplicate_url(duplicate_workspace.slug, source_project.id),
+            data={
+                "name": "Rush Launch Clone",
+                "rebump_target_dates_by_days": 4,
+                "issue_date_overrides": {
+                    str(source_parent.id): {
+                        "target_date": "2026-03-01",
+                        "start_date": "2026-02-25",
+                    }
+                },
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED, response.content
+        body = response.json()
+        assert body["issue_date_overrides_requested"] == 1
+        assert body["issue_date_overrides_applied"] == 1
+
+        clone = Project.objects.get(pk=body["id"])
+        clone_parent = Issue.objects.get(project=clone, name="Parent task")
+        clone_sub = Issue.objects.get(project=clone, name="Sub task")
+
+        # case 1: override wins over date_delta on the matched issue
+        assert clone_parent.target_date == date(2026, 3, 1)
+        assert clone_parent.start_date == date(2026, 2, 25)
+        # case 2: non-overridden issue still gets the +4d shift
+        assert clone_sub.target_date == source_sub.target_date + timedelta(days=4)
+
+    @pytest.mark.django_db
+    def test_null_start_date_leaves_clone_start_date_none(
+        self, api_key_client, duplicate_workspace, source_project, create_user
+    ):
+        ProjectMember.objects.get_or_create(
+            project=source_project,
+            workspace=duplicate_workspace,
+            member=create_user,
+            defaults={"role": 20},
+        )
+        source_parent = source_project.project_issue.get(name="Parent task")
+
+        response = api_key_client.post(
+            _duplicate_url(duplicate_workspace.slug, source_project.id),
+            data={
+                "name": "Null Start Clone",
+                "issue_date_overrides": {
+                    str(source_parent.id): {
+                        "target_date": "2026-03-01",
+                        "start_date": None,
+                    }
+                },
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED, response.content
+        clone = Project.objects.get(pk=response.json()["id"])
+        clone_parent = Issue.objects.get(project=clone, name="Parent task")
+        assert clone_parent.target_date == date(2026, 3, 1)
+        assert clone_parent.start_date is None
+
+    @pytest.mark.django_db
+    def test_unknown_uuid_key_ignored_and_counted_no_500(
+        self, api_key_client, duplicate_workspace, source_project, create_user
+    ):
+        ProjectMember.objects.get_or_create(
+            project=source_project,
+            workspace=duplicate_workspace,
+            member=create_user,
+            defaults={"role": 20},
+        )
+        # A syntactically-valid but non-existent source UUID → manifest drift.
+        unknown_uuid = "00000000-0000-0000-0000-000000000000"
+
+        response = api_key_client.post(
+            _duplicate_url(duplicate_workspace.slug, source_project.id),
+            data={
+                "name": "Drift Clone",
+                "issue_date_overrides": {
+                    unknown_uuid: {"target_date": "2026-03-01"}
+                },
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED, response.content
+        body = response.json()
+        # requested counts the key; applied stays 0 → caller detects drift
+        assert body["issue_date_overrides_requested"] == 1
+        assert body["issue_date_overrides_applied"] == 0
+
+    @pytest.mark.django_db
+    def test_malformed_target_date_returns_400(
+        self, api_key_client, duplicate_workspace, source_project, create_user
+    ):
+        ProjectMember.objects.get_or_create(
+            project=source_project,
+            workspace=duplicate_workspace,
+            member=create_user,
+            defaults={"role": 20},
+        )
+        source_parent = source_project.project_issue.get(name="Parent task")
+
+        response = api_key_client.post(
+            _duplicate_url(duplicate_workspace.slug, source_project.id),
+            data={
+                "name": "Bad Date Clone",
+                "issue_date_overrides": {
+                    str(source_parent.id): {"target_date": "March 1st"}
+                },
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, response.content
+        # And nothing was cloned (validation happens before transaction.atomic).
+        assert not Project.objects.filter(
+            workspace=duplicate_workspace, name="Bad Date Clone"
+        ).exists()
+
+    @pytest.mark.django_db
+    def test_absent_overrides_identical_to_today(
+        self, api_key_client, duplicate_workspace, source_project, create_user
+    ):
+        ProjectMember.objects.get_or_create(
+            project=source_project,
+            workspace=duplicate_workspace,
+            member=create_user,
+            defaults={"role": 20},
+        )
+        source_parent = source_project.project_issue.get(name="Parent task")
+
+        response = api_key_client.post(
+            _duplicate_url(duplicate_workspace.slug, source_project.id),
+            data={
+                "name": "Legacy Behaviour Clone",
+                "rebump_target_dates_by_days": 4,
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED, response.content
+        body = response.json()
+        # Counters present and zeroed; rebump behaviour unchanged.
+        assert body["issue_date_overrides_requested"] == 0
+        assert body["issue_date_overrides_applied"] == 0
+        clone = Project.objects.get(pk=body["id"])
+        clone_parent = Issue.objects.get(project=clone, name="Parent task")
+        assert clone_parent.target_date == source_parent.target_date + timedelta(days=4)
+
+
+@pytest.mark.contract
 class TestProjectDuplicateExternalIdRemap:
     """§3 last row: child external_ids prefix-swap from source to clone.
 

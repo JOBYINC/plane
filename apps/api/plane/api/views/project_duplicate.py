@@ -193,6 +193,69 @@ def _coerce_int(value, default=0) -> int:
         raise ValueError(f"expected integer, got {value!r}") from exc
 
 
+def _parse_issue_date_overrides(raw) -> Dict[str, dict]:
+    """Validate + normalise the optional ``issue_date_overrides`` body field.
+
+    Shape::
+
+        { "<source_issue_uuid>": {"target_date": "YYYY-MM-DD",
+                                  "start_date": "YYYY-MM-DD" | null}, ... }
+
+    Keys are SOURCE (template) issue UUIDs; values carry the clone's absolute
+    dates. Returns ``{uuid_str: {"target_date": date, "start_date": date|None}}``.
+
+    Raises ``ValueError`` (→ 400 in the caller, mirroring ``_coerce_int`` /
+    ``anchor_start_date``) on any malformed shape so a bad schedule fails loud
+    rather than silently applying nothing. ``target_date`` is required;
+    ``start_date`` is optional and may be ``null``/absent → ``None``. Unknown
+    UUID keys are NOT rejected here — the caller reports matched-vs-requested
+    counts so manifest drift surfaces in the response instead of failing the
+    whole clone.
+    """
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError("`issue_date_overrides` must be an object.")
+
+    normalised: Dict[str, dict] = {}
+    for key, value in raw.items():
+        if not isinstance(value, dict):
+            raise ValueError(
+                f"`issue_date_overrides['{key}']` must be an object with a "
+                "`target_date` (and optional `start_date`)."
+            )
+
+        target_raw = value.get("target_date")
+        if not target_raw:
+            raise ValueError(
+                f"`issue_date_overrides['{key}'].target_date` is required and "
+                "must be an ISO date (YYYY-MM-DD)."
+            )
+        try:
+            target_date = date.fromisoformat(str(target_raw))
+        except ValueError as exc:
+            raise ValueError(
+                f"`issue_date_overrides['{key}'].target_date` must be an ISO "
+                "date (YYYY-MM-DD)."
+            ) from exc
+
+        start_raw = value.get("start_date")
+        if start_raw in (None, ""):
+            start_date = None
+        else:
+            try:
+                start_date = date.fromisoformat(str(start_raw))
+            except ValueError as exc:
+                raise ValueError(
+                    f"`issue_date_overrides['{key}'].start_date` must be an ISO "
+                    "date (YYYY-MM-DD) or null."
+                ) from exc
+
+        normalised[str(key)] = {"target_date": target_date, "start_date": start_date}
+
+    return normalised
+
+
 class ProjectDuplicateEndpoint(BaseAPIView):
     # Used from BOTH the token API (GTM agents with X-Api-Key) and the web
     # UI (the "Save as template" quick action + the create-from-template
@@ -310,6 +373,21 @@ class ProjectDuplicateEndpoint(BaseAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # issue_date_overrides pins specific clone issues to absolute dates
+        # (keyed by SOURCE issue UUID), overriding the date_delta shift for
+        # those issues only. Used for GTM "rush launches" where prep tasks are
+        # compressed non-uniformly into a tight window. Optional → default {}
+        # leaves the legacy rebump/anchor behaviour byte-for-byte unchanged.
+        # Malformed shapes 400 (fail loud) rather than silently applying
+        # nothing; unknown UUID keys are tolerated and surfaced via the
+        # requested-vs-applied counters in the response (manifest-drift signal).
+        try:
+            issue_date_overrides = _parse_issue_date_overrides(
+                body.get("issue_date_overrides")
+            )
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
         with transaction.atomic():
             clone = self._clone_project_record(source, body, request.user)
 
@@ -342,6 +420,7 @@ class ProjectDuplicateEndpoint(BaseAPIView):
                 state_map=state_map,
                 actor=request.user,
                 external_id_remap=external_id_remap,
+                issue_date_overrides=issue_date_overrides,
             )
 
             self._clone_issue_assignees(source, issue_map, clone, request.user)
@@ -359,7 +438,18 @@ class ProjectDuplicateEndpoint(BaseAPIView):
             )
             self._clone_issue_relations(source, issue_map, clone, request.user)
 
-        return Response(self._serialize(clone), status=status.HTTP_201_CREATED)
+        # Manifest-drift signal: how many requested overrides actually matched a
+        # source issue. issue_map is keyed by SOURCE issue id, so the matched
+        # set is the override keys present among the cloned source ids. Grace
+        # treats applied != requested as drift and warns rather than trusting
+        # the schedule silently.
+        applied_overrides = len(
+            set(issue_date_overrides) & {str(sid) for sid in issue_map}
+        )
+        payload = self._serialize(clone)
+        payload["issue_date_overrides_requested"] = len(issue_date_overrides)
+        payload["issue_date_overrides_applied"] = applied_overrides
+        return Response(payload, status=status.HTTP_201_CREATED)
 
     def _earliest_timeline_date(self, source: Project) -> Optional[date]:
         """Earliest date anywhere in the source project's timeline — across
@@ -686,13 +776,18 @@ class ProjectDuplicateEndpoint(BaseAPIView):
         state_map: RemapDict,
         actor,
         external_id_remap,
+        issue_date_overrides: Optional[Dict[str, dict]] = None,
     ) -> RemapDict:
         """Two-pass walk: parents first so subtasks can resolve parent_id
         through ``issue_map``. ``order_by("created_at")`` keeps the clone
         sequence_id assignment in source-order, which is what users see
         in the URL (``MT92-1`` is the first-created issue, etc.).
+
+        ``issue_date_overrides`` (keyed by source issue UUID string) pins the
+        clone's absolute dates for matched issues, winning over ``date_delta``.
         """
         issue_map: RemapDict = {}
+        overrides = issue_date_overrides or {}
 
         def _clone_one(src_issue: Issue, parent_id):
             original_id = src_issue.id
@@ -702,10 +797,16 @@ class ProjectDuplicateEndpoint(BaseAPIView):
             src_issue.state_id = state_map.get(src_issue.state_id) if src_issue.state_id else None
             src_issue.parent_id = parent_id
             src_issue.external_id = external_id_remap(src_issue.external_id)
-            if src_issue.target_date and date_delta:
-                src_issue.target_date = src_issue.target_date + date_delta
-            if src_issue.start_date and date_delta:
-                src_issue.start_date = src_issue.start_date + date_delta
+            override = overrides.get(str(original_id))
+            if override is not None:
+                # Absolute dates from the caller win over the uniform shift.
+                src_issue.target_date = override["target_date"]
+                src_issue.start_date = override["start_date"]
+            else:
+                if src_issue.target_date and date_delta:
+                    src_issue.target_date = src_issue.target_date + date_delta
+                if src_issue.start_date and date_delta:
+                    src_issue.start_date = src_issue.start_date + date_delta
             src_issue.created_by = actor
             src_issue.updated_by = actor
             src_issue.save()
