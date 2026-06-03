@@ -126,7 +126,10 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
     void fetchProjectSections(workspaceSlug.toString(), projectId.toString());
   }, [isEmbed, isSectionGrouped, workspaceSlug, projectId, fetchedMap, fetchProjectSections]);
 
-  const issuesIds = (issues.groupedIssueIds?.[ALL_ISSUES] as string[]) ?? [];
+  const allIssuesIds = (issues.groupedIssueIds?.[ALL_ISSUES] as string[]) ?? [];
+  // The public embed shows only top-level work items — sub-issues would clutter
+  // the launch-page timeline (Marcus 2026-06-03). Authed views are unaffected.
+  const issuesIds = isEmbed ? allIssuesIds.filter((id) => !issueMap[id]?.parent_id) : allIssuesIds;
   const nextPageResults = issues.getPaginationData(undefined, undefined)?.nextPageResults;
 
   // Section swimlanes: when grouped by "section", interleave section-header
