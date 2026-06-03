@@ -84,6 +84,7 @@ def issue_on_results(
         "id",
         "name",
         "state_id",
+        "section_id",
         "sort_order",
         "estimate_point",
         "priority",

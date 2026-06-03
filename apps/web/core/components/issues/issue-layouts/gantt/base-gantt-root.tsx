@@ -53,6 +53,13 @@ interface IBaseGanttRoot {
   viewId?: string | undefined;
   isCompletedCycle?: boolean;
   isEpic?: boolean;
+  // Public embed mode (`/embed/timeline/:anchor`): stores are pre-populated from
+  // the public anchor API, so the component skips its own authed fetches and
+  // renders read-only. `projectId`/`workspaceSlug` are passed explicitly because
+  // the embed route has no workspace/project route params.
+  isEmbed?: boolean;
+  projectId?: string;
+  workspaceSlug?: string;
 }
 
 export type GanttStoreType =
@@ -63,10 +70,12 @@ export type GanttStoreType =
   | EIssuesStoreType.EPIC;
 
 export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRoot) {
-  const { viewId, isCompletedCycle = false, isEpic = false } = props;
+  const { viewId, isCompletedCycle = false, isEpic = false, isEmbed = false } = props;
   const { t } = useTranslation();
-  // router
-  const { workspaceSlug, projectId } = useParams();
+  // router — embed mode passes the ids explicitly (no workspace/project params).
+  const { workspaceSlug: routerWorkspaceSlug, projectId: routerProjectId } = useParams();
+  const workspaceSlug = props.workspaceSlug ?? routerWorkspaceSlug;
+  const projectId = props.projectId ?? routerProjectId;
 
   const storeType = useIssueStoreType() as GanttStoreType;
   const { issues, issuesFilter, issueMap } = useIssues(storeType);
@@ -81,10 +90,11 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
   // The project Timeline defaults to the Asana-style section-swimlane view (left
   // column = sections, names beside the markers), with a header toggle to turn it
   // off. Module/cycle/epic gantts only swimlane when explicitly grouped by section.
-  const canToggleSwimlane = storeType === EIssuesStoreType.PROJECT;
+  // Embed is always section-swimlaned with no toggle (matches the published view).
+  const canToggleSwimlane = !isEmbed && storeType === EIssuesStoreType.PROJECT;
   const [swimlaneOn, setSwimlaneOn] = useState(true);
   const toggleSwimlane = useCallback(() => setSwimlaneOn((v) => !v), []);
-  const isSectionGrouped = groupBy === "section" || (canToggleSwimlane && swimlaneOn);
+  const isSectionGrouped = isEmbed || groupBy === "section" || (canToggleSwimlane && swimlaneOn);
   // plane web hooks
   const isBulkOperationsEnabled = useBulkOperationStatus();
   // derived values
@@ -92,21 +102,29 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
   targetDate.setDate(targetDate.getDate() + 1);
 
   useEffect(() => {
+    if (isEmbed) return; // embed pre-populates the issue store from the public API
     fetchIssues("init-loader", { canGroup: false, perPageCount: 100 }, viewId);
-  }, [fetchIssues, storeType, viewId]);
+  }, [fetchIssues, storeType, viewId, isEmbed]);
 
   useEffect(() => {
+    // Embed pre-populates the stores synchronously, so this parent-level init
+    // would run AFTER the chart's own mount init (child effects fire first) and
+    // clobber the chart's computed view range + the freshly-set blockIds — leaving
+    // bars unpositioned. The chart's `handleToday` initializes the view itself, so
+    // skip the redundant reset in embed.
+    if (isEmbed) return;
     initGantt();
-  }, []);
+  }, [isEmbed]);
 
   // Ensure sections are loaded for swimlane grouping. use-project-issue-properties
   // already fetches them on project entry; this is a defensive, idempotent fetch
   // for the case where the Timeline is the first view to need the section axis.
   useEffect(() => {
+    if (isEmbed) return; // embed pre-populates the section store from the public API
     if (!isSectionGrouped || !workspaceSlug || !projectId) return;
     if (fetchedMap[projectId.toString()]) return;
     void fetchProjectSections(workspaceSlug.toString(), projectId.toString());
-  }, [isSectionGrouped, workspaceSlug, projectId, fetchedMap, fetchProjectSections]);
+  }, [isEmbed, isSectionGrouped, workspaceSlug, projectId, fetchedMap, fetchProjectSections]);
 
   const issuesIds = (issues.groupedIssueIds?.[ALL_ISSUES] as string[]) ?? [];
   const nextPageResults = issues.getPaginationData(undefined, undefined)?.nextPageResults;
@@ -229,6 +247,7 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
   const issuesIdsKey = issuesIds.join(",");
 
   useEffect(() => {
+    if (isEmbed) return; // embed injects relations from the public anchor endpoint
     const ids = issuesIdsKey ? issuesIdsKey.split(",") : [];
     if (!workspaceSlug || !projectId || ids.length === 0) return;
     const pendingIds = ids.filter((id) => !hydratedRelationIdsRef.current.has(id));
@@ -260,7 +279,7 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
     return () => {
       cancelled = true;
     };
-  }, [workspaceSlug, projectId, issuesIdsKey, issueService, extractRelationsFromIssues]);
+  }, [isEmbed, workspaceSlug, projectId, issuesIdsKey, issueService, extractRelationsFromIssues]);
 
   const { enableIssueCreation } = issues?.viewFlags || {};
 
@@ -277,7 +296,10 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
     updateIssue && (await updateIssue(issue.project_id, issue.id, payload));
   };
 
-  const isAllowed = allowPermissions([EUserPermissions.ADMIN, EUserPermissions.MEMBER], EUserPermissionsLevel.PROJECT);
+  // Embed is strictly read-only (no resize/drag/reorder/add/quick-add). Anonymous
+  // viewers already fail the permission check, but force it off so intent is explicit.
+  const isAllowed =
+    !isEmbed && allowPermissions([EUserPermissions.ADMIN, EUserPermissions.MEMBER], EUserPermissionsLevel.PROJECT);
   const updateBlockDates = useCallback(
     (
       updates: {

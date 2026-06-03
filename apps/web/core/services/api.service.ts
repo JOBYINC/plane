@@ -26,7 +26,13 @@ export abstract class APIService {
     this.axiosInstance.interceptors.response.use(
       (response) => response,
       (error) => {
-        if (error.response && error.response.status === 401) {
+        // Public embed routes (`/embed/*`) render with no session by design and
+        // may incidentally trigger authed calls (e.g. the issue store's
+        // fire-and-forget parent-stats fetch). A 401 there must NOT bounce the
+        // viewer to sign-in — the page is meant to be anonymous. Let it reject
+        // quietly so the read-only timeline keeps rendering from the public API.
+        const isPublicEmbed = typeof window !== "undefined" && window.location.pathname.startsWith("/embed");
+        if (error.response && error.response.status === 401 && !isPublicEmbed) {
           const currentPath = window.location.pathname;
           window.location.replace(`/${currentPath ? `?next_path=${currentPath}` : ``}`);
         }

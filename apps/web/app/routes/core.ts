@@ -48,6 +48,14 @@ export const coreRoutes: RouteConfigEntry[] = [
   layout("./(all)/lark-quick-create/layout.tsx", [route("lark-quick-create", "./(all)/lark-quick-create/page.tsx")]),
 
   // ========================================================================
+  // PUBLIC EMBED ROUTES (no auth — sits OUTSIDE the (all) app shell so it never
+  // redirects to sign-in; gets a minimal provider in app/provider.tsx)
+  // ========================================================================
+  // Read-only Tick Timeline for a published project, for iframing into
+  // hub.joby.com launch pages.
+  route("embed/timeline/:anchor", "./(embed)/timeline/page.tsx"),
+
+  // ========================================================================
   // ALL APP ROUTES
   // ========================================================================
   layout("./(all)/layout.tsx", [

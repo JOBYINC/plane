@@ -38,6 +38,26 @@ export function AppProvider(props: IAppProvider) {
   // themes
   const { resolvedTheme } = useTheme();
 
+  // Public embed routes (`/embed/*`) render with no session. They get the mobx
+  // stores + i18n + toast, but deliberately SKIP StoreWrapper (authed user-profile
+  // fetch) and InstanceWrapper (instance bootstrap that gates render on a spinner /
+  // "instance not ready" view) — the embed populates its stores from the public
+  // anchor API instead. (ssr:false → window is always available here.)
+  const isEmbed = typeof window !== "undefined" && window.location.pathname.startsWith("/embed");
+
+  if (isEmbed) {
+    return (
+      <StoreProvider>
+        <TranslationProvider>
+          <Toast theme={resolveGeneralTheme(resolvedTheme)} />
+          <Suspense>
+            <SWRConfig value={WEB_SWR_CONFIG}>{children}</SWRConfig>
+          </Suspense>
+        </TranslationProvider>
+      </StoreProvider>
+    );
+  }
+
   return (
     <StoreProvider>
       <>
