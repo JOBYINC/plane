@@ -220,13 +220,17 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
       enabled: isSectionGrouped,
       canToggle: canToggleSwimlane,
       toggleSwimlane,
-      sidebarWidth: isSectionGrouped ? SWIMLANE_SIDEBAR_WIDTH : DEFAULT_GANTT_SIDEBAR_WIDTH,
+      // Embed is chart-only: drop the (mostly-empty) left sidebar and collapse
+      // its width to 0 so the timeline starts at the left edge (Marcus 2026-06-03).
+      sidebarWidth: isEmbed ? 0 : isSectionGrouped ? SWIMLANE_SIDEBAR_WIDTH : DEFAULT_GANTT_SIDEBAR_WIDTH,
+      hideSidebar: isEmbed,
       sectionsById,
       collapsedIds: collapsedSectionIds,
       toggleCollapse: toggleSectionCollapse,
       getColorForSection,
     }),
     [
+      isEmbed,
       isSectionGrouped,
       canToggleSwimlane,
       toggleSwimlane,

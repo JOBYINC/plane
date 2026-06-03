@@ -40,6 +40,8 @@ export type TSectionSwimlaneContext = {
   toggleSwimlane: () => void;
   /** sidebar width to use (narrow in swimlane mode, default otherwise). */
   sidebarWidth: number;
+  /** hide the left sidebar entirely (public embed = chart-only timeline). */
+  hideSidebar: boolean;
   /** ordered section group ids → metadata (name/count/color). */
   sectionsById: Record<string, TSwimlaneSection>;
   /** group ids whose issue rows are currently hidden. */
@@ -54,6 +56,7 @@ const DEFAULT_CONTEXT: TSectionSwimlaneContext = {
   canToggle: false,
   toggleSwimlane: () => {},
   sidebarWidth: DEFAULT_GANTT_SIDEBAR_WIDTH,
+  hideSidebar: false,
   sectionsById: {},
   collapsedIds: new Set(),
   toggleCollapse: () => {},

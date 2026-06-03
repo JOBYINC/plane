@@ -33,6 +33,7 @@ import { GanttChartBlocksList } from "@/plane-web/components/gantt-chart/blocks/
 import { IssueBulkOperationsRoot } from "@/plane-web/components/issues/bulk-operations";
 // plane web hooks
 import { useBulkOperationStatus } from "@/plane-web/hooks/use-bulk-operation-status";
+import { useSectionSwimlane } from "@/components/issues/issue-layouts/gantt/section-swimlane-context";
 //
 import { DEFAULT_BLOCK_WIDTH, GANTT_SELECT_GROUP, HEADER_HEIGHT } from "../constants";
 import { getItemPositionWidth } from "../views";
@@ -95,6 +96,8 @@ export const GanttChartMainContent = observer(function GanttChartMainContent(pro
   const ganttContainerRef = useRef<HTMLDivElement>(null);
   // chart hook
   const { currentView, currentViewData } = useTimeLineChartStore();
+  // section swimlanes · embed hides the left sidebar entirely (chart-only timeline)
+  const { hideSidebar } = useSectionSwimlane();
   // plane web hooks
   const isBulkOperationsEnabled = useBulkOperationStatus();
 
@@ -111,7 +114,7 @@ export const GanttChartMainContent = observer(function GanttChartMainContent(pro
         canScroll: ({ source }) => source.data.dragInstanceId === "GANTT_REORDER",
       })
     );
-  }, [ganttContainerRef?.current]);
+  }, []);
 
   // handling scroll functionality
   const onScroll = (e: React.UIEvent<HTMLDivElement, UIEvent>) => {
@@ -186,20 +189,22 @@ export const GanttChartMainContent = observer(function GanttChartMainContent(pro
               ref={ganttContainerRef}
               onScroll={onScroll}
             >
-              <GanttChartSidebar
-                blockIds={blockIds}
-                loadMoreBlocks={loadMoreBlocks}
-                canLoadMoreBlocks={canLoadMoreBlocks}
-                ganttContainerRef={ganttContainerRef}
-                blockUpdateHandler={blockUpdateHandler}
-                enableReorder={enableReorder}
-                enableSelection={enableSelection}
-                sidebarToRender={sidebarToRender}
-                title={title}
-                selectionHelpers={helpers}
-                showAllBlocks={showAllBlocks}
-                isEpic={isEpic}
-              />
+              {!hideSidebar && (
+                <GanttChartSidebar
+                  blockIds={blockIds}
+                  loadMoreBlocks={loadMoreBlocks}
+                  canLoadMoreBlocks={canLoadMoreBlocks}
+                  ganttContainerRef={ganttContainerRef}
+                  blockUpdateHandler={blockUpdateHandler}
+                  enableReorder={enableReorder}
+                  enableSelection={enableSelection}
+                  sidebarToRender={sidebarToRender}
+                  title={title}
+                  selectionHelpers={helpers}
+                  showAllBlocks={showAllBlocks}
+                  isEpic={isEpic}
+                />
+              )}
               <div className="relative h-max min-h-full flex-shrink-0 flex-grow">
                 <ActiveChartView />
                 {currentViewData && (
