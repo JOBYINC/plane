@@ -152,19 +152,20 @@ export const BaseGanttRoot = observer(function BaseGanttRoot(props: IBaseGanttRo
   const loadedSections = isSectionGrouped ? getSections(projectId?.toString()) : [];
   const loadedSectionsKey = loadedSections.map((section) => section.id).join(",");
 
-  const sectionGroups = useMemo(
-    () =>
-      isSectionGrouped
-        ? (getGroupByColumns({
-            groupBy: "section" as GroupByColumnTypes,
-            includeNone: true,
-            isWorkspaceLevel: isWorkspaceLevel(storeType),
-            isEpic,
-            projectId: projectId?.toString(),
-          }) ?? [])
-        : [],
-    [isSectionGrouped, storeType, isEpic, projectId, loadedSectionsKey]
-  );
+  const sectionGroups = useMemo(() => {
+    if (!isSectionGrouped) return [];
+    const columns =
+      getGroupByColumns({
+        groupBy: "section" as GroupByColumnTypes,
+        includeNone: true,
+        isWorkspaceLevel: isWorkspaceLevel(storeType),
+        isEpic,
+        projectId: projectId?.toString(),
+      }) ?? [];
+    // The public embed drops the "(No section)" swimlane — launch pages only
+    // care about sectioned work (Marcus 2026-06-03). Its issues simply don't render.
+    return isEmbed ? columns.filter((column) => column.id !== NO_SECTION_GROUP_ID) : columns;
+  }, [isSectionGrouped, storeType, isEpic, projectId, loadedSectionsKey, isEmbed]);
 
   const { swimlaneBlockIds, sectionsById, sectionColorByGroupId } = useMemo(() => {
     if (!isSectionGrouped || sectionGroups.length === 0) {
