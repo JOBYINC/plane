@@ -571,17 +571,18 @@ call this directly with their `PLANE_API_KEY`.
 
 **Body (all fields optional)**:
 
-| Field                          | Type      | Default                   | Notes                                                                                                                                                                                                                                                                                                                                                 |
-| ------------------------------ | --------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                         | str       | `f"{source.name} (Copy)"` | Project name on the clone                                                                                                                                                                                                                                                                                                                             |
-| `identifier`                   | str       | auto-unique short prefix  | E.g. `GP02260721`                                                                                                                                                                                                                                                                                                                                     |
-| `external_source`              | str\|null | carries from source       | Set to identify your agent (e.g. `"gtm-agent-v1"`)                                                                                                                                                                                                                                                                                                    |
-| `external_id`                  | str\|null | null (never carried)      | **MUST be unique per workspace**; convention `{code}:{LD-iso}`                                                                                                                                                                                                                                                                                        |
-| `rebump_target_dates_by_days`  | int       | 0                         | Applied to every issue's `target_date` (and `start_date`)                                                                                                                                                                                                                                                                                             |
-| `rebump_cycle_windows_by_days` | int       | 0                         | Applied to every cycle's `start_date` + `end_date`                                                                                                                                                                                                                                                                                                    |
-| `anchor_start_date`            | str       | —                         | ISO date (`YYYY-MM-DD`). Re-anchors the timeline so the template's **earliest** date lands here; every other issue + cycle date shifts by the same delta (overall span preserved). **Overrides `rebump_*`** when set. Anchors the _start_ — to anchor a mid-timeline date (e.g. a launch day inside the timeline) keep computing `rebump_*` yourself. |
-| `override_custom_field_values` | obj       | `{}`                      | `{field_name: value}` — applied to every cloned issue. For `single_select`, value is the option NAME (e.g. `{"Tier": "PS"}`)                                                                                                                                                                                                                          |
-| `is_template`                  | bool      | false                     | When true the clone itself is created as a workspace template (the web "Save as template" path). Normal launch clones leave this false.                                                                                                                                                                                                               |
+| Field                          | Type      | Default                   | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------ | --------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                         | str       | `f"{source.name} (Copy)"` | Project name on the clone                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `identifier`                   | str       | auto-unique short prefix  | E.g. `GP02260721`                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `external_source`              | str\|null | carries from source       | Set to identify your agent (e.g. `"gtm-agent-v1"`)                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `external_id`                  | str\|null | null (never carried)      | **MUST be unique per workspace**; convention `{code}:{LD-iso}`                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `rebump_target_dates_by_days`  | int       | 0                         | Applied to every issue's `target_date` (and `start_date`)                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `rebump_cycle_windows_by_days` | int       | 0                         | Applied to every cycle's `start_date` + `end_date`                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `anchor_start_date`            | str       | —                         | ISO date (`YYYY-MM-DD`). Re-anchors the timeline so the template's **earliest** date lands here; every other issue + cycle date shifts by the same delta (overall span preserved). **Overrides `rebump_*`** when set. Anchors the _start_ — to anchor a mid-timeline date (e.g. a launch day inside the timeline) keep computing `rebump_*` yourself.                                                                                                                                     |
+| `override_custom_field_values` | obj       | `{}`                      | `{field_name: value}` — applied to every cloned issue. For `single_select`, value is the option NAME (e.g. `{"Tier": "PS"}`)                                                                                                                                                                                                                                                                                                                                                              |
+| `issue_date_overrides`         | obj       | `{}`                      | `{source_issue_uuid: {"target_date": "YYYY-MM-DD", "start_date": "YYYY-MM-DD"\|null}}` — pins **specific** cloned issues to absolute dates, keyed by the **source (template) issue UUID**. **Wins over `rebump_*`/`anchor_start_date`** for matched issues; every other issue keeps the uniform shift. For non-uniform "rush launch" compression where uniform shift won't fit. See §13.6. Malformed shape / non-ISO date → 400; unknown UUID keys are ignored (counted but not applied). |
+| `is_template`                  | bool      | false                     | When true the clone itself is created as a workspace template (the web "Save as template" path). Normal launch clones leave this false.                                                                                                                                                                                                                                                                                                                                                   |
 
 **Returns 201**:
 
@@ -593,9 +594,17 @@ call this directly with their `PLANE_API_KEY`.
   "workspace_id": "039a9aaa-2f8d-4e3b-9922-0ae5e9463702",
   "external_source": "gtm-agent-v1",
   "external_id": "GP02:2026-07-21",
-  "is_template": false
+  "is_template": false,
+  "issue_date_overrides_requested": 0,
+  "issue_date_overrides_applied": 0
 }
 ```
+
+> The two `issue_date_overrides_*` counters are **always present** (both
+> `0` when you don't pass `issue_date_overrides`). When you do pass it,
+> assert `applied == requested` — any gap means one of your keys didn't
+> match a source issue (manifest drift); the clone still succeeds but
+> those dates were silently not set. See §13.6.
 
 What gets cloned (zero per-field drift; verified §4 of the spec on the
 GP02 reference project — 150 issues / 49 blocked_by / 84 single_select
@@ -711,6 +720,26 @@ print(f"Launch project: {BASE}/{WS}/projects/{clone['id']}/issues/")
   `rebump_cycle_windows_by_days` (independent integer in case you want
   to keep cycle windows but shift issues, or vice versa — almost
   always set them equal).
+- **Per-issue dates via `issue_date_overrides`** (for non-uniform "rush
+  launches"). When the launch date is closer than the template's standard
+  prep window, a uniform `rebump_*`/`anchor_start_date` shift can't fit —
+  some tasks have hard floors (production, ad review, sample shipping) and
+  must compress unevenly. Compute a per-task schedule yourself and pass
+  `{source_issue_uuid: {"target_date": "...", "start_date": "..."|null}}`.
+  - **Keyed by the SOURCE (template) issue UUID** (`Issue.id` of the row in
+    the template), not the clone's. Keep a committed manifest of template
+    task UUIDs per tier — UUID is used (not `external_id` or `name`)
+    because the A/B template has zero external_ids and names can collide.
+  - **Override wins over the uniform shift** for matched issues only; every
+    non-overridden issue still gets `rebump_*`/`anchor_start_date`. So
+    compress just the prep tasks and let post-launch tasks ride the rebump.
+  - `start_date` is optional/nullable (most template tasks only set
+    `target_date`); `null`/absent → clone's `start_date` stays unset.
+  - **Validation is strict (fail-loud):** not an object, a value missing
+    `target_date`, or any non-ISO date → **400**, nothing cloned. An
+    **unknown UUID** key (not a source issue) does NOT fail — it's ignored
+    and counted, surfacing as `applied < requested` so you can detect
+    manifest drift. **Always assert `applied == requested`.**
 - **Performance.** ~13s synchronous for a 150-issue project (4 cycles,
   10 modules, ~500 members, 49 blocked_by relations). Give your HTTP
   call ≥60s timeout. A `bulk_create` optimization is a planned
