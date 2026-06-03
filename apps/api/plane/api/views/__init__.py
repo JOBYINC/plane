@@ -7,6 +7,7 @@ from .project import (
     ProjectDetailAPIEndpoint,
     ProjectArchiveUnarchiveAPIEndpoint,
     ProjectSummaryAPIEndpoint,
+    ProjectDeployBoardAPIEndpoint,
 )
 
 from .project_duplicate import ProjectDuplicateEndpoint

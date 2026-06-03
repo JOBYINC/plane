@@ -566,6 +566,57 @@ class ProjectArchiveUnarchiveAPIEndpoint(BaseAPIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class ProjectDeployBoardAPIEndpoint(BaseAPIView):
+    """Get or publish a project's public deploy board (anchor).
+
+    Backs the read-only Timeline embed (`/embed/timeline/:anchor`) that
+    hub.joby.com iframes: hub.joby.com pastes a Tick project link, the Hub
+    server POSTs here (idempotent get-or-create) to mint/fetch the anchor, then
+    stores the resulting embed URL. GET returns the existing anchor or 404 if
+    the project has not been published yet.
+    """
+
+    permission_classes = [ProjectBasePermission]
+
+    def get(self, request, slug, project_id):
+        """Return the project's public anchor, or 404 if not published."""
+        deploy_board = DeployBoard.objects.filter(
+            entity_name="project", entity_identifier=project_id, workspace__slug=slug
+        ).first()
+        if not deploy_board:
+            return Response(
+                {"error": "Project is not published"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(
+            {"anchor": deploy_board.anchor, "is_disabled": deploy_board.is_disabled},
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request, slug, project_id):
+        """Publish the project (idempotent) and return its public anchor."""
+        project = Project.objects.get(pk=project_id, workspace__slug=slug)
+        deploy_board, _ = DeployBoard.objects.get_or_create(
+            entity_name="project",
+            entity_identifier=project_id,
+            project_id=project_id,
+            defaults={
+                "workspace": project.workspace,
+                "view_props": {
+                    "list": True,
+                    "kanban": True,
+                    "calendar": True,
+                    "gantt": True,
+                    "spreadsheet": True,
+                },
+            },
+        )
+        return Response(
+            {"anchor": deploy_board.anchor, "is_disabled": deploy_board.is_disabled},
+            status=status.HTTP_200_OK,
+        )
+
+
 ALLOWED_PROJECT_SUMMARY_FIELDS = [
     "members",
     "states",
